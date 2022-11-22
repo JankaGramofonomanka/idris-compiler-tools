@@ -18,6 +18,7 @@ data LLType
     with struct name and then get the contents of the struct from a context
     or have the contents in the parameter?
     The latter aproach allows multiple structs with the same name
+    (or if 2 structs have the same structure, then they will be indistinghushible)
   -} 
   -- | Struct ?
 
@@ -93,7 +94,7 @@ implementation Eq (BlockLabel k) where
   LName s == LName s' = s == s'
 
 public export
-data FinishKind = Return | Jump (List $ BlockLabel NonEntry)
+data TerminatorKind = Return | Jump (List $ BlockLabel NonEntry)
 
 
 
@@ -105,48 +106,54 @@ data Inputs : BlockKind -> Type where
 
 
 public export
-data BlockContext : BlockKind -> Type where
-  
-  Start : Inputs kind -> BlockContext kind
-  Proper : BlockContext kind
-  Finish : FinishKind -> BlockContext kind
+data LLExpr : LLType -> Type where
+  BinOperation : BinOperator tl tr t -> LLValue tl -> LLValue tr -> LLExpr t
+  Call : LLValue (Ptr (FunType t ts)) -> DList LLValue ts -> LLExpr t
 
-
-public export
-data LLExpr : {k : BlockKind} -> BlockContext k -> LLType -> Type where
-  BinOperation : BinOperator tl tr t -> LLValue tl -> LLValue tr -> LLExpr Proper t
-  Call : LLValue (Ptr (FunType t ts)) -> DList LLValue ts -> LLExpr Proper t
-
-  -- TODO: geleelementptr
+  -- TODO: getelementptr
 
   -- TODO what about pointers
   -- TODO fcmp, dcmp? what else?
-  ICMP : CMPKind -> LLValue (I n) -> LLValue (I n) -> LLExpr Proper (I n)
+  ICMP : CMPKind -> LLValue (I n) -> LLValue (I n) -> LLExpr (I n)
 
-  Load : LLValue (Ptr t) -> LLExpr Proper t
+  Load : LLValue (Ptr t) -> LLExpr t
 
-  BitCast : LLValue t1 -> (t2 : LLType) -> LLExpr Proper t2
+  BitCast : LLValue t1 -> (t2 : LLType) -> LLExpr t2
 
-  Phi : (l : List (Some BlockLabel, LLValue t)) -> LLExpr (Start . MkInputs $ map (\t => fst t) l) t
+public export
+data PhiExpr : Inputs kind -> LLType -> Type where
+  Phi : (l : List (Some BlockLabel, LLValue t)) -> PhiExpr (MkInputs $ map (\t => fst t) l) t
+
 
 
 public export
-data LLInstr : {k : BlockKind} -> BlockContext k -> Type where
-  Assign : Reg t -> LLExpr ctx t -> LLInstr ctx
-  Exec : LLExpr Proper Void -> LLInstr Proper
-  Store : LLValue t -> LLValue (Ptr t) -> LLInstr Proper
+data STInstr : Type where
+  Assign : Reg t -> LLExpr t -> STInstr
+  Exec : LLExpr Void -> STInstr
+  Store : LLValue t -> LLValue (Ptr t) -> STInstr
 
-  Branch : (l : BlockLabel NonEntry) -> LLInstr (Finish $ Jump [l])
-  CondBranch : LLValue I1 -> (l1 : BlockLabel NonEntry) -> (l1 : BlockLabel NonEntry) -> LLInstr (Finish $ Jump [l1, l2])
+public export
+data CFInstr : TerminatorKind -> Type where
+  
+  Branch : (l : BlockLabel NonEntry) -> CFInstr (Jump [l])
+  CondBranch : LLValue I1 -> (l1 : BlockLabel NonEntry) -> (l1 : BlockLabel NonEntry) -> CFInstr (Jump [l1, l2])
 
-  Ret : LLValue t -> LLInstr (Finish Return)
-  RetVoid : LLInstr (Finish Return)
+  Ret : LLValue t -> CFInstr Return
+  RetVoid : CFInstr Return
+
+public export
+data PhiInstr : Inputs kind -> Type where
+  AssignPhi : Reg t -> PhiExpr inputs t -> PhiInstr inputs
+
 
 
 public export
-record SimpleBlock (kind : BlockKind) (label : BlockLabel kind) (inputs : Inputs kind) (output : FinishKind) where
+record SimpleBlock (kind : BlockKind) (label : BlockLabel kind) (inputs : Inputs kind) (output : TerminatorKind) where
   constructor MkSimpleBlock
-  --label   : BlockLabel kind
-  start   : List (LLInstr $ Start inputs)
-  proper  : List (LLInstr $ Proper {kind})
-  finish  : LLInstr (Finish {kind} output)
+  phis : List (PhiInstr inputs)
+  body : List STInstr
+  term : CFInstr output
+
+
+
+
