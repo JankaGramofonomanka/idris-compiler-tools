@@ -1,5 +1,8 @@
 module StackMachine
 
+import Data.So
+
+import Data.DList
 
 data JType = TInt | TDouble
 
@@ -37,10 +40,6 @@ implementation Neg (JValue TDouble) where
 implementation Fractional (JValue TDouble) where
   VDouble x / VDouble y = VDouble (x / y)
   recip (VDouble x) = VDouble (recip x)
-
-data DList : (t -> Type) -> List t -> Type where
-  Nil : DList f []
-  (::) : f t -> DList f ts -> DList f (t :: ts)
 
 Stack : List JType -> Type
 Stack = DList JValue
@@ -113,6 +112,8 @@ data Program : Semantics ts1 ts2 -> Type where
 twoPlusTwo : Program (\s => (VInt 4) :: s)
 twoPlusTwo = Empty :+: IPush 2 :+: IPush 2 :+: IAdd
 
+add : (x : JValue TInt) -> (y : JValue TInt) -> Program (\s => y + x :: s)
+add x y = Empty :+: IPush x :+: IPush y :+: IAdd
 
 Optimisation : Semantics ts1 ts2 -> Type
 Optimisation semantics = Program semantics -> Program semantics
