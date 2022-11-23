@@ -88,10 +88,10 @@ public export
 data CMPKind = EQ | NE | SGT | SGE | SLT | SLE | UGT | UGE | ULT | ULE
 
 public export
-data BlockKind = Entry | NonEntry
+data InputKind = Entry | NonEntry
 
 public export
-data BlockLabel : BlockKind -> Type where
+data BlockLabel : InputKind -> Type where
   LEntry : BlockLabel Entry
   LName : String -> BlockLabel NonEntry
 
@@ -107,12 +107,12 @@ implementation Eq (BlockLabel k) where
   LName s == LName s' = s == s'
 
 public export
-data TerminatorKind = Return | Jump (List $ BlockLabel NonEntry)
+data CFKind = Return | Jump (List $ BlockLabel NonEntry)
 
 
 
 public export
-data Inputs : BlockKind -> Type where
+data Inputs : InputKind -> Type where
   NoInputs : Inputs Entry
   MkInputs : List (Some BlockLabel) -> Inputs NonEntry
 
@@ -146,7 +146,7 @@ data STInstr : Type where
   Store : LLValue t -> LLValue (Ptr t) -> STInstr
 
 public export
-data CFInstr : TerminatorKind -> Type where
+data CFInstr : CFKind -> Type where
   
   Branch : (l : BlockLabel NonEntry) -> CFInstr (Jump [l])
   CondBranch : LLValue I1 -> (l1 : BlockLabel NonEntry) -> (l1 : BlockLabel NonEntry) -> CFInstr (Jump [l1, l2])
@@ -161,11 +161,16 @@ data PhiInstr : Inputs kind -> Type where
 
 
 public export
-record SimpleBlock (kind : BlockKind) (label : BlockLabel kind) (inputs : Inputs kind) (output : TerminatorKind) where
+record SimpleBlock
+  (inputKind : InputKind)
+  (label : BlockLabel inputKind)
+  (inputs : Inputs inputKind)
+  (cfkind : CFKind)
+where
   constructor MkSimpleBlock
   phis : List (PhiInstr inputs)
   body : List STInstr
-  term : CFInstr output
+  term : CFInstr cfkind
 
 
 
@@ -185,8 +190,8 @@ getInputs : BlockLabel kind -> JumpGraph -> Inputs kind
 getInputs LEntry g = NoInputs
 getInputs label@(LName s) g = MkInputs (map fst $ filter (\(from, to) => to == label) g)
 
-getOutputs : BlockLabel kind -> JumpGraph -> TerminatorKind
-getOutputs l graph = case map snd $ filter (\(from, to) => from == MkSome l) graph of
+getCFKind : BlockLabel kind -> JumpGraph -> CFKind
+getCFKind l graph = case map snd $ filter (\(from, to) => from == MkSome l) graph of
   Nil     => Return
   labels  => Jump labels
 
@@ -209,7 +214,7 @@ data CFG : (jumpGraph : JumpGraph) -> (toBeDefined : List (Some BlockLabel)) -> 
   Empty : CFG graph (getLabels graph)
 
   -- TODO: Enforce uniqueness of blocks?
-  AddBlock : SimpleBlock kind label (getInputs label graph) (getOutputs label graph)
+  AddBlock : SimpleBlock inputKind label (getInputs label graph) (getCFKind label graph)
           -> CFG graph toBeDefined
           -> CFG graph (delete (MkSome label) toBeDefined)
 
