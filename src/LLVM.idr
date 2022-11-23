@@ -207,7 +207,7 @@ getCFKind l graph = case map snd $ filter (\(from, to) => from == MkSome l) grap
 
   Note! the `jumpGraph` parameneter has to be known in advance, before we start
   building the graph, therefore an intermediate representation of the graph, is
-  needed. (TODO)
+  needed (See `LLVM.Construction`).
 -}
 public export
 data CFG : (jumpGraph : JumpGraph) -> (toBeDefined : List (Some BlockLabel)) -> Type where
