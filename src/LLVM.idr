@@ -204,6 +204,7 @@ getOutputs l graph = case map snd $ filter (\(from, to) => from == MkSome l) gra
   building the graph, therefore an intermediate representation of the graph, is
   needed. (TODO)
 -}
+public export
 data CFG : (jumpGraph : JumpGraph) -> (toBeDefined : List (Some BlockLabel)) -> Type where
   Empty : CFG graph (getLabels graph)
 
@@ -213,3 +214,13 @@ data CFG : (jumpGraph : JumpGraph) -> (toBeDefined : List (Some BlockLabel)) -> 
           -> CFG graph (delete (MkSome label) toBeDefined)
 
 
+public export
+record FunDecl (retType : LLType) (paramTypes : List LLType) where
+  constructor MkFunDecl
+  params : DList Reg paramTypes
+
+  -- TODO: enforce the existence of an entry block
+  0 jumpGraph : JumpGraph
+
+  -- TODO: enforce correct return types
+  body : CFG jumpGraph Nil
