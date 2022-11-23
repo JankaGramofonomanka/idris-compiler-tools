@@ -1,8 +1,11 @@
 module LLVM
 
+import Data.List
+
 import Data.DList
 import Data.Some
 
+import FEq
 
 public export
 data LLType
@@ -51,6 +54,10 @@ I128  : LLType
 I128  = I 128
 
 public export
+I256  : LLType
+I256  = I 256
+
+public export
 data Reg : LLType -> Type where
   MkReg : String -> Reg t
 
@@ -87,6 +94,12 @@ public export
 data BlockLabel : BlockKind -> Type where
   LEntry : BlockLabel Entry
   LName : String -> BlockLabel NonEntry
+
+implementation FEq BlockLabel where
+  LEntry  == LEntry   = True
+  LName s == LName s' = s == s'
+  LEntry  == LName s  = False
+  LName s == LEntry   = False
 
 export
 implementation Eq (BlockLabel k) where
@@ -155,5 +168,48 @@ record SimpleBlock (kind : BlockKind) (label : BlockLabel kind) (inputs : Inputs
   term : CFInstr output
 
 
+
+-- Control Flow Graph ---------------------------------------------------------
+Edge : Type
+Edge = (Some BlockLabel, BlockLabel NonEntry)
+
+JumpGraph : Type
+JumpGraph = List Edge
+
+getLabels : JumpGraph -> List (Some BlockLabel)
+getLabels graph = let
+  (froms, tos) = unzip graph
+  in nub $ froms ++ (map MkSome tos)
+
+getInputs : BlockLabel kind -> JumpGraph -> Inputs kind
+getInputs LEntry g = NoInputs
+getInputs label@(LName s) g = MkInputs (map fst $ filter (\(from, to) => to == label) g)
+
+getOutputs : BlockLabel kind -> JumpGraph -> TerminatorKind
+getOutputs l graph = case map snd $ filter (\(from, to) => from == MkSome l) graph of
+  Nil     => Return
+  labels  => Jump labels
+
+
+{-
+  A control flow graph, parametrized by
+  * `jumpGraph` - a graph of jumps between blocks
+  * `toBeDefined` - a list of block labels, that are missing from the graph,
+    ie. labels that occur in `jumpGraph` but a blocks with such labels are not 
+    part of the graph.
+  
+  The type `CFG g []` is a type of a correct control flow graph.
+
+  Note! the `jumpGraph` parameneter has to be known in advance, before we start
+  building the graph, therefore an intermediate representation of the graph, is
+  needed. (TODO)
+-}
+data CFG : (jumpGraph : JumpGraph) -> (toBeDefined : List (Some BlockLabel)) -> Type where
+  Empty : CFG graph (getLabels graph)
+
+  -- TODO: Enforce uniqueness of blocks?
+  AddBlock : SimpleBlock kind label (getInputs label graph) (getOutputs label graph)
+          -> CFG graph toBeDefined
+          -> CFG graph (delete (MkSome label) toBeDefined)
 
 
