@@ -95,6 +95,7 @@ data BlockLabel : InputKind -> Type where
   LEntry : BlockLabel Entry
   LName : String -> BlockLabel NonEntry
 
+export
 implementation FEq BlockLabel where
   LEntry  == LEntry   = True
   LName s == LName s' = s == s'
@@ -149,7 +150,7 @@ public export
 data CFInstr : CFKind -> Type where
   
   Branch : (l : BlockLabel NonEntry) -> CFInstr (Jump [l])
-  CondBranch : LLValue I1 -> (l1 : BlockLabel NonEntry) -> (l1 : BlockLabel NonEntry) -> CFInstr (Jump [l1, l2])
+  CondBranch : LLValue I1 -> (l1 : BlockLabel NonEntry) -> (l2 : BlockLabel NonEntry) -> CFInstr (Jump [l1, l2])
 
   Ret : LLValue t -> CFInstr Return
   RetVoid : CFInstr Return

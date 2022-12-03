@@ -50,6 +50,7 @@ data Expr : LNGType -> Type where
 
 public export
 data Instr : Type where
+  Block : List Instr -> Instr
   Assign : Variable t -> Expr t -> Instr
   If : Expr TBool -> Instr -> Instr
   IfElse : Expr TBool -> Instr -> Instr -> Instr
