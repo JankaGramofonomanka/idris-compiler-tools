@@ -146,8 +146,14 @@ freshLabel : CompM (BlockLabel NonEntry)
 export
 addBlock : CBlock (InClosed ik label inputs) (OutClosed cfk) -> CompM ()
 
+export
+getValue : Variable t -> CompM (LLValue (GetLLType t))
 
+export
+getFunPtr : FunId t ts -> CompM $ LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))
 
+export
+freshRegister : CompM (Reg t)
 
 
 
@@ -186,7 +192,11 @@ initCR = SingleBLKO initCBlock
 
 
 export
-mapOO : ({is : InStatus} -> CBlock is OutOpen -> CBlock is OutOpen) -> CompileResult Open -> CompileResult Open
+mapOO : ({is : InStatus}
+     -> CBlock is OutOpen
+     -> CBlock is OutOpen)
+     -> CompileResult Open
+     -> CompileResult Open
 mapOO f (SingleBLKO blk) = SingleBLKO (f blk)
 mapOO f (DoubleBLK blkIn (ik ** lbl ** ins ** blkOut))
   = DoubleBLK blkIn (ik ** lbl ** ins ** f blkOut)

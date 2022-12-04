@@ -3,7 +3,10 @@ module LLVM
 import Data.List
 
 import Data.DList
+import Data.DMap
 import Data.Some
+import Utils
+import CFG
 
 import FEq
 
@@ -117,6 +120,10 @@ data Inputs : InputKind -> Type where
   NoInputs : Inputs Entry
   MkInputs : List (Some BlockLabel) -> Inputs NonEntry
 
+public export
+(++) : Inputs k -> Inputs k -> Inputs k
+NoInputs ++ NoInputs = NoInputs
+MkInputs labels ++ MkInputs labels' = MkInputs (labels ++ labels')
 
 
 public export
@@ -128,7 +135,7 @@ data LLExpr : LLType -> Type where
 
   -- TODO what about pointers
   -- TODO fcmp, dcmp? what else?
-  ICMP : CMPKind -> LLValue (I n) -> LLValue (I n) -> LLExpr (I n)
+  ICMP : CMPKind -> LLValue (I n) -> LLValue (I n) -> LLExpr (I 1)
 
   Load : LLValue (Ptr t) -> LLExpr t
 
@@ -230,3 +237,4 @@ record FunDecl (retType : LLType) (paramTypes : List LLType) where
 
   -- TODO: enforce correct return types
   body : CFG jumpGraph Nil
+

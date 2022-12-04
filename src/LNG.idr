@@ -9,24 +9,30 @@ import Data.DList
 public export
 data LNGType = TInt | TBool | TVoid
 
+public export
 data EqComparable : LNGType -> Type where
   EqCMPInt : EqComparable TInt
   EqCMPBool : EqComparable TBool
 
 public export
-data Operator : LNGType -> LNGType -> Type where
-  Add : Operator TInt TInt
-  Sub : Operator TInt TInt
-  Mul : Operator TInt TInt
-  Div : Operator TInt TInt
-  And : Operator TBool TBool
-  Or  : Operator TBool TBool
+data BinOperator : LNGType -> LNGType -> Type where
+  Add : BinOperator TInt TInt
+  Sub : BinOperator TInt TInt
+  Mul : BinOperator TInt TInt
+  Div : BinOperator TInt TInt
+  And : BinOperator TBool TBool
+  Or  : BinOperator TBool TBool
   
-  EQ  : {auto 0 prf : EqComparable t} -> Operator t TBool
-  LE  : Operator TInt TBool
-  LT  : Operator TInt TBool
-  GE  : Operator TInt TBool
-  GT  : Operator TInt TBool
+  EQ  : {auto 0 prf : EqComparable t} -> BinOperator t TBool
+  LE  : BinOperator TInt TBool
+  LT  : BinOperator TInt TBool
+  GE  : BinOperator TInt TBool
+  GT  : BinOperator TInt TBool
+
+public export
+data UnOperator : LNGType -> LNGType -> Type where
+  Neg : UnOperator TInt TInt
+  Not : UnOperator TBool TBool
 
 public export
 data Literal : LNGType -> Type where
@@ -45,7 +51,8 @@ public export
 data Expr : LNGType -> Type where
   Lit : Literal t -> Expr t
   Var : Variable t -> Expr t
-  Operation : Operator t1 t2 -> Expr t1 -> Expr t1 -> Expr t2
+  BinOperation : BinOperator t1 t2 -> Expr t1 -> Expr t1 -> Expr t2
+  UnOperation : UnOperator t1 t2 -> Expr t1 -> Expr t2
   Call : FunId t ts -> DList Expr ts -> Expr t
 
 public export

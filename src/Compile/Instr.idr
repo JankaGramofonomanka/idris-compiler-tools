@@ -1,18 +1,14 @@
-module Compile
+module Compile.Instr
 
 import Control.Monad.State
 
-import Data.List
-
 import Data.Some
-import Data.DMap
-
 
 import LNG
 import LLVM
 
-
 import Compile.Tools
+import Compile.Expr
 
 
 
@@ -50,8 +46,17 @@ handleBranchResult res labelIn labelOut = case res of
 
 
 
-  
 
+
+
+
+
+
+
+
+
+
+-- Instr  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 mutual
   InstrOutStatus : Instr -> OutStatus'
   InstrOutStatus (Block is)     = InstrsOutStatus is
@@ -68,15 +73,6 @@ mutual
   InstrsOutStatus : List Instr -> OutStatus'
   InstrsOutStatus [] = Open
   InstrsOutStatus (instr :: instrs) = ClosedOr (InstrOutStatus instr) (InstrsOutStatus instrs)
-
-
-
-
-
-compileExpr : (labelIn : Some BlockLabel)
-           -> Expr t
-           -> CompM (LabelResult Open, CompileResult Open, LLValue (GetLLType t))
-
 
 
 
@@ -131,6 +127,7 @@ compileInstr labelIn (Assign var expr) = do
 -- If -------------------------------------------------------------------------
 compileInstr labelIn (If cond instrThen) = do
 
+  -- TODO: use `ifology`
   (LastLabel lastCondLabel, condRes, val) <- compileExpr labelIn cond
   labelThen <- freshLabel
   labelPost <- freshLabel
@@ -158,6 +155,7 @@ compileInstr labelIn (If cond instrThen) = do
 -- IfElse ---------------------------------------------------------------------
 compileInstr labelIn (IfElse cond instrThen instrElse) = do
 
+  -- TODO: use `ifology`
   (LastLabel lastCondLabel, condRes, val) <- compileExpr labelIn cond
   labelThen <- freshLabel
   labelElse <- freshLabel
