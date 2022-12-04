@@ -11,6 +11,7 @@ import LLVM
 
 import Compile.Tools
 
+import Utils
 
 
 
@@ -222,15 +223,15 @@ mutual
   execution of the program will end up in `labelThen` and in `labelElse`
   otherwise.
   -}
-  -- TODO: the signature is not strong enogh to rule out mistakes
-  -- specifficaly the inputs and outputs to entry and nonentry can be wrong
   export
   ifology : (labelIn : Some BlockLabel)
-        -> (expr : Expr TBool)
-        -> (labelThen : BlockLabel NonEntry)
-        -> (labelElse : BlockLabel NonEntry)
-        ---> CompM (CompileResult Closed)
-        -> CompM (Inputs NonEntry, Inputs NonEntry, CompileResult Closed)
+         -> (expr : Expr TBool)
+         -> (labelThen : BlockLabel NonEntry)
+         -> (labelElse : BlockLabel NonEntry)
+         -> CompM ( Attached labelThen $ Inputs NonEntry
+                  , Attached labelElse $ Inputs NonEntry
+                  , CompileResult Closed
+                  )
 
   ifology labelIn (BinOperation And lhs rhs) labelThen labelElse = do
 
@@ -240,21 +241,15 @@ mutual
 
     
     let SingleBLKC (cfk ** blk) = resR
-    let InsMid : Inputs NonEntry
-        InsMid = insMid
-    
-    let CFK : CFKind
-        CFK = cfk
+    let IS : InStatus;  IS = InClosed NonEntry labelMid (detach insMid)
+    let OS : OutStatus; OS = OutClosed cfk
 
     -- TODO: phis
-    -- TODO: here and in other similar places, `labelMid` is not bound to 
-    -- `labelMid` defined above
-    let blk': CBlock (InClosed NonEntry labelMid InsMid) (OutClosed CFK)
+    let blk': CBlock IS OS
         blk' = ?hphis_ifology_And |++> blk
     addBlock blk'
 
-    
-    pure (insThen, insElse ++ insElse', resL)
+    pure (insThen, combine (++) insElse insElse', resL)
   
   ifology labelIn (BinOperation Or lhs rhs) labelThen labelElse = do
     
@@ -263,19 +258,15 @@ mutual
     (insThen',  insElse,  resR) <- ifology (MkSome labelMid)  rhs labelThen labelElse
 
     let SingleBLKC (cfk ** blk) = resR
-    let InsMid : Inputs NonEntry
-        InsMid = insMid
-    
-    let CFK : CFKind
-        CFK = cfk
+    let IS : InStatus;  IS = InClosed NonEntry labelMid (detach insMid)
+    let OS : OutStatus; OS = OutClosed cfk
 
     -- TODO: phis
-    -- TODO: same as in the `And` case
-    let blk' : CBlock (InClosed NonEntry labelMid InsMid) (OutClosed CFK)
+    let blk' : CBlock IS OS
         blk' = ?hphis_ifology_Or |++> blk
     addBlock blk'
 
-    pure (insThen ++ insThen', insElse, resL)
+    pure (combine (++) insThen insThen', insElse, resL)
 
   ifology labelIn (UnOperation Not expr) labelThen labelElse = do
     (insElse, insThen, res) <- ifology labelIn expr labelElse labelThen
@@ -286,14 +277,15 @@ mutual
     res' <- closeCR (CondBranch val labelThen labelElse) res
     
     let inputs = MkInputs [lbl]
-    pure (inputs, inputs, res')
+    pure (Attach labelThen inputs, Attach labelElse inputs, res')
+    
 
 
 
   
   -----------------------------------------------------------------------------
 
-  -- TODO: this is super ugly
+  -- TODO: this is ugly
   compileBoolExpr : (labelIn : Some BlockLabel)
                  -> Expr TBool
                  -> CompM (LabelResult Open, CompileResult Open, LLValue I1)
@@ -304,35 +296,36 @@ mutual
     
     labelPost <- freshLabel
     
-    let TrueInputs : Inputs NonEntry
-        TrueInputs = trueInputs
+    let TrueIS : InStatus;  TrueIS = InClosed NonEntry labelTrue (detach trueInputs)
+    let TrueOS : OutStatus; TrueOS = OutClosed (Jump [labelPost])
 
-    let FalseInputs : Inputs NonEntry
-        FalseInputs = falseInputs
+    let FalseIS : InStatus;   FalseIS = InClosed NonEntry labelFalse (detach falseInputs)
+    let FalseOS : OutStatus;  FalseOS = OutClosed (Jump [labelPost])
 
-    let trueBLK : CBlock (InClosed NonEntry labelTrue TrueInputs) (OutClosed $ Jump [labelPost])
+    let trueBLK : CBlock TrueIS TrueOS
         trueBLK = MkBB [] [] (Branch labelPost) DMap.empty
     
-    let falseBLK : CBlock (InClosed NonEntry labelFalse FalseInputs) (OutClosed $ Jump [labelPost])
+    let falseBLK : CBlock FalseIS FalseOS
         falseBLK = MkBB [] [] (Branch labelPost) DMap.empty
     
     addBlock trueBLK
     addBlock falseBLK
 
+
+
     reg <- freshRegister
     
-    let TheInputs : Inputs NonEntry
-        TheInputs = MkInputs [MkSome labelTrue, MkSome labelFalse]
+    let inputs : Inputs NonEntry; inputs = MkInputs [MkSome labelTrue, MkSome labelFalse]
     
-    let phi : PhiExpr TheInputs I1
-        phi = Phi [(MkSome labelTrue, ILit 1), (MkSome labelFalse, ILit 0)]
-
+    let OutIS : InStatus; OutIS = InClosed NonEntry labelPost inputs
+    
+    let phi = Phi [(MkSome labelTrue, ILit 1), (MkSome labelFalse, ILit 0)]
     let phiAssignment = AssignPhi reg phi
-    
-    let blkOut : CBlock (InClosed NonEntry labelPost TheInputs) OutOpen
+
+    let blkOut : CBlock OutIS OutOpen
         blkOut = phiAssignment |+> initCBlock
 
-    let res = DoubleBLK blkIn (NonEntry ** labelPost ** TheInputs ** blkOut)
+    let res = DoubleBLK blkIn (NonEntry ** labelPost ** inputs ** blkOut)
     pure (LastLabel $ MkSome labelPost, res, Var reg)
 
 
