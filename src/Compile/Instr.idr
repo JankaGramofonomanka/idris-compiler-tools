@@ -8,9 +8,10 @@ import LNG
 import LLVM
 
 import Compile.Tools
+import Compile.Tools.CBlock
+import Compile.Tools.CompileResult
+import Compile.Tools.CompM
 import Compile.Expr
-
-import Utils
 
 {-
 Add phi assignments and a terminating instruction if necessary to the blocks

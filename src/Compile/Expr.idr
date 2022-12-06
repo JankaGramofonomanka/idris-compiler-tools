@@ -11,6 +11,9 @@ import LNG
 import LLVM
 
 import Compile.Tools
+import Compile.Tools.CBlock
+import Compile.Tools.CompileResult
+import Compile.Tools.CompM
 
 
 
