@@ -24,9 +24,8 @@ GetLLType TVoid = Void
 public export
 data InStatus : Type where
   InOpen : InStatus
-  InClosed : (ik : InputKind)
-          -> (label : BlockLabel ik)
-          -> (inputs : Inputs ik)
+  InClosed : (label : BlockLabel)
+          -> (inputs : Inputs)
           -> InStatus
 
 public export
@@ -37,7 +36,7 @@ data OutStatus = OutOpen | OutClosed CFKind
 public export
 MbPhis : InStatus -> Type
 MbPhis InOpen = ()
-MbPhis (InClosed ik label inputs) = List (PhiInstr inputs)
+MbPhis (InClosed label inputs) = List (PhiInstr inputs)
 
 
 public export
@@ -86,31 +85,31 @@ export
 MkBB phis body () m <+| instr = MkBB phis body instr m
 
 export
-(|++>) : {inputs : Inputs ik}
+(|++>) : {inputs : Inputs}
       -> List (PhiInstr inputs)
       -> CBlock InOpen os
-      -> CBlock (InClosed ik label inputs) os
+      -> CBlock (InClosed label inputs) os
 phis |++> MkBB () body term m = MkBB phis body term m
 
 export
-(|+>) : {inputs : Inputs ik}
+(|+>) : {inputs : Inputs}
      -> PhiInstr inputs
      -> CBlock InOpen cfk
-     -> CBlock (InClosed ik label inputs) cfk
+     -> CBlock (InClosed label inputs) cfk
 instr |+> blk = [instr] |++> blk
 
 export
-(+|) : {inputs : Inputs ik}
+(+|) : {inputs : Inputs}
     -> PhiInstr inputs
-    -> CBlock (InClosed ik label inputs) os
-    -> CBlock (InClosed ik label inputs) os
+    -> CBlock (InClosed label inputs) os
+    -> CBlock (InClosed label inputs) os
 instr +| MkBB phis body term m = MkBB (instr :: phis) body term m
 
 export
-(++|) : {inputs : Inputs ik}
+(++|) : {inputs : Inputs}
      -> List (PhiInstr inputs)
-     -> CBlock (InClosed ik label inputs) os
-     -> CBlock (InClosed ik label inputs) os
+     -> CBlock (InClosed label inputs) os
+     -> CBlock (InClosed label inputs) os
 phis ++| blk = foldl (flip (+|)) blk phis
 
 
@@ -141,10 +140,10 @@ export
 freshReg : CompM (Reg t)
 
 export
-freshLabel : CompM (BlockLabel NonEntry)
+freshLabel : CompM BlockLabel
 
 export
-addBlock : CBlock (InClosed ik label inputs) (OutClosed cfk) -> CompM ()
+addBlock : CBlock (InClosed label inputs) (OutClosed cfk) -> CompM ()
 
 export
 getValue : Variable t -> CompM (LLValue (GetLLType t))
@@ -182,7 +181,7 @@ data CompileResult : OutStatus' -> Type where
   SingleBLKC : (cfk ** CBlock InOpen (OutClosed cfk)) -> CompileResult Closed
   SingleBLKO : CBlock InOpen OutOpen -> CompileResult Open
   DoubleBLK : (cfk ** CBlock InOpen (OutClosed cfk))
-           -> (ik ** label ** inputs ** CBlock (InClosed ik label inputs) OutOpen)
+           -> (label ** inputs ** CBlock (InClosed label inputs) OutOpen)
            -> CompileResult Open
 
 export
@@ -198,13 +197,13 @@ mapOO : ({is : InStatus}
      -> CompileResult Open
      -> CompileResult Open
 mapOO f (SingleBLKO blk) = SingleBLKO (f blk)
-mapOO f (DoubleBLK blkIn (ik ** lbl ** ins ** blkOut))
-  = DoubleBLK blkIn (ik ** lbl ** ins ** f blkOut)
+mapOO f (DoubleBLK blkIn (lbl ** ins ** blkOut))
+  = DoubleBLK blkIn (lbl ** ins ** f blkOut)
 
 export
 closeCR : {cfk : CFKind} -> CFInstr cfk -> CompileResult Open -> CompM (CompileResult Closed)
 closeCR {cfk} instr (SingleBLKO blk) = pure $ SingleBLKC (cfk ** blk <+| instr)
-closeCR {cfk} instr (DoubleBLK blkIn (ik ** label ** inputs ** blkOut)) = do
+closeCR {cfk} instr (DoubleBLK blkIn (label ** inputs ** blkOut)) = do
   addBlock $ blkOut <+| instr
   pure $ SingleBLKC blkIn
 
@@ -217,14 +216,14 @@ combineCR (SingleBLKO blk) (SingleBLKC (cfk ** blk'))         = pure $ SingleBLK
 combineCR (SingleBLKO blk) (SingleBLKO blk')                  = pure $ SingleBLKO (blk ++ blk')
 combineCR (SingleBLKO blk) (DoubleBLK (cfk ** blkIn) blkOut)  = pure $ DoubleBLK (cfk ** blk ++ blkIn) blkOut
 
-combineCR (DoubleBLK blkIn (ik ** lbl ** ins ** blkOut)) (SingleBLKC (cfk ** blk)) = do
+combineCR (DoubleBLK blkIn (lbl ** ins ** blkOut)) (SingleBLKC (cfk ** blk)) = do
   addBlock $ blkOut ++ blk
   pure $ SingleBLKC blkIn
 
-combineCR (DoubleBLK blkIn (ik ** lbl ** ins ** blkOut)) (SingleBLKO blk) = do
-  pure $ DoubleBLK blkIn (ik ** lbl ** ins ** blkOut ++ blk)
+combineCR (DoubleBLK blkIn (lbl ** ins ** blkOut)) (SingleBLKO blk) = do
+  pure $ DoubleBLK blkIn (lbl ** ins ** blkOut ++ blk)
 
-combineCR (DoubleBLK blkIn (ik ** lbl ** ins ** blkOut)) (DoubleBLK (cfk ** blkIn') blkOut') = do
+combineCR (DoubleBLK blkIn (lbl ** ins ** blkOut)) (DoubleBLK (cfk ** blkIn') blkOut') = do
   addBlock $ blkOut ++ blkIn'
   pure $ DoubleBLK blkIn blkOut'
 
@@ -236,10 +235,10 @@ combineCR (DoubleBLK blkIn (ik ** lbl ** ins ** blkOut)) (DoubleBLK (cfk ** blkI
 public export
 data LabelResult : OutStatus' -> Type where
   NoLabel : LabelResult Closed
-  LastLabel : Some BlockLabel -> LabelResult Open
+  LastLabel : BlockLabel -> LabelResult Open
 
 public export
-listify : LabelResult os -> List (Some BlockLabel)  
+listify : LabelResult os -> List BlockLabel
 listify NoLabel = []
 listify (LastLabel l) = [l]
 

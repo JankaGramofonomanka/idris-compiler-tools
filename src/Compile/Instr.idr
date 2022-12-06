@@ -20,8 +20,8 @@ control flow graph
 -- TODO: why do we need `labelIn`?
 -- Perhaps, to lookup values to assign in phis instructions
 handleBranchResult : CompileResult os
-                  -> Some BlockLabel
-                  -> BlockLabel NonEntry
+                  -> BlockLabel
+                  -> BlockLabel
                   -> CompM ()
 handleBranchResult res labelIn labelOut = case res of
   SingleBLKC (cfk ** blk) => do
@@ -34,7 +34,7 @@ handleBranchResult res labelIn labelOut = case res of
     -- TODO: phis
     addBlock $ ?hbr_phis2 |++> blk <+| Branch labelOut
     
-  DoubleBLK (cfk ** blkIn) (ik ** lbl ** ins ** blkOut) => do
+  DoubleBLK (cfk ** blkIn) (lbl ** ins ** blkOut) => do
   
     -- TODO: phis
     addBlock $ ?hbr_phis3 |++> blkIn
@@ -77,7 +77,7 @@ mutual
 
 
 
-compileInstr : (labelIn : Some BlockLabel)
+compileInstr : (labelIn : BlockLabel)
             -> (instr : Instr)
             -> let
                 status = InstrOutStatus instr
@@ -89,7 +89,7 @@ compileInstr labelIn (Block instrs) = compile' labelIn instrs where
 
   mutual
 
-    compile' : Some BlockLabel
+    compile' : BlockLabel
             -> (instrs : List Instr)
             -> CompM (LabelResult $ InstrsOutStatus instrs, CompileResult $ InstrsOutStatus instrs)
 
@@ -134,19 +134,19 @@ compileInstr labelIn (If cond instrThen) = do
 
   SingleBLKC inBLK <- closeCR (CondBranch val labelThen labelPost) condRes
 
-  (thenLabelRes, thenRes) <- compileInstr (MkSome labelThen) instrThen
+  (thenLabelRes, thenRes) <- compileInstr labelThen instrThen
   
   handleBranchResult thenRes lastCondLabel labelPost
   
   let inputs = MkInputs $ lastCondLabel :: listify thenLabelRes
 
   -- TODO: phis
-  let postBLK : CBlock (InClosed NonEntry labelPost inputs) OutOpen
+  let postBLK : CBlock (InClosed labelPost inputs) OutOpen
       postBLK = ?phis0 |++> initCBlock
 
   pure
-    $ ( LastLabel $ MkSome labelPost
-      , DoubleBLK inBLK (NonEntry ** labelPost ** inputs ** postBLK)
+    $ ( LastLabel labelPost
+      , DoubleBLK inBLK (labelPost ** inputs ** postBLK)
       )
   
 
@@ -163,8 +163,8 @@ compileInstr labelIn (IfElse cond instrThen instrElse) = do
 
   SingleBLKC inBLK <- closeCR (CondBranch val labelThen labelElse) condRes
 
-  (thenLabelRes, thenRes) <- compileInstr (MkSome labelThen) instrThen
-  (elseLabelRes, elseRes) <- compileInstr (MkSome labelElse) instrElse
+  (thenLabelRes, thenRes) <- compileInstr labelThen instrThen
+  (elseLabelRes, elseRes) <- compileInstr labelElse instrElse
 
   handleBranchResult thenRes lastCondLabel labelPost
   handleBranchResult elseRes lastCondLabel labelPost
@@ -177,7 +177,7 @@ compileInstr labelIn (IfElse cond instrThen instrElse) = do
     finishIfThenElse : (cfk ** CBlock InOpen $ OutClosed cfk)
                     -> LabelResult os
                     -> LabelResult os'
-                    -> BlockLabel NonEntry
+                    -> BlockLabel
                     -> (LabelResult (OpenOr os os'), CompileResult (OpenOr os os'))
     
     finishIfThenElse inBLK NoLabel NoLabel labelPost = (NoLabel, SingleBLKC inBLK)
@@ -186,28 +186,28 @@ compileInstr labelIn (IfElse cond instrThen instrElse) = do
       
       -- TODO: phis
       inputs = MkInputs [lbl]
-      postBLK : CBlock (InClosed NonEntry labelPost inputs) OutOpen
+      postBLK : CBlock (InClosed labelPost inputs) OutOpen
       postBLK = ?hphis1 |++> initCBlock
       
-      in (LastLabel $ MkSome labelPost, DoubleBLK inBLK (NonEntry ** labelPost ** inputs ** postBLK))
+      in (LastLabel labelPost, DoubleBLK inBLK (labelPost ** inputs ** postBLK))
 
     finishIfThenElse inBLK (LastLabel lbl) NoLabel labelPost = let
       
       -- TODO: phis
       inputs = MkInputs [lbl]
-      postBLK : CBlock (InClosed NonEntry labelPost inputs) OutOpen
+      postBLK : CBlock (InClosed labelPost inputs) OutOpen
       postBLK = ?hphis2 |++> initCBlock
       
-      in (LastLabel $ MkSome labelPost, DoubleBLK inBLK (NonEntry ** labelPost ** inputs ** postBLK))
+      in (LastLabel labelPost, DoubleBLK inBLK (labelPost ** inputs ** postBLK))
 
     finishIfThenElse inBLK (LastLabel labelThen) (LastLabel labelElse) labelPost = let
       
       -- TODO: phis
       inputs = MkInputs [labelThen, labelElse]
-      postBLK : CBlock (InClosed NonEntry labelPost inputs) OutOpen
+      postBLK : CBlock (InClosed labelPost inputs) OutOpen
       postBLK = ?hphis3 |++> initCBlock
       
-      in (LastLabel $ MkSome labelPost, DoubleBLK inBLK (NonEntry ** labelPost ** inputs ** postBLK))
+      in (LastLabel labelPost, DoubleBLK inBLK (labelPost ** inputs ** postBLK))
 
 -- Return ---------------------------------------------------------------------
 compileInstr labelIn (Return expr) = do

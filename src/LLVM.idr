@@ -91,38 +91,22 @@ public export
 data CMPKind = EQ | NE | SGT | SGE | SLT | SLE | UGT | UGE | ULT | ULE
 
 public export
-data InputKind = Entry | NonEntry
-
-public export
-data BlockLabel : InputKind -> Type where
-  LEntry : BlockLabel Entry
-  LName : String -> BlockLabel NonEntry
+data BlockLabel = MkBlockLabel String
 
 export
-implementation FEq BlockLabel where
-  LEntry  == LEntry   = True
-  LName s == LName s' = s == s'
-  LEntry  == LName s  = False
-  LName s == LEntry   = False
-
-export
-implementation Eq (BlockLabel k) where
-  LEntry == LEntry = True
-  LName s == LName s' = s == s'
+implementation Eq BlockLabel where
+  MkBlockLabel s == MkBlockLabel s' = s == s'
 
 public export
-data CFKind = Return | Jump (List $ BlockLabel NonEntry)
+data CFKind = Return | Jump (List BlockLabel)
 
 
 
 public export
-data Inputs : InputKind -> Type where
-  NoInputs : Inputs Entry
-  MkInputs : List (Some BlockLabel) -> Inputs NonEntry
+data Inputs = MkInputs (List BlockLabel)
 
 public export
-(++) : Inputs k -> Inputs k -> Inputs k
-NoInputs ++ NoInputs = NoInputs
+(++) : Inputs -> Inputs -> Inputs
 MkInputs labels ++ MkInputs labels' = MkInputs (labels ++ labels')
 
 
@@ -142,8 +126,8 @@ data LLExpr : LLType -> Type where
   BitCast : LLValue t1 -> (t2 : LLType) -> LLExpr t2
 
 public export
-data PhiExpr : Inputs kind -> LLType -> Type where
-  Phi : (l : List (Some BlockLabel, LLValue t)) -> PhiExpr (MkInputs $ map (\t => fst t) l) t
+data PhiExpr : Inputs -> LLType -> Type where
+  Phi : (l : List (BlockLabel, LLValue t)) -> PhiExpr (MkInputs $ map (\t => fst t) l) t
 
 
 
@@ -156,23 +140,22 @@ data STInstr : Type where
 public export
 data CFInstr : CFKind -> Type where
   
-  Branch : (l : BlockLabel NonEntry) -> CFInstr (Jump [l])
-  CondBranch : LLValue I1 -> (l1 : BlockLabel NonEntry) -> (l2 : BlockLabel NonEntry) -> CFInstr (Jump [l1, l2])
+  Branch : (l : BlockLabel) -> CFInstr (Jump [l])
+  CondBranch : LLValue I1 -> (l1 : BlockLabel) -> (l2 : BlockLabel) -> CFInstr (Jump [l1, l2])
 
   Ret : LLValue t -> CFInstr Return
   RetVoid : CFInstr Return
 
 public export
-data PhiInstr : Inputs kind -> Type where
+data PhiInstr : Inputs -> Type where
   AssignPhi : Reg t -> PhiExpr inputs t -> PhiInstr inputs
 
 
 
 public export
 record SimpleBlock
-  (inputKind : InputKind)
-  (label : BlockLabel inputKind)
-  (inputs : Inputs inputKind)
+  (label : BlockLabel)
+  (inputs : Inputs)
   (cfkind : CFKind)
 where
   constructor MkSimpleBlock
@@ -184,22 +167,21 @@ where
 
 -- Control Flow Graph ---------------------------------------------------------
 Edge : Type
-Edge = (Some BlockLabel, BlockLabel NonEntry)
+Edge = (BlockLabel, BlockLabel)
 
 JumpGraph : Type
 JumpGraph = List Edge
 
-getLabels : JumpGraph -> List (Some BlockLabel)
+getLabels : JumpGraph -> List BlockLabel
 getLabels graph = let
   (froms, tos) = unzip graph
-  in nub $ froms ++ (map MkSome tos)
+  in nub $ froms ++ tos
 
-getInputs : BlockLabel kind -> JumpGraph -> Inputs kind
-getInputs LEntry g = NoInputs
-getInputs label@(LName s) g = MkInputs (map fst $ filter (\(from, to) => to == label) g)
+getInputs : BlockLabel -> JumpGraph -> Inputs
+getInputs label@(MkBlockLabel s) g = MkInputs (map fst $ filter (\(from, to) => to == label) g)
 
-getCFKind : BlockLabel kind -> JumpGraph -> CFKind
-getCFKind l graph = case map snd $ filter (\(from, to) => from == MkSome l) graph of
+getCFKind : BlockLabel -> JumpGraph -> CFKind
+getCFKind l graph = case map snd $ filter (\(from, to) => from == l) graph of
   Nil     => Return
   labels  => Jump labels
 
@@ -218,13 +200,13 @@ getCFKind l graph = case map snd $ filter (\(from, to) => from == MkSome l) grap
   needed (See `LLVM.Construction`).
 -}
 public export
-data CFG : (jumpGraph : JumpGraph) -> (toBeDefined : List (Some BlockLabel)) -> Type where
+data CFG : (jumpGraph : JumpGraph) -> (toBeDefined : List BlockLabel) -> Type where
   Empty : CFG graph (getLabels graph)
 
   -- TODO: Enforce uniqueness of blocks?
-  AddBlock : SimpleBlock inputKind label (getInputs label graph) (getCFKind label graph)
+  AddBlock : SimpleBlock label (getInputs label graph) (getCFKind label graph)
           -> CFG graph toBeDefined
-          -> CFG graph (delete (MkSome label) toBeDefined)
+          -> CFG graph (delete label toBeDefined)
 
 
 public export

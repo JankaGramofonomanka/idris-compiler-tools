@@ -61,7 +61,7 @@ integerize {prf} (val, val') = let
 mutual
 
   export
-  compileExpr : (labelIn : Some BlockLabel)
+  compileExpr : (labelIn : BlockLabel)
              -> Expr t
              -> CompM (LabelResult Open, CompileResult Open, LLValue (GetLLType t))
 
@@ -133,7 +133,7 @@ mutual
 
 
   -----------------------------------------------------------------------------
-  compileExprs : (labelIn : Some BlockLabel)
+  compileExprs : (labelIn : BlockLabel)
               -> DList Expr ts
               -> CompM  ( LabelResult Open
                         , CompileResult Open
@@ -154,7 +154,7 @@ mutual
 
 
   -----------------------------------------------------------------------------
-  compileOperands : Some BlockLabel
+  compileOperands : BlockLabel
                  -> Expr t
                  -> Expr t'
                  -> CompM ( LabelResult Open
@@ -175,7 +175,7 @@ mutual
 
 
   -----------------------------------------------------------------------------
-  compileAritmOp : Some BlockLabel
+  compileAritmOp : BlockLabel
                 -> BinOperator I32 I32 I32
                 -> Expr TInt
                 -> Expr TInt
@@ -191,7 +191,7 @@ mutual
 
 
   -----------------------------------------------------------------------------
-  compileOrdComparison : Some BlockLabel
+  compileOrdComparison : BlockLabel
                       -> CMPKind
                       -> Expr TInt
                       -> Expr TInt
@@ -225,24 +225,24 @@ mutual
   otherwise.
   -}
   export
-  ifology : (labelIn : Some BlockLabel)
+  ifology : (labelIn : BlockLabel)
          -> (expr : Expr TBool)
-         -> (labelThen : BlockLabel NonEntry)
-         -> (labelElse : BlockLabel NonEntry)
-         -> CompM ( Attached labelThen $ Inputs NonEntry
-                  , Attached labelElse $ Inputs NonEntry
+         -> (labelThen : BlockLabel)
+         -> (labelElse : BlockLabel)
+         -> CompM ( Attached labelThen Inputs
+                  , Attached labelElse Inputs
                   , CompileResult Closed
                   )
 
   ifology labelIn (BinOperation And lhs rhs) labelThen labelElse = do
 
     labelMid <- freshLabel
-    (insMid,  insElse,  resL) <- ifology labelIn            lhs labelMid  labelElse
-    (insThen, insElse', resR) <- ifology (MkSome labelMid)  rhs labelThen labelElse
+    (insMid,  insElse,  resL) <- ifology labelIn  lhs labelMid  labelElse
+    (insThen, insElse', resR) <- ifology labelMid rhs labelThen labelElse
 
     
     let SingleBLKC (cfk ** blk) = resR
-    let IS : InStatus;  IS = InClosed NonEntry labelMid (detach insMid)
+    let IS : InStatus;  IS = InClosed labelMid (detach insMid)
     let OS : OutStatus; OS = OutClosed cfk
 
     -- TODO: phis
@@ -255,11 +255,11 @@ mutual
   ifology labelIn (BinOperation Or lhs rhs) labelThen labelElse = do
     
     labelMid <- freshLabel
-    (insThen,   insMid,   resL) <- ifology labelIn            lhs labelThen labelMid
-    (insThen',  insElse,  resR) <- ifology (MkSome labelMid)  rhs labelThen labelElse
+    (insThen,   insMid,   resL) <- ifology labelIn  lhs labelThen labelMid
+    (insThen',  insElse,  resR) <- ifology labelMid rhs labelThen labelElse
 
     let SingleBLKC (cfk ** blk) = resR
-    let IS : InStatus;  IS = InClosed NonEntry labelMid (detach insMid)
+    let IS : InStatus;  IS = InClosed labelMid (detach insMid)
     let OS : OutStatus; OS = OutClosed cfk
 
     -- TODO: phis
@@ -287,7 +287,7 @@ mutual
   -----------------------------------------------------------------------------
 
   -- TODO: this is ugly
-  compileBoolExpr : (labelIn : Some BlockLabel)
+  compileBoolExpr : (labelIn : BlockLabel)
                  -> Expr TBool
                  -> CompM (LabelResult Open, CompileResult Open, LLValue I1)
   compileBoolExpr labelIn expr = do
@@ -297,10 +297,10 @@ mutual
     
     labelPost <- freshLabel
     
-    let TrueIS : InStatus;  TrueIS = InClosed NonEntry labelTrue (detach trueInputs)
+    let TrueIS : InStatus;  TrueIS = InClosed labelTrue (detach trueInputs)
     let TrueOS : OutStatus; TrueOS = OutClosed (Jump [labelPost])
 
-    let FalseIS : InStatus;   FalseIS = InClosed NonEntry labelFalse (detach falseInputs)
+    let FalseIS : InStatus;   FalseIS = InClosed labelFalse (detach falseInputs)
     let FalseOS : OutStatus;  FalseOS = OutClosed (Jump [labelPost])
 
     let trueBLK : CBlock TrueIS TrueOS
@@ -316,18 +316,18 @@ mutual
 
     reg <- freshRegister
     
-    let inputs : Inputs NonEntry; inputs = MkInputs [MkSome labelTrue, MkSome labelFalse]
+    let inputs : Inputs; inputs = MkInputs [labelTrue, labelFalse]
     
-    let OutIS : InStatus; OutIS = InClosed NonEntry labelPost inputs
+    let OutIS : InStatus; OutIS = InClosed labelPost inputs
     
-    let phi = Phi [(MkSome labelTrue, ILit 1), (MkSome labelFalse, ILit 0)]
+    let phi = Phi [(labelTrue, ILit 1), (labelFalse, ILit 0)]
     let phiAssignment = AssignPhi reg phi
 
     let blkOut : CBlock OutIS OutOpen
         blkOut = phiAssignment |+> initCBlock
 
-    let res = DoubleBLK blkIn (NonEntry ** labelPost ** inputs ** blkOut)
-    pure (LastLabel $ MkSome labelPost, res, Var reg)
+    let res = DoubleBLK blkIn (labelPost ** inputs ** blkOut)
+    pure (LastLabel labelPost, res, Var reg)
 
 
 
