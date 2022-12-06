@@ -63,11 +63,11 @@ mutual
   export
   compileExpr : (labelIn : BlockLabel)
              -> Expr t
-             -> CompM (LabelResult Open, CompileResult Open, LLValue (GetLLType t))
+             -> CompM ((lbl ** CompileResult labelIn (Just lbl)), LLValue (GetLLType t))
 
 
 
-  compileExpr labelIn (Lit lit) = pure (LastLabel labelIn, initCR, fromLNGLit lit)
+  compileExpr labelIn (Lit lit) = pure ((labelIn ** initCR), fromLNGLit lit)
 
 
   compileExpr labelIn (Var var) = do
@@ -80,7 +80,7 @@ mutual
     -}
     val <- getValue var
 
-    pure (LastLabel labelIn, initCR, val)
+    pure ((labelIn ** initCR), val)
 
 
   compileExpr labelIn (BinOperation op lhs rhs) = case op of
@@ -93,10 +93,11 @@ mutual
     Or  => compileBoolExpr labelIn (BinOperation Or  lhs rhs)
     
     EQ => do
-        (labelRes, res, lhs', rhs') <- compileOperands labelIn lhs rhs
+        ((lbl ** res), lhs', rhs') <- compileOperands labelIn lhs rhs
         let MkDPairI n (lhs'', rhs'') = integerize (lhs', rhs')
 
-        addICMP EQ labelRes res lhs'' rhs''
+        (res', val) <- addICMP EQ res lhs'' rhs''
+        pure ((lbl ** res'), val)
 
     LE => compileOrdComparison labelIn SLE lhs rhs
     LT => compileOrdComparison labelIn SLT lhs rhs
@@ -108,13 +109,13 @@ mutual
     
     Neg => do
 
-      (labelRes, res, val) <- compileExpr labelIn expr
+      ((lbl ** res), val) <- compileExpr labelIn expr
       reg <- freshRegister
 
       -- TODO: Is this OK or is it a hack?
       let res' = mapOO (<+ Assign reg (BinOperation SUB (ILit 0) val)) res
       
-      pure (labelRes, res', Var reg)
+      pure ((lbl ** res'), Var reg)
 
     Not => compileBoolExpr labelIn (UnOperation Not expr)
 
@@ -122,12 +123,12 @@ mutual
   compileExpr labelIn (Call fun args) = do
     funPtr <- getFunPtr fun
 
-    (labelRes, res, args') <- compileExprs labelIn args
+    ((lbl ** res), args') <- compileExprs labelIn args
 
     reg <- freshRegister
     let res' = mapOO (<+ Assign reg (Call funPtr args')) res
 
-    pure (labelRes, res', Var reg)
+    pure ((lbl ** res'), Var reg)
 
 
 
@@ -135,86 +136,84 @@ mutual
   -----------------------------------------------------------------------------
   compileExprs : (labelIn : BlockLabel)
               -> DList Expr ts
-              -> CompM  ( LabelResult Open
-                        , CompileResult Open
-                        --, DList (LLValue . GetLLType) ts
+              -> CompM  ( (lbl ** CompileResult labelIn (Just lbl))
                         , DList LLValue (map GetLLType ts)
                         )
 
-  compileExprs labelIn [] = pure (LastLabel labelIn, initCR, [])
+  compileExprs labelIn [] = pure ((labelIn ** initCR), [])
   compileExprs labelIn (expr :: exprs) = do
-    (LastLabel lbl, res, val) <- compileExpr labelIn expr
-    (LastLabel lbl', res', vals) <- compileExprs lbl exprs
+    ((lbl ** res), val) <- compileExpr labelIn expr
+    ((lbl' ** res'), vals) <- compileExprs lbl exprs
 
     res'' <- combineCR res res'
     
-    pure (LastLabel lbl', res', val :: vals)
+    pure ((lbl' ** res''), val :: vals)
   
 
 
 
   -----------------------------------------------------------------------------
-  compileOperands : BlockLabel
+  compileOperands : (labelIn : BlockLabel)
                  -> Expr t
                  -> Expr t'
-                 -> CompM ( LabelResult Open
-                          , CompileResult Open
+                 -> CompM ( (lbl ** CompileResult labelIn (Just lbl))
                           , LLValue (GetLLType t)
                           , LLValue (GetLLType t')
                           )
 
   compileOperands labelIn lhs rhs = do
     
-    (LastLabel labelL, resL, lhs') <- compileExpr labelIn lhs
-    (LastLabel labelR, resR, rhs') <- compileExpr labelL rhs
+    ((labelL ** resL), lhs') <- compileExpr labelIn lhs
+    ((labelR ** resR), rhs') <- compileExpr labelL rhs
   
     resLR <- combineCR resL resR
-    pure (LastLabel labelR, resLR, lhs', rhs')
+    pure ((labelR ** resLR), lhs', rhs')
 
 
 
 
   -----------------------------------------------------------------------------
-  compileAritmOp : BlockLabel
+  compileAritmOp : (labelIn : BlockLabel)
+
                 -> BinOperator I32 I32 I32
                 -> Expr TInt
                 -> Expr TInt
-                -> CompM (LabelResult Open, CompileResult Open, LLValue I32)
+                -> CompM ((lbl ** CompileResult labelIn (Just lbl)), LLValue I32)
   compileAritmOp labelIn op lhs rhs = do
-    (labelRes, res, lhs', rhs') <- compileOperands labelIn lhs rhs
+    ((lbl ** res), lhs', rhs') <- compileOperands labelIn lhs rhs
     
     reg <- freshRegister
     let res' = mapOO (<+ Assign reg (BinOperation op lhs' rhs')) res
 
-    pure (labelRes, res', Var reg)
+    pure ((lbl ** res'), Var reg)
   
 
 
   -----------------------------------------------------------------------------
-  compileOrdComparison : BlockLabel
+  compileOrdComparison : (labelIn : BlockLabel)
                       -> CMPKind
                       -> Expr TInt
                       -> Expr TInt
-                      -> CompM (LabelResult Open, CompileResult Open, LLValue I1)
+                      -> CompM ((lbl ** CompileResult labelIn (Just lbl)), LLValue I1)
   compileOrdComparison labelIn cmpKind lhs rhs = do
-    (labelRes, res, lhs', rhs') <- compileOperands labelIn lhs rhs
+    ((lbl ** res), lhs', rhs') <- compileOperands labelIn lhs rhs
 
-    addICMP cmpKind labelRes res lhs' rhs'
+    (res', val) <- addICMP cmpKind res lhs' rhs'
+    pure ((lbl ** res'), val)
     
   
 
   -----------------------------------------------------------------------------
   addICMP : CMPKind
-         -> LabelResult Open
-         -> CompileResult Open
+         -> CompileResult labelIn (Just labelOut)
          -> LLValue (I n)
          -> LLValue (I n)
-         -> CompM (LabelResult Open, CompileResult Open, LLValue I1)
-  addICMP cmpKind labelRes res lhs rhs = do
+         -> CompM (CompileResult labelIn (Just labelOut), LLValue I1)
+  addICMP cmpKind res lhs rhs = do
     reg <- freshRegister
     let res' = mapOO (<+ Assign reg (ICMP cmpKind lhs rhs)) res
     
-    pure (labelRes, res', Var reg)
+    pure (res', Var reg)
 
 
 
@@ -231,7 +230,7 @@ mutual
          -> (labelElse : BlockLabel)
          -> CompM ( Attached labelThen Inputs
                   , Attached labelElse Inputs
-                  , CompileResult Closed
+                  , CompileResult labelIn Nothing
                   )
 
   ifology labelIn (BinOperation And lhs rhs) labelThen labelElse = do
@@ -242,11 +241,11 @@ mutual
 
     
     let SingleBLKC (cfk ** blk) = resR
-    let IS : InStatus;  IS = InClosed labelMid (detach insMid)
+    let IS : InStatus;  IS = InClosed (detach insMid)
     let OS : OutStatus; OS = OutClosed cfk
 
     -- TODO: phis
-    let blk': CBlock IS OS
+    let blk': CBlock labelMid IS OS
         blk' = ?hphis_ifology_And |++> blk
     addBlock blk'
 
@@ -259,11 +258,11 @@ mutual
     (insThen',  insElse,  resR) <- ifology labelMid rhs labelThen labelElse
 
     let SingleBLKC (cfk ** blk) = resR
-    let IS : InStatus;  IS = InClosed labelMid (detach insMid)
+    let IS : InStatus;  IS = InClosed (detach insMid)
     let OS : OutStatus; OS = OutClosed cfk
 
     -- TODO: phis
-    let blk' : CBlock IS OS
+    let blk' : CBlock labelMid IS OS
         blk' = ?hphis_ifology_Or |++> blk
     addBlock blk'
 
@@ -274,7 +273,7 @@ mutual
     pure (insThen, insElse, res)
   
   ifology labelIn expr labelThen labelElse = do
-    (LastLabel lbl, res, val) <- compileExpr labelIn expr
+    ((lbl ** res), val) <- compileExpr labelIn expr
     res' <- closeCR (CondBranch val labelThen labelElse) res
     
     let inputs = MkInputs [lbl]
@@ -289,7 +288,7 @@ mutual
   -- TODO: this is ugly
   compileBoolExpr : (labelIn : BlockLabel)
                  -> Expr TBool
-                 -> CompM (LabelResult Open, CompileResult Open, LLValue I1)
+                 -> CompM ((lbl ** CompileResult labelIn (Just lbl)), LLValue I1)
   compileBoolExpr labelIn expr = do
     labelTrue <- freshLabel
     labelFalse <- freshLabel
@@ -297,16 +296,16 @@ mutual
     
     labelPost <- freshLabel
     
-    let TrueIS : InStatus;  TrueIS = InClosed labelTrue (detach trueInputs)
+    let TrueIS : InStatus;  TrueIS = InClosed (detach trueInputs)
     let TrueOS : OutStatus; TrueOS = OutClosed (Jump [labelPost])
 
-    let FalseIS : InStatus;   FalseIS = InClosed labelFalse (detach falseInputs)
+    let FalseIS : InStatus;   FalseIS = InClosed (detach falseInputs)
     let FalseOS : OutStatus;  FalseOS = OutClosed (Jump [labelPost])
 
-    let trueBLK : CBlock TrueIS TrueOS
+    let trueBLK : CBlock labelTrue TrueIS TrueOS
         trueBLK = MkBB [] [] (Branch labelPost) DMap.empty
     
-    let falseBLK : CBlock FalseIS FalseOS
+    let falseBLK : CBlock labelFalse FalseIS FalseOS
         falseBLK = MkBB [] [] (Branch labelPost) DMap.empty
     
     addBlock trueBLK
@@ -318,16 +317,17 @@ mutual
     
     let inputs : Inputs; inputs = MkInputs [labelTrue, labelFalse]
     
-    let OutIS : InStatus; OutIS = InClosed labelPost inputs
+    let OutIS : InStatus; OutIS = InClosed inputs
     
     let phi = Phi [(labelTrue, ILit 1), (labelFalse, ILit 0)]
     let phiAssignment = AssignPhi reg phi
 
-    let blkOut : CBlock OutIS OutOpen
+    let blkOut : CBlock labelPost OutIS OutOpen
         blkOut = phiAssignment |+> initCBlock
 
-    let res = DoubleBLK blkIn (labelPost ** inputs ** blkOut)
-    pure (LastLabel labelPost, res, Var reg)
+    let res = DoubleBLK blkIn (inputs ** blkOut)
+    pure ((labelPost ** res), Var reg)
+
 
 
 
