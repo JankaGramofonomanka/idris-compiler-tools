@@ -1,105 +1,189 @@
 module CFG
 
 import Data.List
+import Data.So
 
-import Utils
-import Prop.Elem
+import Prop.Elem.Eq
+import Prop.Forall
 
 
-
-export
+public export
 record Vertex (a : Type) where
   constructor MkVertex
   ident : a
   inputs : List a
   outputs : List a
 
-Decide : Type -> Type
-Decide thm = Either (Not thm) thm
+
+export
+data CompatVIVO : Eq a => Vertex a -> Vertex a -> Type where
+  DisconnectedIO : Eq a
+                => {w, v : Vertex a}
+                -> w.ident `NotElem` v.inputs
+                -> CompatVIVO v w
+
+  ConnectedIO : Eq a
+             => {w, v : Vertex a}
+             -> w.ident `Elem` v.inputs
+             -> v.ident `Elem` w.outputs
+             -> CompatVIVO v w
+
+export
+data CompatVOVI : Vertex a -> Vertex a -> Type where
+  DisconnectedOI : Eq a
+                => {w, v : Vertex a}
+                -> w.ident `NotElem` v.outputs
+                -> CompatVOVI v w
+
+  ConnectedOI : Eq a
+             => {w, v : Vertex a}
+             -> w.ident `Elem` v.outputs
+             -> v.ident `Elem` w.inputs
+             -> CompatVOVI v w
+
+export
+CompatVIOVIO : Eq a => Vertex a -> Vertex a -> Type
+CompatVIOVIO v w = (CompatVIVO v w, CompatVOVI v w)
 
 
 export
-data CompatVVIO : Vertex a -> Vertex a -> Type where
-  DisconnectedIO : Forall v.inputs (\input => Not (w.ident = input)) -> CompatVVIO v w
-  ConnectedIO : w `Elem` vins -> v `Elem` wouts -> CompatVVIO (MkVertex v vins vouts) (MkVertex w wins wouts)
+CompatVV : Eq a => Vertex a -> Vertex a -> Type
+CompatVV v w = (CompatVIOVIO v w, So (not $ v.ident == w.ident))
 
-export
-data CompatVVOI : Vertex a -> Vertex a -> Type where
-  DisconnectedOI : Forall v.outputs (\output => Not (w.ident = output)) -> CompatVVOI v w
-  ConnectedOI : w `Elem` vouts -> v `Elem` wins -> CompatVVOI (MkVertex v vins vouts) (MkVertex w wins wouts)
-
-export
-CompatVV : Vertex a -> Vertex a -> Type
-CompatVV v w = (CompatVVIO v w, CompatVVOI v w)
 
 mutual
 
   public export
-  data CFG : (a : Type) -> Eq a => (inputs : List a) -> (outputs : List a) -> Type where
-    Empty : Eq a => CFG a [] []
+  data CFG : (a : Type) -> Eq a => (defined : List a) -> (inputs : List a) -> (outputs : List a) -> Type where
+    Empty : Eq a => CFG a [] [] []
     AddVertex : Eq a
               => (v : Vertex a)
-              -> (cfg : CFG a ins outs)
-              -> {auto 0 prf : CompatVG v cfg newIns newOuts}
-              -> CFG a (newIns ++ ins) (newOuts ++ outs)
+              -> (cfg : CFG a defined ins outs)
+              -> {auto 0 prf : CompatVG v cfg}
+              -> CFG a
+                  (v.ident :: defined)
+                  (delete v.ident $ ins ++ (v.inputs \\ defined))
+                  (delete v.ident $ outs ++ (v.outputs \\ defined))
 
-  public export
-  data CompatVG : Eq a => Vertex a -> CFG a ins outs -> List a -> List a -> Type where
-    CompatEmpty : Eq a => {v : Vertex a} -> CompatVG v Empty v.inputs v.outputs
-    CompatAdd : Eq a
-              => {cfg : CFG a inputs outputs}
-              -> {auto 0 prf : CompatVG w cfg _ _}
-              -> CompatVG v cfg ins outs
-              -> CompatVV v w
-
-              -> CompatVG v (AddVertex w cfg {prf}) (delete w.ident ins) (delete w.ident outs)
   
-data ForallG : Eq a => CFG a ins outs -> (Vertex a -> Type) -> Type where
-  ForallGempty : (impl : Eq a) => ForallG @{impl} Empty prop
-  ForallGAdd : Eq a
-            
-            => prop v
-            
-            -> {cfg : CFG a ins outs}
-            -> ForallG cfg prop
-            
-            -> {auto 0 prf : CompatVG v cfg newIns newOuts}
-            -> ForallG (AddVertex v cfg {prf}) prop
+  public export
+  data CompatVG : Eq a => Vertex a -> CFG a defined ins outs -> Type where
+    CompatVGEmpty : Eq a => {v : Vertex a} -> CompatVG v Empty
+    CompatVGAdd : Eq a
+                => {cfg : CFG a defined ins outs}
+                -> {auto 0 prf : CompatVG w cfg}
+                -> CompatVG v cfg
+                -> CompatVV v w
+
+                -> CompatVG v (AddVertex w cfg {prf})
+
+public export
+data CompatGG : Eq a => CFG a defined ins outs -> CFG a defined' ins' outs' -> Type where
+  CompatGGEmpty : Eq a => {cfg : CFG a defined ins outs} -> CompatGG Empty cfg
+  CompatGGAdd : Eq a
+             => {v : Vertex a}
+             -> {cfg  : CFG a defined  ins  outs}
+             -> {cfg' : CFG a defined' ins' outs'}
+             -> {vcfg   : CompatVG v cfg}
+             
+             -> (vcfg'  : CompatVG v cfg')
+             -> CompatGG cfg cfg'
+             -> CompatGG (AddVertex v cfg {prf = vcfg}) cfg'
 
 export
-0 CompatGG : Eq a => CFG a ins outs -> CFG a ins' outs' -> Type
-CompatGG cfg cfg' = ForallG cfg compat where
-  compat : Vertex a -> Type
-  compat v = (ins  ** outs  ** CompatVG v cfg' ins outs)
+insdefsep : {a : Type}
+      -> Eq a
+      => {0 defined, ins, outs : List a}
+      
+      -> (cfg : CFG a defined ins outs)
+      -> ins \\ defined = ins
+insdefsep Empty = Refl
+insdefsep (AddVertex v cfg {prf}) = ?hinsdef
 
--- TODO: define connecting compatible graphs together
+export
+outsdefsep : {a : Type}
+       -> Eq a
+       => {0 defined, ins, outs : List a}
+       
+       -> (cfg : CFG a defined ins outs)
+       -> outs \\ defined = outs
 
-namespace Example
+private
+getCompatGG : Eq a
+           => {v : Vertex a}
+           -> {0 defined, defined', ins, ins', outs, outs' : List a}
+           -> {cfg : CFG a defined ins outs}
+           -> {cfg' : CFG a defined' ins' outs'}
+           -> {prf : CompatVG v cfg}
+           
+           -> CompatGG (AddVertex v cfg) cfg'
+           -> CompatGG cfg cfg'
 
-  Label : Type
-  Label = String
+getCompatGG (CompatGGAdd vcfg' cfgcfg') = cfgcfg'
 
-  {-
-    preLoop:
-      jump cond
-    cond
-      condjump c loopBody postloop
-    loopBody:
-      ...
-      jump cond
-    postloop
-      ...
-  -}
+private
+getCompatVG : Eq a
+           => {v : Vertex a}
+           -> {0 defined, defined', ins, ins', outs, outs' : List a}
+           -> {cfg : CFG a defined ins outs}
+           -> {cfg' : CFG a defined' ins' outs'}
+           -> {prf : CompatVG v cfg}
 
-  loopBody1 : CFG Label ["cond"] ["cond"]
-  loopBody1 = AddVertex (MkVertex "loopBody" ["cond"] ["cond"]) {prf = CompatEmpty} Empty
+           -> CompatGG (AddVertex v cfg) cfg'
+           -> CompatVG v cfg'
 
-  
-  whileTemplate : (preLoop, firstInBody, lastInBody, postLoop : Label)
-               -> CFG Label [preLoop, lastInBody] [firstInBody, postLoop]
-  
-  whileTemplate preLoop firstInBody lastInBody postLoop
-    = AddVertex (MkVertex "cond" [preLoop, lastInBody] [firstInBody, postLoop]) {prf = CompatEmpty}
-    $ Empty
+getCompatVG (CompatGGAdd vcfg' gg) = vcfg'
+
+
+mutual
+  public export
+  connect : {a : Type}
+        -> Eq a
+        => {0 defined, defined', ins, ins', outs, outs' : List a}
+        
+        -> (cfg : CFG a defined ins outs)
+        -> (cfg' : CFG a defined' ins' outs')
+        -> {auto 0 prf : CompatGG cfg cfg'}
+        
+        -> let defined'' = (defined \\ defined') ++ defined'
+            in CFG a defined'' (((ins \\ ins') ++ ins') \\ defined'') (((outs \\ outs') ++ outs') \\ defined'')
+
+  connect Empty cfg = let
+
+    total
+    thm : (l : List a) -> [] \\ l = []
+    thm Nil = Refl
+    thm (x :: xs) = rewrite thm xs in Refl
+
+    in rewrite thm defined'
+    in rewrite thm ins'
+    in rewrite thm outs'
+    in rewrite insdefsep cfg
+    in rewrite outsdefsep cfg in cfg
+
+  -- TODO: get rid of the `believe_me`
+  connect (AddVertex v cfg {prf = vprf}) cfg' {prf} = let
+      
+      total
+      0 cfgcfg' : CompatGG cfg cfg'
+      cfgcfg' = getCompatGG prf
+
+      total
+      0 vcfgcfg' : CompatVG v (connect {prf = cfgcfg'} cfg cfg')
+      vcfgcfg' = compatVGG vprf (getCompatVG prf) (getCompatGG prf)
+
+    in believe_me $ AddVertex v (connect cfg cfg' {prf = cfgcfg'}) {prf = vcfgcfg'}
+
+  private
+  compatVGG : Eq a
+     => {v : Vertex a}
+     -> {0 defined, defined', ins, ins', outs, outs' : List a}
+     -> {cfg : CFG a defined ins outs}
+     -> {cfg' : CFG a defined' ins' outs'}
+     -> CompatVG v cfg
+     -> CompatVG v cfg'
+     -> CompatGG cfg cfg'
+     -> CompatVG v (connect cfg cfg')
+  compatVGG vcfg vcfg' cfgcfg' = ?hcompatVGG --CompatVGAdd ?h1 ?h2
 
 
