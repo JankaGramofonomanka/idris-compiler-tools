@@ -7,10 +7,6 @@ deleteAll x (x' :: xs) = if x == x' then deleteAll x xs else x' :: deleteAll x x
 
 
 
-public export
-data Forall : List a -> (a -> Type) -> Type where
-  ForallNil : Forall Nil prop
-  ForallCons : {x : a} -> prop x -> Forall xs prop -> Forall (x :: xs) prop
 
 
 
