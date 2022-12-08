@@ -19,8 +19,9 @@ namespace Vertex
   Single : a -> Endpoint a
   Single x = Just [x]
 
-  export
-  Vertex : a -> Endpoint a -> Endpoint a -> Type
+  public export
+  Vertex : Type -> Type
+  Vertex a = a -> Endpoint a -> Endpoint a -> Type
 
 namespace Graph
 
@@ -72,28 +73,30 @@ namespace Graph
   fromVIn (Just ins)  v = Just $ map (~> v) ins
 
 
-  data Graph : (a : Type) -> Endpoints a -> Endpoints a -> Type where
+  data Graph : Vertex a -> Endpoints a -> Endpoints a -> Type where
 
-    SingleVertex : Vertex v vin vout
-                -> Graph a (fromVIn vin v) (fromVOut v vout)
+    SingleVertex : {0 vertex : Vertex a}
+                -> vertex v vin vout
+                -> Graph vertex (fromVIn vin v) (fromVOut v vout)
 
     -- TODO: maybe this will be better than `SingleVertex`
     --Empty : Graph a es es
 
     -- add vertices
-    Prepend : Vertex v vins (Just vouts)
-           -> Graph a (Just $ map (v ~>) vouts) gouts
-           -> Graph a (fromVIn vins v) gouts
+    Prepend : {0 vertex : Vertex a}
+           -> vertex v vins (Just vouts)
+           -> Graph vertex (Just $ map (v ~>) vouts) gouts
+           -> Graph vertex (fromVIn vins v) gouts
 
-    Append : Graph a gins (Just $ map (~> v) vins)
-          -> Vertex v (Just vins) vouts
-          -> Graph a gins (fromVOut v vouts)
+    Append : Graph vertex gins (Just $ map (~> v) vins)
+          -> vertex v (Just vins) vouts
+          -> Graph vertex gins (fromVOut v vouts)
     
 
     
-    Cycle : (node : Vertex v (Just $ u :: ins) (Just $ w :: outs))
-         -> (loop : Graph a (Single v w) (Single u v))
-         -> Graph a (fromVIn (Just ins) v) (fromVOut v (Just outs))
+    Cycle : (node : vertex v (Just $ u :: ins) (Just $ w :: outs))
+         -> (loop : Graph vertex (Single v w) (Single u v))
+         -> Graph vertex (fromVIn (Just ins) v) (fromVOut v (Just outs))
 
     -- TODO: Consider the following
     --Cycle : (node : Vertex v (Just $ ins ++ u :: ins') (Just $ outs ++ w :: outs'))
@@ -111,16 +114,19 @@ namespace Graph
             -> Graph a (Just $ ins ++ ins') (Just $ outs ++ outs')
 
 
-  branch : (pre   : Vertex v vins (Just [w, w']))
-        -> (left  : Graph a (Single v w)  (Just louts))
-        -> (right : Graph a (Single v w') (Just routs))
-        -> Graph a (fromVIn vins v) (Just $ louts ++ routs)
+  branch : {0 vertex : Vertex a}
+        -> (pre   : vertex v vins (Just [w, w']))
+        -> (left  : Graph vertex (Single v w)  (Just louts))
+        -> (right : Graph vertex (Single v w') (Just routs))
+        -> Graph vertex (fromVIn vins v) (Just $ louts ++ routs)
   branch pre left right = Prepend pre $ Parallel left right
 
-  fullBranch : (pre    : Vertex v vins (Just [w, w']))
-            -> (left   : Graph a (Single v w)  (Single u t))
-            -> (right  : Graph a (Single v w') (Single u' t))
-            -> (post   : Vertex t (Just [u, u']) vouts)
-            -> Graph a (fromVIn vins v) (fromVOut t vouts)
+  fullBranch : {0 vertex : Vertex a}
+            -> (pre    : vertex v vins (Just [w, w']))
+            -> (left   : Graph vertex (Single v w)  (Single u t))
+            -> (right  : Graph vertex (Single v w') (Single u' t))
+            -> (post   : vertex t (Just [u, u']) vouts)
+            -> Graph vertex (fromVIn vins v) (fromVOut t vouts)
   fullBranch pre left right post = Append (branch pre left right) post
 
+  
