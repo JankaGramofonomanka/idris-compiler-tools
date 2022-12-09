@@ -13,41 +13,45 @@ import Compile.Tools.CompileResult
 import Compile.Tools.CompM
 import Compile.Expr
 
+import CFG.Simple
+import Utils
+
+
+-- TODO: find a better place for this
+data Compatible : CRType -> List BlockLabel -> Type where
+  CompatClosed  : Compatible Closed []
+  CompatOpen    : Compatible Open [lbl]
+
 {-
 Add phi assignments and a terminating instruction if necessary to the blocks
 that are a result of compilation of a sub instruction and add the blocks to the
 control flow graph
 -}
--- TODO: why do we need `labelIn`?
--- Perhaps, to lookup values to assign in phis instructions
 handleBranchResult : CompileResult' lbl os
-                  -> BlockLabel
-                  -> BlockLabel
-                  -> CompM ()
-handleBranchResult (CRC res) labelIn labelOut = case res of
+                  -> (labelIn : BlockLabel)
+                  -> (labelPost : BlockLabel)
+                  -> CompM (  outs
+                           ** ( Graph VBlock (Ends [labelIn ~> lbl]) (Ends $ map (~> labelPost) outs)
+                              , Compatible os outs
+                              )
+                           )
+
+handleBranchResult (CRC (CRClosed g)) labelIn labelPost = let
+
+  -- TODO: phis
+  g' = mapIn {ins = Just [labelIn]} (?hbr_phis1 |++>) g
+
+  in pure ([] ** (g', CompatClosed))
+
+handleBranchResult (CRO (lbl' ** CROpen g)) labelIn labelPost = let
+
+  -- TODO: phis
+  g' = mapOut {outs = Just [labelPost]} (<+| Branch labelPost)
+     $ mapIn  {ins  = Just [labelIn]}   (?hbr_phis2 |++>)
+     $ g
   
-  SingleBLKC (cfk ** blk) => do
-
-    -- TODO: phis
-    addBlock $ ?hbr_phis1 |++> blk
-
-
-handleBranchResult (CRO (lbl ** res)) labelIn labelOut = case res of
   
-  SingleBLKO blk => do
-  
-    -- TODO: phis
-    addBlock $ ?hbr_phis2 |++> blk <+| Branch labelOut
-    
-  DoubleBLK (cfk ** blkIn) (ins ** blkOut) => do
-  
-    -- TODO: phis
-    addBlock $ ?hbr_phis3 |++> blkIn
-    addBlock $ blkOut <+| Branch labelOut
-
-
-
-
+  in pure ([lbl'] ** (g', CompatOpen))
 
 
 
@@ -91,20 +95,19 @@ compileInstr labelIn (Block instrs) = compile' labelIn instrs where
     compile' : (labelIn : BlockLabel)
             -> (instrs : List Instr)
             -> CompM (CompileResult' labelIn $ InstrsCR instrs)
-    
     compile' labelIn [] = pure (initCR' labelIn)
     compile' labelIn (instr :: instrs) = do
       res <- compileInstr labelIn instr
       handleRes res instrs
       
-    handleRes : {labelIn : BlockLabel}
+    handleRes : {0 labelIn : BlockLabel}
              -> CompileResult' labelIn os
              -> (instrs : List Instr)
              -> CompM (CompileResult' labelIn $ ClosedOr os (InstrsCR instrs))
     handleRes (CRC res) instrs = pure (CRC res)
     handleRes (CRO (lbl ** res)) instrs = do
       res' <- compile' lbl instrs
-      combineCR' res res'
+      pure $ combineCR' res res'
     
 
 
@@ -126,84 +129,97 @@ compileInstr labelIn (Assign var expr) = do
 compileInstr labelIn (If cond instrThen) = do
 
   -- TODO: use `ifology`
-  ((lastCondLabel ** condRes), val) <- compileExpr labelIn cond
+  ((condLabel ** CROpen condG), val) <- compileExpr labelIn cond
   labelThen <- freshLabel
   labelPost <- freshLabel
 
-  SingleBLKC inBLK <- closeCR (CondBranch val labelThen labelPost) condRes
-
+  let condG' = mapOut {outs = Just [labelThen, labelPost]} (<+| CondBranch val labelThen labelPost) condG
+  
   thenRes <- compileInstr labelThen instrThen
-  
-  handleBranchResult thenRes lastCondLabel labelPost
-  
-  let postInputs = MkInputs $ lastCondLabel :: getOutputs thenRes
-  let PostIS : InStatus; PostIS = InClosed postInputs
+  (thenOuts ** (thenG, _)) <- handleBranchResult thenRes condLabel labelPost
 
-  ---- TODO: phis
-  let postBLK : CBlock labelPost PostIS OutOpen
+  let branches : Graph VBlock
+                  (Ends [condLabel ~> labelThen, condLabel ~> labelPost])
+                  (Ends $ map (~> labelPost) (thenOuts ++ [condLabel]))
+
+      branches = rewrite map_append {f = (~> labelPost)} thenOuts condLabel
+                 in Parallel thenG Empty
+
+  -- TODO: phis
+  let postBLK : VBlock labelPost (Just $ thenOuts ++ [condLabel]) Undefined
       postBLK = ?phis0 |++> initCBlock
-
-  pure $ CRO (labelPost ** DoubleBLK inBLK (postInputs ** postBLK))
-
   
+  let postG : Graph VBlock (Ends $ map (~> labelPost) (thenOuts ++ [condLabel])) (Undefined labelPost)
+      postG = SingleVertex {vins = Just (thenOuts ++ [condLabel]), vouts = Undefined} postBLK
+  
+  let final = Connect condG' (Connect branches postG)
+  
+  pure $ CRO (labelPost ** CROpen final)
+  
+
 
 
 -- IfElse ---------------------------------------------------------------------
 compileInstr labelIn (IfElse cond instrThen instrElse) = do
 
   -- TODO: use `ifology`
-  ((lastCondLabel ** condRes), val) <- compileExpr labelIn cond
+  ((condLabel ** CROpen condG), val) <- compileExpr labelIn cond
   labelThen <- freshLabel
   labelElse <- freshLabel
   labelPost <- freshLabel
 
-  SingleBLKC inBLK <- closeCR (CondBranch val labelThen labelElse) condRes
-
+  let condG' = mapOut {outs = Just [labelThen, labelElse]} (<+| CondBranch val labelThen labelElse) condG
   thenRes <- compileInstr labelThen instrThen
   elseRes <- compileInstr labelElse instrElse
 
-  handleBranchResult thenRes lastCondLabel labelPost
-  handleBranchResult elseRes lastCondLabel labelPost
+  (thenOuts ** (thenG, compatT)) <- handleBranchResult thenRes condLabel labelPost
+  (elseOuts ** (elseG, compatE)) <- handleBranchResult elseRes condLabel labelPost
 
-  pure $ finishIfThenElse inBLK (getOutLabel thenRes) (getOutLabel elseRes) labelPost
+  let branches : Graph VBlock
+                  (Ends [condLabel ~> labelThen, condLabel ~> labelElse])
+                  (Ends $ map (~> labelPost) (thenOuts ++ elseOuts))
+      branches = rewrite map_concat {f = (~> labelPost)} thenOuts elseOuts
+                 in Parallel thenG elseG
+
+  let condAndBranches = Connect condG' branches
+
+  finishIfThenElse thenOuts compatT elseOuts compatE labelPost condAndBranches
   
   where
-    
-    finishIfThenElse : (cfk ** CBlock lbl InOpen $ OutClosed cfk)
-                    -> (thenOutLabel : MLabel os)
-                    -> (elseOutLabel : MLabel os')
+    finishIfThenElse : (thenOuts : List BlockLabel)
+                    -> (0 compatT : Compatible os thenOuts)
+                    -> (elseOuts : List BlockLabel)
+                    -> (0 compatE : Compatible os' elseOuts)
                     -> (labelPost : BlockLabel)
-                    -> CompileResult' lbl (OpenOr os os')
+                    -> Graph VBlock (Undefined lbl) (Ends $ map (~> labelPost) (thenOuts ++ elseOuts))
+                    -> CompM (CompileResult' lbl (OpenOr os os'))
 
-    finishIfThenElse inBLK NoLabel NoLabel labelPost = CRC $ SingleBLKC inBLK
+    finishIfThenElse [] CompatClosed [] CompatClosed labelPost g = pure $ CRC (CRClosed g)
 
-    finishIfThenElse inBLK NoLabel (YesLabel lbl) labelPost = let
+    finishIfThenElse [] CompatClosed [l'] CompatOpen labelPost g = do
       
-      -- TODO: phis
-      inputs = MkInputs [lbl]
-      postBLK : CBlock labelPost (InClosed inputs) OutOpen
-      postBLK = ?hphis1 |++> initCBlock
-      
-      in CRO (labelPost ** DoubleBLK inBLK (inputs ** postBLK))
-    
-    finishIfThenElse inBLK (YesLabel lbl) NoLabel labelPost = let
-      
-      -- TODO: phis
-      inputs = MkInputs [lbl]
-      postBLK : CBlock labelPost (InClosed inputs) OutOpen
-      postBLK = ?hphis2 |++> initCBlock
-      
-      in CRO (labelPost ** DoubleBLK inBLK (inputs ** postBLK))
+      let postBLK : VBlock labelPost (Just [l']) Undefined
+          postBLK = ?hphis1 |++> initCBlock
 
-    finishIfThenElse inBLK (YesLabel labelThen) (YesLabel labelElse) labelPost = let
-      
-      -- TODO: phis
-      inputs = MkInputs [labelThen, labelElse]
-      postBLK : CBlock labelPost (InClosed inputs) OutOpen
-      postBLK = ?hphis3 |++> initCBlock
-      
-      in CRO (labelPost ** DoubleBLK inBLK (inputs ** postBLK))
+      let postG : Graph VBlock (Ends [l' ~> labelPost]) (Undefined labelPost)
+          postG = SingleVertex {vins = Just [l'], vouts = Undefined} postBLK
 
+      let final = Connect g postG
+
+      pure $ CRO (labelPost ** CROpen final)
+      
+    finishIfThenElse [l] CompatOpen elseOuts _ labelPost g = do
+
+      let postBLK : VBlock labelPost (Just $ [l] ++ elseOuts) Undefined
+          postBLK = ?hphis2 |++> initCBlock
+
+      
+      let postG : Graph VBlock (Ends $ map (~> labelPost) (l :: elseOuts)) (Undefined labelPost)
+          postG = SingleVertex {vins = Just $ l :: elseOuts, vouts = Undefined} postBLK
+
+      let final = Connect g postG
+
+      pure $ CRO (labelPost ** CROpen final)
 
 
 
@@ -211,18 +227,18 @@ compileInstr labelIn (IfElse cond instrThen instrElse) = do
 compileInstr labelIn (Return expr) = do
   ((_ ** res), val) <- compileExpr labelIn expr
   
-  res' <- closeCR (Ret val) res
+  let res' = addReturn (Ret val) res
   pure (CRC res')
+
 
 -- RetVoid --------------------------------------------------------------------
 compileInstr labelIn RetVoid = do
-  res <- closeCR RetVoid initCR
+  let res = addReturn RetVoid initCR
   pure (CRC res)
 
 
 
 
-compileInstr labelIn instr = ?hinstr
 
 
 

@@ -14,6 +14,9 @@ import Compile.Tools
 import Compile.Tools.CBlock
 import Compile.Tools.CompileResult
 import Compile.Tools.CompM
+import CFG.Simple
+
+import Utils
 
 
 
@@ -72,7 +75,6 @@ mutual
 
   compileExpr labelIn (Lit lit) = pure ((labelIn ** initCR), fromLNGLit lit)
 
-
   compileExpr labelIn (Var var) = do
     
     {-
@@ -85,6 +87,7 @@ mutual
 
     pure ((labelIn ** initCR), val)
 
+  
 
   compileExpr labelIn (BinOperation op lhs rhs) = case op of
     Add => compileAritmOp labelIn ADD lhs rhs
@@ -106,7 +109,8 @@ mutual
     LT => compileOrdComparison labelIn SLT lhs rhs
     GE => compileOrdComparison labelIn SGE lhs rhs
     GT => compileOrdComparison labelIn SGT lhs rhs
-    
+  
+  
 
   compileExpr labelIn (UnOperation op expr) = case op of
     
@@ -122,7 +126,7 @@ mutual
 
     Not => compileBoolExpr labelIn (UnOperation Not expr)
 
-
+  
   compileExpr labelIn (Call fun args) = do
     funPtr <- getFunPtr fun
 
@@ -132,7 +136,7 @@ mutual
     let res' = mapOO (<+ Assign reg (Call funPtr args')) res
 
     pure ((lbl ** res'), Var reg)
-
+  
 
 
 
@@ -142,13 +146,12 @@ mutual
               -> CompM  ( (lbl ** CompileResult labelIn (Just lbl))
                         , DList LLValue (map GetLLType ts)
                         )
-
   compileExprs labelIn [] = pure ((labelIn ** initCR), [])
   compileExprs labelIn (expr :: exprs) = do
     ((lbl ** res), val) <- compileExpr labelIn expr
     ((lbl' ** res'), vals) <- compileExprs lbl exprs
 
-    res'' <- combineCR res res'
+    let res'' = combineCR res res'
     
     pure ((lbl' ** res''), val :: vals)
   
@@ -169,9 +172,9 @@ mutual
     ((labelL ** resL), lhs') <- compileExpr labelIn lhs
     ((labelR ** resR), rhs') <- compileExpr labelL rhs
   
-    resLR <- combineCR resL resR
+    let resLR = combineCR resL resR
     pure ((labelR ** resLR), lhs', rhs')
-
+  
 
 
 
@@ -203,6 +206,7 @@ mutual
 
     (res', val) <- addICMP cmpKind res lhs' rhs'
     pure ((lbl ** res'), val)
+  
     
   
 
@@ -217,10 +221,11 @@ mutual
     let res' = mapOO (<+ Assign reg (ICMP cmpKind lhs rhs)) res
     
     pure (res', Var reg)
-
+  
 
 
   -----------------------------------------------------------------------------
+  
   {-
   Add branch instructions such that when the value of `expr` is `true`, then the
   execution of the program will end up in `labelThen` and in `labelElse`
@@ -231,106 +236,118 @@ mutual
          -> (expr : Expr TBool)
          -> (labelThen : BlockLabel)
          -> (labelElse : BlockLabel)
-         -> CompM ( Attached labelThen Inputs
-                  , Attached labelElse Inputs
-                  , CompileResult labelIn Nothing
+         -> CompM ( outsThen ** outsElse ** 
+                    ( Graph VBlock (Undefined labelIn) (Ends $ outsThen ++ outsElse)
+                    , outsThen `AllLeadTo` labelThen
+                    , outsElse `AllLeadTo` labelElse
+                    )
                   )
 
   ifology labelIn (BinOperation And lhs rhs) labelThen labelElse = do
 
     labelMid <- freshLabel
-    (insMid,  insElse,  resL) <- ifology labelIn  lhs labelMid  labelElse
-    (insThen, insElse', resR) <- ifology labelMid rhs labelThen labelElse
+    (outsMid  ** outsElse   ** (gl, prfM, prfE))  <- ifology labelIn  lhs labelMid  labelElse
+    (outsThen ** outsElse'  ** (gr, prfT, prfE')) <- ifology labelMid rhs labelThen labelElse
 
+
+    let gr' : Graph VBlock (Ends outsMid) (Ends $ outsThen ++ outsElse')
+        gr' = rewrite alt_map prfM
+              in mapIn {ins = Just (map Origin outsMid)} ([] |++>) gr
     
-    let SingleBLKC (cfk ** blk) = resR
-    let IS : InStatus;  IS = InClosed (detach insMid)
-    let OS : OutStatus; OS = OutClosed cfk
+    let inter : Graph VBlock (Ends $ outsMid ++ outsElse) (Ends (outsThen ++ outsElse' ++ outsElse))
+        inter = rewrite concat_assoc outsThen outsElse' outsElse
+                in Parallel gr' Empty
 
-    -- TODO: phis
-    let blk': CBlock labelMid IS OS
-        blk' = ?hphis_ifology_And |++> blk
-    addBlock blk'
-
-    pure (insThen, combine (++) insElse insElse', resL)
+    let final = Connect gl inter
+    
+    pure (outsThen ** outsElse' ++ outsElse ** (final, prfT, alt_concat prfE' prfE))
   
   ifology labelIn (BinOperation Or lhs rhs) labelThen labelElse = do
-    
+
     labelMid <- freshLabel
-    (insThen,   insMid,   resL) <- ifology labelIn  lhs labelThen labelMid
-    (insThen',  insElse,  resR) <- ifology labelMid rhs labelThen labelElse
+    (outsThen   ** outsMid  ** (gl, prfT,   prfM)) <- ifology labelIn   lhs labelThen labelMid
+    (outsThen'  ** outsElse ** (gr, prfT',  prfE)) <- ifology labelMid  rhs labelThen labelElse
 
-    let SingleBLKC (cfk ** blk) = resR
-    let IS : InStatus;  IS = InClosed (detach insMid)
-    let OS : OutStatus; OS = OutClosed cfk
 
-    -- TODO: phis
-    let blk' : CBlock labelMid IS OS
-        blk' = ?hphis_ifology_Or |++> blk
-    addBlock blk'
+    let gr' : Graph VBlock (Ends outsMid) (Ends $ outsThen' ++ outsElse)
+        gr' = rewrite alt_map prfM
+              in mapIn {ins = Just (map Origin outsMid)} ([] |++>) gr
+    
+    let inter : Graph VBlock (Ends $ outsThen ++ outsMid) (Ends ((outsThen ++ outsThen') ++ outsElse))
+        inter = rewrite revEq $ concat_assoc outsThen outsThen' outsElse
+                in Parallel Empty gr'
 
-    pure (combine (++) insThen insThen', insElse, resL)
-
+    let final = Connect gl inter
+    
+    pure (outsThen ++ outsThen' ** outsElse ** (final, alt_concat prfT prfT', prfE))
+  
   ifology labelIn (UnOperation Not expr) labelThen labelElse = do
-    (insElse, insThen, res) <- ifology labelIn expr labelElse labelThen
-    pure (insThen, insElse, res)
+    (outsElse ** outsThen ** (g, prfE, prfT)) <- ifology labelIn expr labelElse labelThen
+    pure (outsThen ** outsElse ** (FlipOut g, prfT, prfE))
   
   ifology labelIn expr labelThen labelElse = do
-    ((lbl ** res), val) <- compileExpr labelIn expr
-    res' <- closeCR (CondBranch val labelThen labelElse) res
+    ((lbl ** CROpen g), val) <- compileExpr labelIn expr
+    let g' = mapOut {outs = Just [labelThen, labelElse]} (<+| CondBranch val labelThen labelElse) g
     
     let inputs = MkInputs [lbl]
-    pure (Attach labelThen inputs, Attach labelElse inputs, res')
-    
+    pure ([lbl ~> labelThen] ** [lbl ~> labelElse] ** (g', ALTCons ALTNil, ALTCons ALTNil))
+  
+  
 
 
 
   
   -----------------------------------------------------------------------------
 
-  -- TODO: this is ugly
   compileBoolExpr : (labelIn : BlockLabel)
                  -> Expr TBool
                  -> CompM ((lbl ** CompileResult labelIn (Just lbl)), LLValue I1)
+
   compileBoolExpr labelIn expr = do
     labelTrue <- freshLabel
     labelFalse <- freshLabel
-    (trueInputs, falseInputs, SingleBLKC blkIn) <- ifology labelIn expr labelTrue labelFalse
+    (outsT ** outsF ** (ifologyG, prfT, prfF)) <- ifology labelIn expr labelTrue labelFalse
     
     labelPost <- freshLabel
     
-    let TrueIS : InStatus;  TrueIS = InClosed (detach trueInputs)
-    let TrueOS : OutStatus; TrueOS = OutClosed (Jump [labelPost])
-
-    let FalseIS : InStatus;   FalseIS = InClosed (detach falseInputs)
-    let FalseOS : OutStatus;  FalseOS = OutClosed (Jump [labelPost])
-
-    let trueBLK : CBlock labelTrue TrueIS TrueOS
+    
+    let trueBLK : VBlock labelTrue (Just $ map Origin outsT) (Just [labelPost])
         trueBLK = MkBB [] [] (Branch labelPost) DMap.empty
     
-    let falseBLK : CBlock labelFalse FalseIS FalseOS
+    let trueG : Graph VBlock (Ends outsT) (Ends [labelTrue ~> labelPost])
+        trueG = rewrite alt_map prfT
+                in SingleVertex {vins = Just $ map Origin outsT, vouts = Just [labelPost]} trueBLK
+    
+    
+    let falseBLK : VBlock labelFalse (Just $ map Origin outsF) (Just [labelPost])
         falseBLK = MkBB [] [] (Branch labelPost) DMap.empty
+
+    let falseG : Graph VBlock (Ends outsF) (Ends [labelFalse ~> labelPost])
+        falseG = rewrite alt_map prfF
+                 in SingleVertex {vins = Just $ map Origin outsF, vouts = Just [labelPost]} falseBLK
     
-    addBlock trueBLK
-    addBlock falseBLK
-
-
-
+    
     reg <- freshRegister
+
+    let phi : PhiExpr (MkInputs [labelTrue, labelFalse]) I1
+        phi = Phi [(labelTrue, ILit 1), (labelFalse, ILit 0)]
     
-    let inputs : Inputs; inputs = MkInputs [labelTrue, labelFalse]
-    
-    let OutIS : InStatus; OutIS = InClosed inputs
-    
-    let phi = Phi [(labelTrue, ILit 1), (labelFalse, ILit 0)]
     let phiAssignment = AssignPhi reg phi
+    
+    let postIns = MkInputs [labelTrue, labelFalse]
+    
+    let postBLK : VBlock labelPost (Just [labelTrue, labelFalse]) Undefined
+        postBLK = phiAssignment |+> initCBlock
 
-    let blkOut : CBlock labelPost OutIS OutOpen
-        blkOut = phiAssignment |+> initCBlock
+    let postG : Graph VBlock (Ends [labelTrue ~> labelPost, labelFalse ~> labelPost]) (Undefined labelPost)
+        postG = SingleVertex {vins = Just [labelTrue, labelFalse], vouts = Undefined} postBLK
 
-    let res = DoubleBLK blkIn (inputs ** blkOut)
-    pure ((labelPost ** res), Var reg)
 
+
+    let confluence = Connect (Parallel trueG falseG) postG
+    let final = Connect ifologyG confluence
+    
+    pure ((labelPost ** CROpen final), Var reg)
 
 
 

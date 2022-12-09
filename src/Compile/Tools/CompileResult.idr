@@ -8,62 +8,63 @@ import LNG
 import Compile.Tools
 import Compile.Tools.CBlock
 import Compile.Tools.CompM
-
-
+import CFG.Simple
 
 
 
 public export
+toIS : Endpoint BlockLabel -> InStatus
+toIS Nothing = InOpen
+toIS (Just labels) = InClosed (MkInputs labels)
+
+public export
+toOS : Endpoint BlockLabel -> OutStatus
+toOS Nothing = OutOpen
+toOS (Just []) = OutClosed Return
+toOS (Just labels) = OutClosed (Jump labels)
+
+public export
+VBlock : Vertex BlockLabel
+VBlock l ins outs = CBlock l (toIS ins) (toOS outs)
+
+implementation Connectable VBlock where
+  cnct = (++)
+
+
+public export
 data CompileResult : BlockLabel -> (Maybe BlockLabel) -> Type where
-  SingleBLKC : (cfk ** CBlock lbl InOpen (OutClosed cfk)) -> CompileResult lbl Nothing
-  SingleBLKO : CBlock lbl InOpen OutOpen -> CompileResult lbl (Just lbl)
-  DoubleBLK : (cfk ** CBlock lblIn InOpen (OutClosed cfk))
-           -> (inputs ** CBlock lblOut (InClosed inputs) OutOpen)
-           -> CompileResult lblIn (Just lblOut)
+  CRClosed : Graph VBlock (Undefined lbl) Closed -> CompileResult lbl Nothing
+  CROpen : Graph VBlock (Undefined lblIn) (Undefined lblOut) -> CompileResult lblIn (Just lblOut)
+  
 
 export
 initCR : CompileResult lbl (Just lbl)
-initCR = SingleBLKO initCBlock
+initCR = CROpen (SingleVertex {vins = Nothing} {vouts = Nothing} initCBlock)
 
 
 
 export
-mapOO : ({is : InStatus} -> CBlock lbl is OutOpen -> CBlock lbl is OutOpen)
-     -> CompileResult lbl' (Just lbl)
-     -> CompileResult lbl' (Just lbl)
-mapOO f (SingleBLKO blk) = SingleBLKO (f blk)
-mapOO f (DoubleBLK blkIn (ins ** blkOut))
-  = DoubleBLK blkIn (ins ** f blkOut)
-
-export
-closeCR : {cfk : CFKind} -> CFInstr cfk -> CompileResult lbl (Just lbl') -> CompM (CompileResult lbl Nothing)
-closeCR {cfk} instr (SingleBLKO blk) = pure $ SingleBLKC (cfk ** blk <+| instr)
-closeCR {cfk} instr (DoubleBLK blkIn (inputs ** blkOut)) = do
-  addBlock $ blkOut <+| instr
-  pure $ SingleBLKC blkIn
-
+mapOO : ({is : InStatus} -> CBlock lblOut is OutOpen -> CBlock lblOut is OutOpen)
+     -> CompileResult lblIn (Just lblOut)
+     -> CompileResult lblIn (Just lblOut)
+mapOO f (CROpen {lblIn} g) = CROpen $ mapOut {outs = Undefined} f g
 
 
 export
-combineCR : CompileResult lbl (Just lbl') -> CompileResult lbl' os -> CompM (CompileResult lbl os)
-
-combineCR (SingleBLKO blk) (SingleBLKO blk')                  = pure $ SingleBLKO (blk ++ blk')
-combineCR (SingleBLKO blk) (DoubleBLK (cfk ** blkIn) blkOut)  = pure $ DoubleBLK (cfk ** blk ++ blkIn) blkOut
-combineCR (SingleBLKO blk) (SingleBLKC (cfk ** blk'))         = pure $ SingleBLKC (cfk ** blk ++ blk')
-
-combineCR (DoubleBLK blkIn (ins ** blkOut)) (SingleBLKO blk) = do
-  pure $ DoubleBLK blkIn (ins ** blkOut ++ blk)
-
-combineCR (DoubleBLK blkIn (ins ** blkOut)) (DoubleBLK (cfk ** blkIn') blkOut') = do
-  addBlock $ blkOut ++ blkIn'
-  pure $ DoubleBLK blkIn blkOut'
-
-combineCR (DoubleBLK blkIn (ins ** blkOut)) (SingleBLKC (cfk ** blk)) = do
-  addBlock $ blkOut ++ blk
-  pure $ SingleBLKC blkIn
+addReturn : CFInstr Return -> CompileResult lbl (Just lbl') -> CompileResult lbl Nothing
+addReturn instr (CROpen g) = CRClosed $ mapOut {outs = Just []} (<+| instr) g --(<+| instr) g
+--closeCR : {cfk : CFKind} -> CFInstr cfk -> CompileResult lbl (Just lbl') -> CompileResult lbl Nothing
+--closeCR {cfk} instr (Open g) = Closed $ mapOut {outs = Just []} (<+| instr) g --(<+| instr) g
+--closeCR {cfk} instr (Open g) = Open $ mapOut (<+| instr) g
+--closeCR {cfk} instr (DoubleBLK blkIn (inputs ** blkOut)) = do
+--  addBlock $ blkOut <+| instr
+--  pure $ SingleBLKC blkIn
 
 
-
+export
+combineCR : CompileResult lbl (Just lbl') -> CompileResult lbl' os -> CompileResult lbl os
+combineCR (CROpen g) (CRClosed g') = CRClosed $ connect g g'
+combineCR (CROpen g) (CROpen g') = CROpen $ connect g g'
 
 
 
@@ -82,10 +83,17 @@ OpenOr : CRType -> Lazy CRType -> CRType
 OpenOr Open rt = Open
 OpenOr Closed rt = rt
 
+
 public export
 ClosedOr : CRType -> Lazy CRType -> CRType
 ClosedOr Closed rt = Closed
 ClosedOr Open rt = rt
+
+
+public export
+toCRType : Maybe BlockLabel -> CRType
+toCRType Nothing = Closed
+toCRType (Just _) = Open
 
 
 public export
@@ -100,19 +108,22 @@ initCR' lbl = CRO (lbl ** initCR)
 
 
 
+
+export
+combineCR' : CompileResult lbl (Just lbl') -> CompileResult' lbl' os -> CompileResult' lbl os
+combineCR' cr (CRC cr') = CRC $ combineCR cr cr'
+combineCR' cr (CRO (lbl'' ** cr')) = CRO $ (lbl'' ** combineCR cr cr')
+
+
+
+
 public export
 data MLabel : CRType -> Type where
   NoLabel : MLabel Closed
   YesLabel : BlockLabel -> MLabel Open
 
 export
-combineCR' : CompileResult lbl (Just lbl') -> CompileResult' lbl' os -> CompM (CompileResult' lbl os)
-combineCR' cr (CRC cr') = CRC <$> combineCR cr cr'
-combineCR' cr (CRO (lbl'' ** cr')) = do
-  cr'' <- combineCR cr cr'
-  pure $ CRO (lbl'' ** cr'')
-  
-export getOutLabel : CompileResult' lbl os -> MLabel os
+getOutLabel : CompileResult' lbl os -> MLabel os
 getOutLabel (CRC cr) = NoLabel
 getOutLabel (CRO (lbl ** cr)) = YesLabel lbl
   
@@ -121,10 +132,6 @@ getOutputs : CompileResult' lbl os -> List BlockLabel
 getOutputs (CRC cr) = []
 getOutputs (CRO (lbl ** cr)) = [lbl]
 
-public export
-toCRType : Maybe BlockLabel -> CRType
-toCRType Nothing = Closed
-toCRType (Just _) = Open
 
 
 

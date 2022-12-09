@@ -71,29 +71,25 @@ export
 MkBB phis body () m <+| instr = MkBB phis body instr m
 
 export
-(|++>) : {inputs : Inputs}
-      -> List (PhiInstr inputs)
+(|++>) : List (PhiInstr inputs)
       -> CBlock lbl InOpen os
       -> CBlock lbl (InClosed inputs) os
 phis |++> MkBB () body term m = MkBB phis body term m
 
 export
-(|+>) : {inputs : Inputs}
-     -> PhiInstr inputs
+(|+>) : PhiInstr inputs
      -> CBlock lbl InOpen os
      -> CBlock lbl (InClosed inputs) os
 instr |+> blk = [instr] |++> blk
 
 export
-(+|) : {inputs : Inputs}
-    -> PhiInstr inputs
+(+|) : PhiInstr inputs
     -> CBlock lbl (InClosed inputs) os
     -> CBlock lbl (InClosed inputs) os
 instr +| MkBB phis body term m = MkBB (instr :: phis) body term m
 
 export
-(++|) : {inputs : Inputs}
-     -> List (PhiInstr inputs)
+(++|) : List (PhiInstr inputs)
      -> CBlock lbl (InClosed inputs) os
      -> CBlock lbl (InClosed inputs) os
 phis ++| blk = foldl (flip (+|)) blk phis
