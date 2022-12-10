@@ -27,7 +27,7 @@ Add phi assignments and a terminating instruction if necessary to the blocks
 that are a result of compilation of a sub instruction and add the blocks to the
 control flow graph
 -}
-handleBranchResult : CompileResult' lbl os
+handleBranchResult : CompileResult lbl os
                   -> (labelIn : BlockLabel)
                   -> (labelPost : BlockLabel)
                   -> CompM (  outs
@@ -36,14 +36,14 @@ handleBranchResult : CompileResult' lbl os
                               )
                            )
 
-handleBranchResult (CRC (CRClosed g)) labelIn labelPost = let
+handleBranchResult (CRC g) labelIn labelPost = let
 
   -- TODO: phis
   g' = mapIn {ins = Just [labelIn]} (?hbr_phis1 |++>) g
 
   in pure ([] ** (g', CompatClosed))
 
-handleBranchResult (CRO (lbl' ** CROpen g)) labelIn labelPost = let
+handleBranchResult (CRO (lbl' ** g)) labelIn labelPost = let
 
   -- TODO: phis
   g' = mapOut {outs = Just [labelPost]} (<+| Branch labelPost)
@@ -84,7 +84,7 @@ mutual
 
 compileInstr : (labelIn : BlockLabel)
             -> (instr : Instr)
-            -> CompM (CompileResult' labelIn $ InstrCR instr)
+            -> CompM (CompileResult labelIn $ InstrCR instr)
 
 
 -- Block ----------------------------------------------------------------------
@@ -94,30 +94,30 @@ compileInstr labelIn (Block instrs) = compile' labelIn instrs where
 
     compile' : (labelIn : BlockLabel)
             -> (instrs : List Instr)
-            -> CompM (CompileResult' labelIn $ InstrsCR instrs)
-    compile' labelIn [] = pure (initCR' labelIn)
+            -> CompM (CompileResult labelIn $ InstrsCR instrs)
+    compile' labelIn [] = pure (initCR labelIn)
     compile' labelIn (instr :: instrs) = do
       res <- compileInstr labelIn instr
       handleRes res instrs
       
     handleRes : {0 labelIn : BlockLabel}
-             -> CompileResult' labelIn os
+             -> CompileResult labelIn os
              -> (instrs : List Instr)
-             -> CompM (CompileResult' labelIn $ ClosedOr os (InstrsCR instrs))
-    handleRes (CRC res) instrs = pure (CRC res)
-    handleRes (CRO (lbl ** res)) instrs = do
-      res' <- compile' lbl instrs
-      pure $ combineCR' res res'
+             -> CompM (CompileResult labelIn $ ClosedOr os (InstrsCR instrs))
+    handleRes (CRC g) instrs = pure (CRC g)
+    handleRes (CRO (lbl ** g)) instrs = do
+      res <- compile' lbl instrs
+      pure $ combineCR g res
     
 
 
 -- Assign ---------------------------------------------------------------------
 compileInstr labelIn (Assign var expr) = do
-  ((lbl ** res), val) <- compileExpr labelIn expr
+  ((lbl ** g), val) <- compileExpr labelIn expr
   
-  let res' = mapOO (assign var val) res
+  let g' = mapOut {outs = Undefined} (assign var val) g
 
-  pure $ CRO (lbl ** res')
+  pure $ CRO (lbl ** g')
   
   
 
@@ -129,7 +129,7 @@ compileInstr labelIn (Assign var expr) = do
 compileInstr labelIn (If cond instrThen) = do
 
   -- TODO: use `ifology`
-  ((condLabel ** CROpen condG), val) <- compileExpr labelIn cond
+  ((condLabel ** condG), val) <- compileExpr labelIn cond
   labelThen <- freshLabel
   labelPost <- freshLabel
 
@@ -154,7 +154,7 @@ compileInstr labelIn (If cond instrThen) = do
   
   let final = Connect condG' (Connect branches postG)
   
-  pure $ CRO (labelPost ** CROpen final)
+  pure $ CRO (labelPost ** final)
   
 
 
@@ -163,7 +163,7 @@ compileInstr labelIn (If cond instrThen) = do
 compileInstr labelIn (IfElse cond instrThen instrElse) = do
 
   -- TODO: use `ifology`
-  ((condLabel ** CROpen condG), val) <- compileExpr labelIn cond
+  ((condLabel ** condG), val) <- compileExpr labelIn cond
   labelThen <- freshLabel
   labelElse <- freshLabel
   labelPost <- freshLabel
@@ -192,9 +192,9 @@ compileInstr labelIn (IfElse cond instrThen instrElse) = do
                     -> (0 compatE : Compatible os' elseOuts)
                     -> (labelPost : BlockLabel)
                     -> Graph VBlock (Undefined lbl) (Ends $ map (~> labelPost) (thenOuts ++ elseOuts))
-                    -> CompM (CompileResult' lbl (OpenOr os os'))
+                    -> CompM (CompileResult lbl (OpenOr os os'))
 
-    finishIfThenElse [] CompatClosed [] CompatClosed labelPost g = pure $ CRC (CRClosed g)
+    finishIfThenElse [] CompatClosed [] CompatClosed labelPost g = pure (CRC g)
 
     finishIfThenElse [] CompatClosed [l'] CompatOpen labelPost g = do
       
@@ -206,7 +206,7 @@ compileInstr labelIn (IfElse cond instrThen instrElse) = do
 
       let final = Connect g postG
 
-      pure $ CRO (labelPost ** CROpen final)
+      pure $ CRO (labelPost ** final)
       
     finishIfThenElse [l] CompatOpen elseOuts _ labelPost g = do
 
@@ -219,22 +219,22 @@ compileInstr labelIn (IfElse cond instrThen instrElse) = do
 
       let final = Connect g postG
 
-      pure $ CRO (labelPost ** CROpen final)
+      pure $ CRO (labelPost ** final)
 
 
 
 -- Return ---------------------------------------------------------------------
 compileInstr labelIn (Return expr) = do
-  ((_ ** res), val) <- compileExpr labelIn expr
+  ((_ ** g), val) <- compileExpr labelIn expr
   
-  let res' = addReturn (Ret val) res
-  pure (CRC res')
+  let g' = mapOut {outs = Closed} (<+| Ret val) g
+  pure (CRC g')
 
 
 -- RetVoid --------------------------------------------------------------------
 compileInstr labelIn RetVoid = do
-  let res = addReturn RetVoid initCR
-  pure (CRC res)
+  let g = mapOut {outs = Closed} (<+| RetVoid) initG
+  pure (CRC g)
 
 
 

@@ -27,49 +27,14 @@ public export
 VBlock : Vertex BlockLabel
 VBlock l ins outs = CBlock l (toIS ins) (toOS outs)
 
+export
 implementation Connectable VBlock where
   cnct = (++)
 
 
-public export
-data CompileResult : BlockLabel -> (Maybe BlockLabel) -> Type where
-  CRClosed : Graph VBlock (Undefined lbl) Closed -> CompileResult lbl Nothing
-  CROpen : Graph VBlock (Undefined lblIn) (Undefined lblOut) -> CompileResult lblIn (Just lblOut)
-  
-
 export
-initCR : CompileResult lbl (Just lbl)
-initCR = CROpen (SingleVertex {vins = Nothing} {vouts = Nothing} initCBlock)
-
-
-
-export
-mapOO : ({is : InStatus} -> CBlock lblOut is OutOpen -> CBlock lblOut is OutOpen)
-     -> CompileResult lblIn (Just lblOut)
-     -> CompileResult lblIn (Just lblOut)
-mapOO f (CROpen {lblIn} g) = CROpen $ mapOut {outs = Undefined} f g
-
-
-export
-addReturn : CFInstr Return -> CompileResult lbl (Just lbl') -> CompileResult lbl Nothing
-addReturn instr (CROpen g) = CRClosed $ mapOut {outs = Just []} (<+| instr) g --(<+| instr) g
---closeCR : {cfk : CFKind} -> CFInstr cfk -> CompileResult lbl (Just lbl') -> CompileResult lbl Nothing
---closeCR {cfk} instr (Open g) = Closed $ mapOut {outs = Just []} (<+| instr) g --(<+| instr) g
---closeCR {cfk} instr (Open g) = Open $ mapOut (<+| instr) g
---closeCR {cfk} instr (DoubleBLK blkIn (inputs ** blkOut)) = do
---  addBlock $ blkOut <+| instr
---  pure $ SingleBLKC blkIn
-
-
-export
-combineCR : CompileResult lbl (Just lbl') -> CompileResult lbl' os -> CompileResult lbl os
-combineCR (CROpen g) (CRClosed g') = CRClosed $ connect g g'
-combineCR (CROpen g) (CROpen g') = CROpen $ connect g g'
-
-
-
-
-
+initG : Graph VBlock (Undefined lbl) (Undefined lbl)
+initG = initGraph initCBlock
 
 
 
@@ -97,22 +62,22 @@ toCRType (Just _) = Open
 
 
 public export
-data CompileResult' : BlockLabel -> CRType -> Type where
-  CRC : CompileResult lbl Nothing -> CompileResult' lbl Closed
-  CRO : (lbl' ** CompileResult lbl (Just lbl')) -> CompileResult' lbl Open
+data CompileResult : BlockLabel -> CRType -> Type where
+  CRC : Graph VBlock (Undefined lbl) Closed -> CompileResult lbl Closed
+  CRO : (lbl' ** Graph VBlock (Undefined lbl) (Undefined lbl')) -> CompileResult lbl Open
 
 
 export
-initCR' : (lbl : BlockLabel) -> CompileResult' lbl Open
-initCR' lbl = CRO (lbl ** initCR)
+initCR : (lbl : BlockLabel) -> CompileResult lbl Open
+initCR lbl = CRO (lbl ** initG)
 
 
 
 
 export
-combineCR' : CompileResult lbl (Just lbl') -> CompileResult' lbl' os -> CompileResult' lbl os
-combineCR' cr (CRC cr') = CRC $ combineCR cr cr'
-combineCR' cr (CRO (lbl'' ** cr')) = CRO $ (lbl'' ** combineCR cr cr')
+combineCR : Graph VBlock (Undefined lbl) (Undefined lbl') -> CompileResult lbl' os -> CompileResult lbl os
+combineCR g (CRC g') = CRC $ connect g g'
+combineCR g (CRO (lbl'' ** g')) = CRO $ (lbl'' ** connect g g')
 
 
 
@@ -123,12 +88,12 @@ data MLabel : CRType -> Type where
   YesLabel : BlockLabel -> MLabel Open
 
 export
-getOutLabel : CompileResult' lbl os -> MLabel os
+getOutLabel : CompileResult lbl os -> MLabel os
 getOutLabel (CRC cr) = NoLabel
 getOutLabel (CRO (lbl ** cr)) = YesLabel lbl
   
 export
-getOutputs : CompileResult' lbl os -> List BlockLabel
+getOutputs : CompileResult lbl os -> List BlockLabel
 getOutputs (CRC cr) = []
 getOutputs (CRO (lbl ** cr)) = [lbl]
 

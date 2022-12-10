@@ -46,7 +46,7 @@ integerize : {auto 0 prf : EqComparable t}
           -> DPairI (\n => (LLValue (I n), LLValue (I n)))
 integerize {prf} (val, val') = let
   
-  0 nsuch : (n ** I n = GetLLType t)
+  0 nsuch : (k ** I k = GetLLType t)
   nsuch = case prf of
     EqCMPBool => (1 ** Refl)
     EqCMPInt => (32 ** Refl)
@@ -63,17 +63,16 @@ integerize {prf} (val, val') = let
 
 
 
-
 mutual
 
   export
   compileExpr : (labelIn : BlockLabel)
              -> Expr t
-             -> CompM ((lbl ** CompileResult labelIn (Just lbl)), LLValue (GetLLType t))
+             -> CompM ((lbl ** Graph VBlock (Undefined labelIn) (Undefined lbl)), LLValue (GetLLType t))
 
 
 
-  compileExpr labelIn (Lit lit) = pure ((labelIn ** initCR), fromLNGLit lit)
+  compileExpr labelIn (Lit lit) = pure ((labelIn ** initG), fromLNGLit lit)
 
   compileExpr labelIn (Var var) = do
     
@@ -85,7 +84,7 @@ mutual
     -}
     val <- getValue var
 
-    pure ((labelIn ** initCR), val)
+    pure ((labelIn ** initG), val)
 
   
 
@@ -99,11 +98,11 @@ mutual
     Or  => compileBoolExpr labelIn (BinOperation Or  lhs rhs)
     
     EQ => do
-        ((lbl ** res), lhs', rhs') <- compileOperands labelIn lhs rhs
+        ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
         let MkDPairI n (lhs'', rhs'') = integerize (lhs', rhs')
 
-        (res', val) <- addICMP EQ res lhs'' rhs''
-        pure ((lbl ** res'), val)
+        (g', val) <- addICMP EQ g lhs'' rhs''
+        pure ((lbl ** g'), val)
 
     LE => compileOrdComparison labelIn SLE lhs rhs
     LT => compileOrdComparison labelIn SLT lhs rhs
@@ -116,13 +115,13 @@ mutual
     
     Neg => do
 
-      ((lbl ** res), val) <- compileExpr labelIn expr
+      ((lbl ** g), val) <- compileExpr labelIn expr
       reg <- freshRegister
 
       -- TODO: Is this OK or is it a hack?
-      let res' = mapOO (<+ Assign reg (BinOperation SUB (ILit 0) val)) res
+      let g' = mapOut {outs = Undefined} (<+ Assign reg (BinOperation SUB (ILit 0) val)) g
       
-      pure ((lbl ** res'), Var reg)
+      pure ((lbl ** g'), Var reg)
 
     Not => compileBoolExpr labelIn (UnOperation Not expr)
 
@@ -130,12 +129,12 @@ mutual
   compileExpr labelIn (Call fun args) = do
     funPtr <- getFunPtr fun
 
-    ((lbl ** res), args') <- compileExprs labelIn args
+    ((lbl ** g), args') <- compileExprs labelIn args
 
     reg <- freshRegister
-    let res' = mapOO (<+ Assign reg (Call funPtr args')) res
+    let g' = mapOut {outs = Undefined} (<+ Assign reg (Call funPtr args')) g
 
-    pure ((lbl ** res'), Var reg)
+    pure ((lbl ** g'), Var reg)
   
 
 
@@ -143,17 +142,17 @@ mutual
   -----------------------------------------------------------------------------
   compileExprs : (labelIn : BlockLabel)
               -> DList Expr ts
-              -> CompM  ( (lbl ** CompileResult labelIn (Just lbl))
+              -> CompM  ( (lbl ** Graph VBlock (Undefined labelIn) (Undefined lbl))
                         , DList LLValue (map GetLLType ts)
                         )
-  compileExprs labelIn [] = pure ((labelIn ** initCR), [])
+  compileExprs labelIn [] = pure ((labelIn ** initG), [])
   compileExprs labelIn (expr :: exprs) = do
-    ((lbl ** res), val) <- compileExpr labelIn expr
-    ((lbl' ** res'), vals) <- compileExprs lbl exprs
+    ((lbl ** g), val) <- compileExpr labelIn expr
+    ((lbl' ** g'), vals) <- compileExprs lbl exprs
 
-    let res'' = combineCR res res'
+    let g'' = connect g g'
     
-    pure ((lbl' ** res''), val :: vals)
+    pure ((lbl' ** g''), val :: vals)
   
 
 
@@ -162,18 +161,18 @@ mutual
   compileOperands : (labelIn : BlockLabel)
                  -> Expr t
                  -> Expr t'
-                 -> CompM ( (lbl ** CompileResult labelIn (Just lbl))
+                 -> CompM ( (lbl ** Graph VBlock (Undefined labelIn) (Undefined lbl))
                           , LLValue (GetLLType t)
                           , LLValue (GetLLType t')
                           )
 
   compileOperands labelIn lhs rhs = do
     
-    ((labelL ** resL), lhs') <- compileExpr labelIn lhs
-    ((labelR ** resR), rhs') <- compileExpr labelL rhs
+    ((labelL ** gl), lhs') <- compileExpr labelIn lhs
+    ((labelR ** gr), rhs') <- compileExpr labelL rhs
   
-    let resLR = combineCR resL resR
-    pure ((labelR ** resLR), lhs', rhs')
+    let glr = connect gl gr
+    pure ((labelR ** glr), lhs', rhs')
   
 
 
@@ -184,14 +183,14 @@ mutual
                 -> BinOperator I32 I32 I32
                 -> Expr TInt
                 -> Expr TInt
-                -> CompM ((lbl ** CompileResult labelIn (Just lbl)), LLValue I32)
+                -> CompM ((lbl ** Graph VBlock (Undefined labelIn) (Undefined lbl)), LLValue I32)
   compileAritmOp labelIn op lhs rhs = do
-    ((lbl ** res), lhs', rhs') <- compileOperands labelIn lhs rhs
+    ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
     
     reg <- freshRegister
-    let res' = mapOO (<+ Assign reg (BinOperation op lhs' rhs')) res
+    let g' = mapOut {outs = Undefined} (<+ Assign reg (BinOperation op lhs' rhs')) g
 
-    pure ((lbl ** res'), Var reg)
+    pure ((lbl ** g'), Var reg)
   
 
 
@@ -200,27 +199,27 @@ mutual
                       -> CMPKind
                       -> Expr TInt
                       -> Expr TInt
-                      -> CompM ((lbl ** CompileResult labelIn (Just lbl)), LLValue I1)
+                      -> CompM ((lbl ** Graph VBlock (Undefined labelIn) (Undefined lbl)), LLValue I1)
   compileOrdComparison labelIn cmpKind lhs rhs = do
-    ((lbl ** res), lhs', rhs') <- compileOperands labelIn lhs rhs
+    ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
 
-    (res', val) <- addICMP cmpKind res lhs' rhs'
-    pure ((lbl ** res'), val)
+    (g', val) <- addICMP cmpKind g lhs' rhs'
+    pure ((lbl ** g'), val)
   
     
   
 
   -----------------------------------------------------------------------------
   addICMP : CMPKind
-         -> CompileResult labelIn (Just labelOut)
-         -> LLValue (I n)
-         -> LLValue (I n)
-         -> CompM (CompileResult labelIn (Just labelOut), LLValue I1)
-  addICMP cmpKind res lhs rhs = do
+         -> Graph VBlock ins (Undefined labelOut)
+         -> LLValue (I k)
+         -> LLValue (I k)
+         -> CompM (Graph VBlock ins (Undefined labelOut), LLValue I1)
+  addICMP cmpKind g lhs rhs = do
     reg <- freshRegister
-    let res' = mapOO (<+ Assign reg (ICMP cmpKind lhs rhs)) res
+    let g' = mapOut {outs = Undefined} (<+ Assign reg (ICMP cmpKind lhs rhs)) g
     
-    pure (res', Var reg)
+    pure (g', Var reg)
   
 
 
@@ -286,7 +285,7 @@ mutual
     pure (outsThen ** outsElse ** (FlipOut g, prfT, prfE))
   
   ifology labelIn expr labelThen labelElse = do
-    ((lbl ** CROpen g), val) <- compileExpr labelIn expr
+    ((lbl ** g), val) <- compileExpr labelIn expr
     let g' = mapOut {outs = Just [labelThen, labelElse]} (<+| CondBranch val labelThen labelElse) g
     
     let inputs = MkInputs [lbl]
@@ -301,7 +300,7 @@ mutual
 
   compileBoolExpr : (labelIn : BlockLabel)
                  -> Expr TBool
-                 -> CompM ((lbl ** CompileResult labelIn (Just lbl)), LLValue I1)
+                 -> CompM ((lbl ** Graph VBlock (Undefined labelIn) (Undefined lbl)), LLValue I1)
 
   compileBoolExpr labelIn expr = do
     labelTrue <- freshLabel
@@ -347,7 +346,7 @@ mutual
     let confluence = Connect (Parallel trueG falseG) postG
     let final = Connect ifologyG confluence
     
-    pure ((labelPost ** CROpen final), Var reg)
+    pure ((labelPost ** final), Var reg)
 
 
 

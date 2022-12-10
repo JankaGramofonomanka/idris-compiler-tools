@@ -217,5 +217,9 @@ namespace Graph
   connect (FlipOut g)                           g' impossible
   
 
-
+  export
+  initGraph : {vertex : Vertex a}
+           -> vertex v Undefined Undefined
+           -> Graph vertex (Undefined v) (Undefined v)
+  initGraph v = SingleVertex v
 
