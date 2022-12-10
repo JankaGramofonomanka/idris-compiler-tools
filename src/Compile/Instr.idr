@@ -31,7 +31,7 @@ handleBranchResult : CompileResult lbl os
                   -> (labelIn : BlockLabel)
                   -> (labelPost : BlockLabel)
                   -> CompM (  outs
-                           ** ( Graph VBlock (Ends [labelIn ~> lbl]) (Ends $ map (~> labelPost) outs)
+                           ** ( CFG VBlock (Ends [labelIn ~> lbl]) (Ends $ map (~> labelPost) outs)
                               , Compatible os outs
                               )
                            )
@@ -138,7 +138,7 @@ compileInstr labelIn (If cond instrThen) = do
   thenRes <- compileInstr labelThen instrThen
   (thenOuts ** (thenG, _)) <- handleBranchResult thenRes condLabel labelPost
 
-  let branches : Graph VBlock
+  let branches : CFG VBlock
                   (Ends [condLabel ~> labelThen, condLabel ~> labelPost])
                   (Ends $ map (~> labelPost) (thenOuts ++ [condLabel]))
 
@@ -149,7 +149,7 @@ compileInstr labelIn (If cond instrThen) = do
   let postBLK : VBlock labelPost (Just $ thenOuts ++ [condLabel]) Undefined
       postBLK = ?phis0 |++> initCBlock
   
-  let postG : Graph VBlock (Ends $ map (~> labelPost) (thenOuts ++ [condLabel])) (Undefined labelPost)
+  let postG : CFG VBlock (Ends $ map (~> labelPost) (thenOuts ++ [condLabel])) (Undefined labelPost)
       postG = SingleVertex {vins = Just (thenOuts ++ [condLabel]), vouts = Undefined} postBLK
   
   let final = Connect condG' (Connect branches postG)
@@ -175,7 +175,7 @@ compileInstr labelIn (IfElse cond instrThen instrElse) = do
   (thenOuts ** (thenG, compatT)) <- handleBranchResult thenRes condLabel labelPost
   (elseOuts ** (elseG, compatE)) <- handleBranchResult elseRes condLabel labelPost
 
-  let branches : Graph VBlock
+  let branches : CFG VBlock
                   (Ends [condLabel ~> labelThen, condLabel ~> labelElse])
                   (Ends $ map (~> labelPost) (thenOuts ++ elseOuts))
       branches = rewrite map_concat {f = (~> labelPost)} thenOuts elseOuts
@@ -191,7 +191,7 @@ compileInstr labelIn (IfElse cond instrThen instrElse) = do
                     -> (elseOuts : List BlockLabel)
                     -> (0 compatE : Compatible os' elseOuts)
                     -> (labelPost : BlockLabel)
-                    -> Graph VBlock (Undefined lbl) (Ends $ map (~> labelPost) (thenOuts ++ elseOuts))
+                    -> CFG VBlock (Undefined lbl) (Ends $ map (~> labelPost) (thenOuts ++ elseOuts))
                     -> CompM (CompileResult lbl (OpenOr os os'))
 
     finishIfThenElse [] CompatClosed [] CompatClosed labelPost g = pure (CRC g)
@@ -201,7 +201,7 @@ compileInstr labelIn (IfElse cond instrThen instrElse) = do
       let postBLK : VBlock labelPost (Just [l']) Undefined
           postBLK = ?hphis1 |++> initCBlock
 
-      let postG : Graph VBlock (Ends [l' ~> labelPost]) (Undefined labelPost)
+      let postG : CFG VBlock (Ends [l' ~> labelPost]) (Undefined labelPost)
           postG = SingleVertex {vins = Just [l'], vouts = Undefined} postBLK
 
       let final = Connect g postG
@@ -214,7 +214,7 @@ compileInstr labelIn (IfElse cond instrThen instrElse) = do
           postBLK = ?hphis2 |++> initCBlock
 
       
-      let postG : Graph VBlock (Ends $ map (~> labelPost) (l :: elseOuts)) (Undefined labelPost)
+      let postG : CFG VBlock (Ends $ map (~> labelPost) (l :: elseOuts)) (Undefined labelPost)
           postG = SingleVertex {vins = Just $ l :: elseOuts, vouts = Undefined} postBLK
 
       let final = Connect g postG
@@ -233,7 +233,7 @@ compileInstr labelIn (Return expr) = do
 
 -- RetVoid --------------------------------------------------------------------
 compileInstr labelIn RetVoid = do
-  let g = mapOut {outs = Closed} (<+| RetVoid) initG
+  let g = mapOut {outs = Closed} (<+| RetVoid) initCFG
   pure (CRC g)
 
 

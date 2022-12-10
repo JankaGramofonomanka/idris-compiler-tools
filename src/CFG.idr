@@ -90,56 +90,56 @@ namespace Graph
   fromVIn (Just ins)  v = Ends $ map (~> v) ins
 
   public export
-  data Graph : Vertex a -> Endpoints a -> Endpoints a -> Type where
+  data CFG : Vertex a -> Endpoints a -> Endpoints a -> Type where
 
     SingleVertex : {0 vertex : Vertex a}
                 -> {vins, vouts : Endpoint a}
                 -> vertex v vins vouts
-                -> Graph vertex (fromVIn vins v) (fromVOut v vouts)
+                -> CFG vertex (fromVIn vins v) (fromVOut v vouts)
 
-    Empty : Graph vertex (Ends es) (Ends es)
+    Empty : CFG vertex (Ends es) (Ends es)
     
     Cycle : (node : vertex v (Just $ u :: ins) (Just $ w :: outs))
-         -> (loop : Graph vertex (Single v w) (Single u v))
-         -> Graph vertex (fromVIn (Just ins) v) (fromVOut v (Just outs))
+         -> (loop : CFG vertex (Single v w) (Single u v))
+         -> CFG vertex (fromVIn (Just ins) v) (fromVOut v (Just outs))
 
     -- TODO: Consider the following
     --Cycle : (node : Vertex v (Just $ ins ++ u :: ins') (Just $ outs ++ w :: outs'))
-    --     -> (loop : Graph a (Single v w) (Single u v))
-    --     -> Graph a (fromVIn (Just $ ins ++ ins') v) (fromVOut v (Just $ outs ++ outs'))
+    --     -> (loop : CFG a (Single v w) (Single u v))
+    --     -> CFG a (fromVIn (Just $ ins ++ ins') v) (fromVOut v (Just $ outs ++ outs'))
 
 
     
-    Connect : Graph vertex ins (Ends edges)
-           -> Graph vertex (Ends edges) outs
-           -> Graph vertex ins outs
+    Connect : CFG vertex ins (Ends edges)
+           -> CFG vertex (Ends edges) outs
+           -> CFG vertex ins outs
     
-    Parallel : Graph vertex (Ends ins) (Ends outs)
-            -> Graph vertex (Ends ins') (Ends outs')
-            -> Graph vertex (Ends $ ins ++ ins') (Ends $ outs ++ outs')
+    Parallel : CFG vertex (Ends ins) (Ends outs)
+            -> CFG vertex (Ends ins') (Ends outs')
+            -> CFG vertex (Ends $ ins ++ ins') (Ends $ outs ++ outs')
     
-    FlipIn : Graph vertex (Ends $ ins ++ ins') outs
-          -> Graph vertex (Ends $ ins' ++ ins) outs
+    FlipIn : CFG vertex (Ends $ ins ++ ins') outs
+          -> CFG vertex (Ends $ ins' ++ ins) outs
     
-    FlipOut : Graph vertex ins (Ends $ outs ++ outs')
-           -> Graph vertex ins (Ends $ outs' ++ outs)
+    FlipOut : CFG vertex ins (Ends $ outs ++ outs')
+           -> CFG vertex ins (Ends $ outs' ++ outs)
 
   public export
   prepend : {0 vertex : Vertex a}
          -> {vins : Endpoint a}
          -> {vouts : List a}
          -> vertex v vins (Just vouts)
-         -> Graph vertex (Ends $ map (v ~>) vouts) gouts
-         -> Graph vertex (fromVIn vins v) gouts
+         -> CFG vertex (Ends $ map (v ~>) vouts) gouts
+         -> CFG vertex (fromVIn vins v) gouts
   prepend v g = Connect (SingleVertex v) g
 
   public export
   append : {vins : List a}
         -> {vouts : Endpoint a}
         
-        -> Graph vertex gins (Ends $ map (~> v) vins)
+        -> CFG vertex gins (Ends $ map (~> v) vins)
         -> vertex v (Just vins) vouts
-        -> Graph vertex gins (fromVOut v vouts)
+        -> CFG vertex gins (fromVOut v vouts)
   append g v = Connect g (SingleVertex v)
   
   branch : {0 vertex : Vertex a}
@@ -147,9 +147,9 @@ namespace Graph
         -> {w, w' : a}
         
         -> (pre   : vertex v vins (Just [w, w']))
-        -> (left  : Graph vertex (Single v w)  (Ends louts))
-        -> (right : Graph vertex (Single v w') (Ends routs))
-        -> Graph vertex (fromVIn vins v) (Ends $ louts ++ routs)
+        -> (left  : CFG vertex (Single v w)  (Ends louts))
+        -> (right : CFG vertex (Single v w') (Ends routs))
+        -> CFG vertex (fromVIn vins v) (Ends $ louts ++ routs)
   branch pre left right = prepend pre $ Parallel left right
 
   fullBranch : {0 vertex : Vertex a}
@@ -157,10 +157,10 @@ namespace Graph
             -> {w, w', u, u' : a}
 
             -> (pre    : vertex v vins (Just [w, w']))
-            -> (left   : Graph vertex (Single v w)  (Single u t))
-            -> (right  : Graph vertex (Single v w') (Single u' t))
+            -> (left   : CFG vertex (Single v w)  (Single u t))
+            -> (right  : CFG vertex (Single v w') (Single u' t))
             -> (post   : vertex t (Just [u, u']) vouts)
-            -> Graph vertex (fromVIn vins v) (fromVOut t vouts)
+            -> CFG vertex (fromVIn vins v) (fromVOut t vouts)
   fullBranch pre left right post = append (branch pre left right) post
   
   export
@@ -168,8 +168,8 @@ namespace Graph
           -> {ins : Endpoint a}
 
           -> ({outs : Endpoint a} -> vertex v Undefined outs -> vertex v ins outs)
-          -> Graph vertex (Undefined v) gouts
-          -> Graph vertex (fromVIn ins v) gouts
+          -> CFG vertex (Undefined v) gouts
+          -> CFG vertex (fromVIn ins v) gouts
 
   mapIn f (SingleVertex {vins = Nothing} v) = SingleVertex (f v)
   mapIn f (Connect g g')                    = Connect (mapIn f g) g'
@@ -187,8 +187,8 @@ namespace Graph
           -> {outs : Endpoint a}
 
           -> ({ins : Endpoint a} -> vertex v ins Undefined -> vertex v ins outs)
-          -> Graph vertex gins (Undefined v)
-          -> Graph vertex gins (fromVOut v outs)
+          -> CFG vertex gins (Undefined v)
+          -> CFG vertex gins (fromVOut v outs)
 
   mapOut f (SingleVertex {vouts = Nothing} v) = SingleVertex (f v)
   mapOut f (Connect g g')                     = Connect g (mapOut f g')
@@ -202,9 +202,9 @@ namespace Graph
 
   export
   connect : (impl : Connectable vertex)
-         => Graph vertex ins (Undefined v)
-         -> Graph vertex (Undefined v) outs
-         -> Graph vertex ins outs
+         => CFG vertex ins (Undefined v)
+         -> CFG vertex (Undefined v) outs
+         -> CFG vertex ins outs
 
   connect (SingleVertex {vouts = Nothing} v)  g   = mapIn (cnct @{impl} v) g
   connect (Connect g g')                      g'' = Connect g (connect g' g'')
@@ -220,6 +220,6 @@ namespace Graph
   export
   initGraph : {vertex : Vertex a}
            -> vertex v Undefined Undefined
-           -> Graph vertex (Undefined v) (Undefined v)
+           -> CFG vertex (Undefined v) (Undefined v)
   initGraph v = SingleVertex v
 

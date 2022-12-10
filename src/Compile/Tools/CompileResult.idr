@@ -33,8 +33,8 @@ implementation Connectable VBlock where
 
 
 export
-initG : Graph VBlock (Undefined lbl) (Undefined lbl)
-initG = initGraph initCBlock
+initCFG : CFG VBlock (Undefined lbl) (Undefined lbl)
+initCFG = initGraph initCBlock
 
 
 
@@ -63,19 +63,19 @@ toCRType (Just _) = Open
 
 public export
 data CompileResult : BlockLabel -> CRType -> Type where
-  CRC : Graph VBlock (Undefined lbl) Closed -> CompileResult lbl Closed
-  CRO : (lbl' ** Graph VBlock (Undefined lbl) (Undefined lbl')) -> CompileResult lbl Open
+  CRC : CFG VBlock (Undefined lbl) Closed -> CompileResult lbl Closed
+  CRO : (lbl' ** CFG VBlock (Undefined lbl) (Undefined lbl')) -> CompileResult lbl Open
 
 
 export
 initCR : (lbl : BlockLabel) -> CompileResult lbl Open
-initCR lbl = CRO (lbl ** initG)
+initCR lbl = CRO (lbl ** initCFG)
 
 
 
 
 export
-combineCR : Graph VBlock (Undefined lbl) (Undefined lbl') -> CompileResult lbl' os -> CompileResult lbl os
+combineCR : CFG VBlock (Undefined lbl) (Undefined lbl') -> CompileResult lbl' os -> CompileResult lbl os
 combineCR g (CRC g') = CRC $ connect g g'
 combineCR g (CRO (lbl'' ** g')) = CRO $ (lbl'' ** connect g g')
 
