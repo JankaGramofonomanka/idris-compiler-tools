@@ -8,7 +8,7 @@ import LNG
 import Compile.Tools
 import Compile.Tools.CBlock
 import Compile.Tools.CompM
-import CFG.Simple
+import CFG
 
 
 

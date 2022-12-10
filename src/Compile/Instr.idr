@@ -13,7 +13,7 @@ import Compile.Tools.CompileResult
 import Compile.Tools.CompM
 import Compile.Expr
 
-import CFG.Simple
+import CFG
 import Utils
 
 

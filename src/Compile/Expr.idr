@@ -14,7 +14,7 @@ import Compile.Tools
 import Compile.Tools.CBlock
 import Compile.Tools.CompileResult
 import Compile.Tools.CompM
-import CFG.Simple
+import CFG
 
 import Utils
 
