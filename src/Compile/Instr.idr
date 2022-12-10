@@ -17,10 +17,6 @@ import CFG
 import Utils
 
 
--- TODO: find a better place for this
-data Compatible : CRType -> List BlockLabel -> Type where
-  CompatClosed  : Compatible Closed []
-  CompatOpen    : Compatible Open [lbl]
 
 {-
 Add phi assignments and a terminating instruction if necessary to the blocks

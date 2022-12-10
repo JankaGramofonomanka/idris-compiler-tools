@@ -61,24 +61,9 @@ combineCR g (CRO (lbl'' ** g')) = CRO $ (lbl'' ** connect g g')
 
 
 public export
-data MLabel : CRType -> Type where
-  NoLabel : MLabel Closed
-  YesLabel : BlockLabel -> MLabel Open
-
-export
-getOutLabel : CompileResult lbl os -> MLabel os
-getOutLabel (CRC cr) = NoLabel
-getOutLabel (CRO (lbl ** cr)) = YesLabel lbl
-  
-export
-getOutputs : CompileResult lbl os -> List BlockLabel
-getOutputs (CRC cr) = []
-getOutputs (CRO (lbl ** cr)) = [lbl]
-
-
-
-
-
+data Compatible : CRType -> List BlockLabel -> Type where
+  CompatClosed  : Compatible Closed []
+  CompatOpen    : Compatible Open [lbl]
 
 
 
