@@ -61,14 +61,15 @@ handleBranchResult (CRO (lbl' ** g)) labelIn labelPost = let
 
 mutual
   InstrCR : Instr -> CRType
-  InstrCR (Block is)     = InstrsCR is
+  InstrCR (Block is)      = InstrsCR is
 
-  InstrCR (Assign v e)   = Open
-  InstrCR (If c t)       = Open
-  InstrCR (IfElse c t e) = OpenOr (InstrCR t) (InstrCR e)
+  InstrCR (Assign v e)    = Open
+  InstrCR (If c t)        = Open
+  InstrCR (IfElse c t e)  = OpenOr (InstrCR t) (InstrCR e)
+  InstrCR (While c l)     = Open
 
-  InstrCR (Return e)     = Closed
-  InstrCR RetVoid        = Closed
+  InstrCR (Return e)      = Closed
+  InstrCR RetVoid         = Closed
 
 
 
@@ -216,6 +217,59 @@ compileInstr labelIn (IfElse cond instrThen instrElse) = do
       let final = Connect g postG
 
       pure $ CRO (labelPost ** final)
+
+
+
+-- Return ---------------------------------------------------------------------
+compileInstr labelIn (While cond loop) = do
+
+  condLabelIn <- freshLabel
+
+  let incoming : CFG CBlock (Undefined labelIn) (Ends [labelIn ~> condLabelIn])
+      incoming = SingleVertex {vouts = Just [condLabelIn]}
+               $ initCBlock <+| Branch condLabelIn
+
+  ((condLabelOut ** condG), val) <- compileExpr condLabelIn cond
+  labelLoop <- freshLabel
+  labelPost <- freshLabel
+
+  let condG' = mapOut {outs = Just [labelLoop, labelPost]} (<+| CondBranch val labelLoop labelPost) condG
+
+  loopRes <- compileInstr labelLoop loop
+  (loopOuts ** (loopG, compat)) <- handleBranchResult loopRes condLabelOut condLabelIn
+
+  whileG <- handleWhile labelIn loopOuts compat condG' loopG
+
+  let post : CFG CBlock (Ends [condLabelOut ~> labelPost]) (Undefined labelPost)
+      post = SingleVertex {vins = Just [condLabelOut]} $ ?hphis3 |++> initCBlock
+
+  let final = Connect incoming (Connect whileG post)
+  
+  pure $ CRO (labelPost ** final)
+
+  where
+    handleWhile : (labelIn : BlockLabel)
+               -> (loopOuts : List BlockLabel)
+               -> (compat : Compatible crt loopOuts)
+               -> (node : CFG CBlock (Undefined lbl) (Ends [lbl' ~> labelLoop, lbl' ~> labelPost]))
+               -> (loop : CFG CBlock (Ends [lbl' ~> labelLoop]) (Ends $ map (~> lbl) loopOuts))
+               -> CompM $ CFG CBlock (Ends [labelIn ~> lbl]) (Ends [lbl' ~> labelPost])
+    handleWhile labelIn [] CompatClosed node loop = do
+      
+      let node' = mapIn {ins = Just [labelIn]} (?hphis4 |++>) node
+      
+      let final = Connect node' (Parallel loop Empty)
+
+      pure final
+
+    handleWhile labelIn [labelLoopOut] CompatOpen node loop = do
+
+      let node' = mapIn {ins = Just [labelLoopOut, labelIn]} (?hphis5 |++>) node
+      
+      let final = Cycle node' loop
+      
+      pure final
+  
 
 
 

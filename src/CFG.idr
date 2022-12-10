@@ -99,9 +99,9 @@ namespace Graph
 
     Empty : CFG vertex (Ends es) (Ends es)
     
-    Cycle : (node : vertex v (Just $ u :: ins) (Just $ w :: outs))
-         -> (loop : CFG vertex (Single v w) (Single u v))
-         -> CFG vertex (fromVIn (Just ins) v) (fromVOut v (Just outs))
+    Cycle : (node : CFG vertex (Ends $ (u ~> vin) :: ins) (Ends $ (vout ~> w) :: outs))
+         -> (loop : CFG vertex (Single vout w) (Single u vin))
+         -> CFG vertex (Ends ins) (Ends outs)
 
     -- TODO: Consider the following
     --Cycle : (node : Vertex v (Just $ ins ++ u :: ins') (Just $ outs ++ w :: outs'))

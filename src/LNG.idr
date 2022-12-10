@@ -61,6 +61,7 @@ data Instr : Type where
   Assign : Variable t -> Expr t -> Instr
   If : Expr TBool -> Instr -> Instr
   IfElse : Expr TBool -> Instr -> Instr -> Instr
+  While : Expr TBool -> Instr -> Instr
   Return : Expr TBool -> Instr
   RetVoid : Instr
 
