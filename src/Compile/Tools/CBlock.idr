@@ -6,42 +6,43 @@ import LLVM
 import LNG
 
 import Compile.Tools
+import CFG
+
+-- TODO: `MbPhis Undefined = List [t ** Variable t]` - list of variables that need a phi assignment
 
 public export
-data InStatus : Type where
-  InOpen : InStatus
-  InClosed : (inputs : Inputs)
-          -> InStatus
-
-public export
-data OutStatus = OutOpen | OutClosed CFKind
-
--- TODO: `MbPhis InOpen = List [t ** Variable t]` - list of variables that need a phi assignment
-
-public export
-MbPhis : InStatus -> Type
-MbPhis InOpen = ()
-MbPhis (InClosed inputs) = List (PhiInstr inputs)
-
+MbPhis : Endpoint BlockLabel -> Type
+MbPhis Nothing = ()
+MbPhis (Just ins) = List (PhiInstr $ MkInputs ins)
 
 
 public export
-MbTerm : OutStatus -> Type
-MbTerm OutOpen = ()
-MbTerm (OutClosed cfk) = CFInstr cfk
+toCFK : List BlockLabel -> CFKind
+toCFK [] = Return
+toCFK (lbl :: lbls) = Jump (lbl :: lbls)
 
 public export
-record CBlock (label : BlockLabel) (is : InStatus) (os : OutStatus) where
+fromCFK : CFKind -> List BlockLabel
+fromCFK Return = []
+fromCFK (Jump lbls) = lbls
+
+public export
+MbTerm : Endpoint BlockLabel -> Type
+MbTerm Nothing = ()
+MbTerm (Just outs) = CFInstr (toCFK outs)
+
+public export
+record CBlock (label : BlockLabel) (ins : Endpoint BlockLabel) (outs : Endpoint BlockLabel) where
   constructor MkBB
-  phis : MbPhis is
+  phis : MbPhis ins
   body : List STInstr
-  term : MbTerm os
+  term : MbTerm outs
   
   -- TODO: divide assignments between individual instructions
   ctx : DMap Variable (LLValue . GetLLType)
 
 export
-initCBlock : CBlock lbl InOpen OutOpen
+initCBlock : CBlock lbl Undefined Undefined
 initCBlock = MkBB () [] () DMap.empty
 
 
@@ -55,42 +56,50 @@ infixr 6 <+|, |+>, |++>
 infixr 5 +|, ++|
 
 export
-(++) : CBlock lbl is OutOpen -> CBlock lbl InOpen os -> CBlock lbl is os
+(++) : CBlock lbl ins Undefined -> CBlock lbl Undefined outs -> CBlock lbl ins outs
 MkBB phis body () m ++ MkBB () body' term' m' = MkBB phis (body ++ body') term' (DMap.merge m m')
 
 export
-(<++) : CBlock lbl is OutOpen -> List STInstr -> CBlock lbl is OutOpen
+(<++) : CBlock lbl ins Undefined -> List STInstr -> CBlock lbl ins Undefined
 MkBB phis body () m <++ instrs = MkBB phis (body ++ instrs) () m
 
 export
-(<+) : CBlock lbl is OutOpen -> STInstr -> CBlock lbl is OutOpen
+(<+) : CBlock lbl ins Undefined -> STInstr -> CBlock lbl ins Undefined
 blk <+ instr = blk <++ [instr]
 
 export
-(<+|) : CBlock lbl is OutOpen -> CFInstr cfk -> CBlock lbl is (OutClosed cfk)
+(<+|) : CBlock lbl ins Undefined -> CFInstr (toCFK outs) -> CBlock lbl ins (Just outs)
 MkBB phis body () m <+| instr = MkBB phis body instr m
 
 export
-(|++>) : List (PhiInstr inputs)
-      -> CBlock lbl InOpen os
-      -> CBlock lbl (InClosed inputs) os
+(|++>) : List (PhiInstr (MkInputs inputs))
+      -> CBlock lbl Undefined outs
+      -> CBlock lbl (Just inputs) outs
 phis |++> MkBB () body term m = MkBB phis body term m
 
 export
-(|+>) : PhiInstr inputs
-     -> CBlock lbl InOpen os
-     -> CBlock lbl (InClosed inputs) os
+(|+>) : PhiInstr (MkInputs inputs)
+     -> CBlock lbl Undefined outs
+     -> CBlock lbl (Just inputs) outs
 instr |+> blk = [instr] |++> blk
 
 export
-(+|) : PhiInstr inputs
-    -> CBlock lbl (InClosed inputs) os
-    -> CBlock lbl (InClosed inputs) os
+(+|) : PhiInstr (MkInputs inputs)
+    -> CBlock lbl (Just inputs) outs
+    -> CBlock lbl (Just inputs) outs
 instr +| MkBB phis body term m = MkBB (instr :: phis) body term m
 
 export
-(++|) : List (PhiInstr inputs)
-     -> CBlock lbl (InClosed inputs) os
-     -> CBlock lbl (InClosed inputs) os
+(++|) : List (PhiInstr (MkInputs inputs))
+     -> CBlock lbl (Just inputs) outs
+     -> CBlock lbl (Just inputs) outs
 phis ++| blk = foldl (flip (+|)) blk phis
+
+
+export
+implementation Connectable CBlock where
+  cnct = (++)
+
+
+
 

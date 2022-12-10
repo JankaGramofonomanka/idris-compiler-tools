@@ -68,7 +68,7 @@ mutual
   export
   compileExpr : (labelIn : BlockLabel)
              -> Expr t
-             -> CompM ((lbl ** CFG VBlock (Undefined labelIn) (Undefined lbl)), LLValue (GetLLType t))
+             -> CompM ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue (GetLLType t))
 
 
 
@@ -142,7 +142,7 @@ mutual
   -----------------------------------------------------------------------------
   compileExprs : (labelIn : BlockLabel)
               -> DList Expr ts
-              -> CompM  ( (lbl ** CFG VBlock (Undefined labelIn) (Undefined lbl))
+              -> CompM  ( (lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl))
                         , DList LLValue (map GetLLType ts)
                         )
   compileExprs labelIn [] = pure ((labelIn ** initCFG), [])
@@ -161,7 +161,7 @@ mutual
   compileOperands : (labelIn : BlockLabel)
                  -> Expr t
                  -> Expr t'
-                 -> CompM ( (lbl ** CFG VBlock (Undefined labelIn) (Undefined lbl))
+                 -> CompM ( (lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl))
                           , LLValue (GetLLType t)
                           , LLValue (GetLLType t')
                           )
@@ -183,7 +183,7 @@ mutual
                 -> BinOperator I32 I32 I32
                 -> Expr TInt
                 -> Expr TInt
-                -> CompM ((lbl ** CFG VBlock (Undefined labelIn) (Undefined lbl)), LLValue I32)
+                -> CompM ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue I32)
   compileAritmOp labelIn op lhs rhs = do
     ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
     
@@ -199,7 +199,7 @@ mutual
                       -> CMPKind
                       -> Expr TInt
                       -> Expr TInt
-                      -> CompM ((lbl ** CFG VBlock (Undefined labelIn) (Undefined lbl)), LLValue I1)
+                      -> CompM ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue I1)
   compileOrdComparison labelIn cmpKind lhs rhs = do
     ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
 
@@ -211,10 +211,10 @@ mutual
 
   -----------------------------------------------------------------------------
   addICMP : CMPKind
-         -> CFG VBlock ins (Undefined labelOut)
+         -> CFG CBlock ins (Undefined labelOut)
          -> LLValue (I k)
          -> LLValue (I k)
-         -> CompM (CFG VBlock ins (Undefined labelOut), LLValue I1)
+         -> CompM (CFG CBlock ins (Undefined labelOut), LLValue I1)
   addICMP cmpKind g lhs rhs = do
     reg <- freshRegister
     let g' = mapOut {outs = Undefined} (<+ Assign reg (ICMP cmpKind lhs rhs)) g
@@ -236,7 +236,7 @@ mutual
          -> (labelThen : BlockLabel)
          -> (labelElse : BlockLabel)
          -> CompM ( outsThen ** outsElse ** 
-                    ( CFG VBlock (Undefined labelIn) (Ends $ outsThen ++ outsElse)
+                    ( CFG CBlock (Undefined labelIn) (Ends $ outsThen ++ outsElse)
                     , outsThen `AllLeadTo` labelThen
                     , outsElse `AllLeadTo` labelElse
                     )
@@ -249,11 +249,11 @@ mutual
     (outsThen ** outsElse'  ** (gr, prfT, prfE')) <- ifology labelMid rhs labelThen labelElse
 
 
-    let gr' : CFG VBlock (Ends outsMid) (Ends $ outsThen ++ outsElse')
+    let gr' : CFG CBlock (Ends outsMid) (Ends $ outsThen ++ outsElse')
         gr' = rewrite alt_map prfM
               in mapIn {ins = Just (map Origin outsMid)} ([] |++>) gr
     
-    let inter : CFG VBlock (Ends $ outsMid ++ outsElse) (Ends (outsThen ++ outsElse' ++ outsElse))
+    let inter : CFG CBlock (Ends $ outsMid ++ outsElse) (Ends (outsThen ++ outsElse' ++ outsElse))
         inter = rewrite concat_assoc outsThen outsElse' outsElse
                 in Parallel gr' Empty
 
@@ -268,11 +268,11 @@ mutual
     (outsThen'  ** outsElse ** (gr, prfT',  prfE)) <- ifology labelMid  rhs labelThen labelElse
 
 
-    let gr' : CFG VBlock (Ends outsMid) (Ends $ outsThen' ++ outsElse)
+    let gr' : CFG CBlock (Ends outsMid) (Ends $ outsThen' ++ outsElse)
         gr' = rewrite alt_map prfM
               in mapIn {ins = Just (map Origin outsMid)} ([] |++>) gr
     
-    let inter : CFG VBlock (Ends $ outsThen ++ outsMid) (Ends ((outsThen ++ outsThen') ++ outsElse))
+    let inter : CFG CBlock (Ends $ outsThen ++ outsMid) (Ends ((outsThen ++ outsThen') ++ outsElse))
         inter = rewrite revEq $ concat_assoc outsThen outsThen' outsElse
                 in Parallel Empty gr'
 
@@ -300,7 +300,7 @@ mutual
 
   compileBoolExpr : (labelIn : BlockLabel)
                  -> Expr TBool
-                 -> CompM ((lbl ** CFG VBlock (Undefined labelIn) (Undefined lbl)), LLValue I1)
+                 -> CompM ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue I1)
 
   compileBoolExpr labelIn expr = do
     labelTrue <- freshLabel
@@ -310,18 +310,18 @@ mutual
     labelPost <- freshLabel
     
     
-    let trueBLK : VBlock labelTrue (Just $ map Origin outsT) (Just [labelPost])
+    let trueBLK : CBlock labelTrue (Just $ map Origin outsT) (Just [labelPost])
         trueBLK = MkBB [] [] (Branch labelPost) DMap.empty
     
-    let trueG : CFG VBlock (Ends outsT) (Ends [labelTrue ~> labelPost])
+    let trueG : CFG CBlock (Ends outsT) (Ends [labelTrue ~> labelPost])
         trueG = rewrite alt_map prfT
                 in SingleVertex {vins = Just $ map Origin outsT, vouts = Just [labelPost]} trueBLK
     
     
-    let falseBLK : VBlock labelFalse (Just $ map Origin outsF) (Just [labelPost])
+    let falseBLK : CBlock labelFalse (Just $ map Origin outsF) (Just [labelPost])
         falseBLK = MkBB [] [] (Branch labelPost) DMap.empty
 
-    let falseG : CFG VBlock (Ends outsF) (Ends [labelFalse ~> labelPost])
+    let falseG : CFG CBlock (Ends outsF) (Ends [labelFalse ~> labelPost])
         falseG = rewrite alt_map prfF
                  in SingleVertex {vins = Just $ map Origin outsF, vouts = Just [labelPost]} falseBLK
     
@@ -335,10 +335,10 @@ mutual
     
     let postIns = MkInputs [labelTrue, labelFalse]
     
-    let postBLK : VBlock labelPost (Just [labelTrue, labelFalse]) Undefined
+    let postBLK : CBlock labelPost (Just [labelTrue, labelFalse]) Undefined
         postBLK = phiAssignment |+> initCBlock
 
-    let postG : CFG VBlock (Ends [labelTrue ~> labelPost, labelFalse ~> labelPost]) (Undefined labelPost)
+    let postG : CFG CBlock (Ends [labelTrue ~> labelPost, labelFalse ~> labelPost]) (Undefined labelPost)
         postG = SingleVertex {vins = Just [labelTrue, labelFalse], vouts = Undefined} postBLK
 
 

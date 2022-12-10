@@ -10,6 +10,7 @@ import LNG
 
 import Compile.Tools
 import Compile.Tools.CBlock
+import CFG
 
 public export
 record CompState where
@@ -25,7 +26,7 @@ CompM : Type -> Type
 CompM = StateT CompState (Either Error)
 
 export
-assign : Variable t -> LLValue (GetLLType t) -> CBlock lbl is OutOpen -> CBlock lbl is OutOpen
+assign : Variable t -> LLValue (GetLLType t) -> CBlock lbl ins Undefined -> CBlock lbl ins Undefined
 assign var reg (MkBB phis body term ctx) = MkBB phis body term $ insert var reg ctx
 
 export
@@ -35,7 +36,7 @@ export
 freshLabel : CompM BlockLabel
 
 export
-addBlock : CBlock lbl (InClosed inputs) (OutClosed cfk) -> CompM ()
+addBlock : CBlock lbl (Just inputs) (Just cfk) -> CompM ()
 
 export
 getValue : Variable t -> CompM (LLValue (GetLLType t))

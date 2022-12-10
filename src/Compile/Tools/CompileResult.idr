@@ -7,33 +7,11 @@ import LNG
 
 import Compile.Tools
 import Compile.Tools.CBlock
-import Compile.Tools.CompM
 import CFG
 
 
-
-public export
-toIS : Endpoint BlockLabel -> InStatus
-toIS Nothing = InOpen
-toIS (Just labels) = InClosed (MkInputs labels)
-
-public export
-toOS : Endpoint BlockLabel -> OutStatus
-toOS Nothing = OutOpen
-toOS (Just []) = OutClosed Return
-toOS (Just labels) = OutClosed (Jump labels)
-
-public export
-VBlock : Vertex BlockLabel
-VBlock l ins outs = CBlock l (toIS ins) (toOS outs)
-
 export
-implementation Connectable VBlock where
-  cnct = (++)
-
-
-export
-initCFG : CFG VBlock (Undefined lbl) (Undefined lbl)
+initCFG : CFG CBlock (Undefined lbl) (Undefined lbl)
 initCFG = initGraph initCBlock
 
 
@@ -63,8 +41,8 @@ toCRType (Just _) = Open
 
 public export
 data CompileResult : BlockLabel -> CRType -> Type where
-  CRC : CFG VBlock (Undefined lbl) Closed -> CompileResult lbl Closed
-  CRO : (lbl' ** CFG VBlock (Undefined lbl) (Undefined lbl')) -> CompileResult lbl Open
+  CRC : CFG CBlock (Undefined lbl) Closed -> CompileResult lbl Closed
+  CRO : (lbl' ** CFG CBlock (Undefined lbl) (Undefined lbl')) -> CompileResult lbl Open
 
 
 export
@@ -75,7 +53,7 @@ initCR lbl = CRO (lbl ** initCFG)
 
 
 export
-combineCR : CFG VBlock (Undefined lbl) (Undefined lbl') -> CompileResult lbl' os -> CompileResult lbl os
+combineCR : CFG CBlock (Undefined lbl) (Undefined lbl') -> CompileResult lbl' os -> CompileResult lbl os
 combineCR g (CRC g') = CRC $ connect g g'
 combineCR g (CRO (lbl'' ** g')) = CRO $ (lbl'' ** connect g g')
 
