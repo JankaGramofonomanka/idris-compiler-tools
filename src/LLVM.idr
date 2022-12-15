@@ -165,58 +165,22 @@ where
 
 
 
--- Control Flow Graph ---------------------------------------------------------
-Edge : Type
-Edge = (BlockLabel, BlockLabel)
-
-JumpGraph : Type
-JumpGraph = List Edge
-
-getLabels : JumpGraph -> List BlockLabel
-getLabels graph = let
-  (froms, tos) = unzip graph
-  in nub $ froms ++ tos
-
-getInputs : BlockLabel -> JumpGraph -> Inputs
-getInputs label@(MkBlockLabel s) g = MkInputs (map fst $ filter (\(from, to) => to == label) g)
-
-getCFKind : BlockLabel -> JumpGraph -> CFKind
-getCFKind l graph = case map snd $ filter (\(from, to) => from == l) graph of
-  Nil     => Return
-  labels  => Jump labels
-
-
-{-
-  A control flow graph, parametrized by
-  * `jumpGraph` - a graph of jumps between blocks
-  * `toBeDefined` - a list of block labels, that are missing from the graph,
-    ie. labels that occur in `jumpGraph` but a blocks with such labels are not 
-    part of the graph.
-  
-  The type `CFG g []` is a type of a correct control flow graph.
-
-  Note! the `jumpGraph` parameneter has to be known in advance, before we start
-  building the graph, therefore an intermediate representation of the graph, is
-  needed (See `LLVM.Construction`).
--}
 public export
-data CFG : (jumpGraph : JumpGraph) -> (toBeDefined : List BlockLabel) -> Type where
-  Empty : CFG graph (getLabels graph)
-
-  -- TODO: Enforce uniqueness of blocks?
-  AddBlock : SimpleBlock label (getInputs label graph) (getCFKind label graph)
-          -> CFG graph toBeDefined
-          -> CFG graph (delete label toBeDefined)
+BlockVertex : Vertex BlockLabel
+BlockVertex lbl Nothing _ = Void
+BlockVertex lbl _ Nothing = Void
+BlockVertex lbl (Just ins) (Just []) = SimpleBlock lbl (MkInputs ins) Return
+BlockVertex lbl (Just ins) (Just (out :: outs))
+  = SimpleBlock lbl (MkInputs ins) (Jump $ out :: outs)
 
 
 public export
 record FunDecl (retType : LLType) (paramTypes : List LLType) where
+
   constructor MkFunDecl
   params : DList Reg paramTypes
 
   -- TODO: enforce the existence of an entry block
-  0 jumpGraph : JumpGraph
-
   -- TODO: enforce correct return types
-  body : CFG jumpGraph Nil
+  body : CFG BlockVertex (Ends []) (Ends [])
 
