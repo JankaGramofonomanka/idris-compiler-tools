@@ -64,9 +64,15 @@ public export
 data Reg : LLType -> Type where
   MkReg : String -> Reg t
 
+implementation Eq (Reg t) where
+  MkReg s == MkReg s' = s == s'
+
 public export
 data Const : LLType -> Type where
   MkConst : String -> Const t
+
+implementation Eq (Const t) where
+  MkConst s == MkConst s' = s == s'
 
 public export
 data LLValue : LLType -> Type where
@@ -74,6 +80,14 @@ data LLValue : LLType -> Type where
   ILit : Integer -> LLValue (I n)
   ConstPtr : Const t -> LLValue (Ptr t)
   Null : LLValue (Ptr t)
+
+export
+implementation Eq (LLValue t) where
+  Var reg       == Var reg'       = reg   == reg'
+  ILit i        == ILit i'        = i     == i'
+  ConstPtr cnst == ConstPtr cnst' = cnst  == cnst'
+  Null          == Null           = True
+  _             == _              = False
 
 public export
 data BinOperator : LLType -> LLType -> LLType -> Type where

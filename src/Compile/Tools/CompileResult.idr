@@ -2,6 +2,8 @@ module Compile.Tools.CompileResult
 
 import Control.Monad.State
 
+import Data.DMap
+
 import LLVM
 import LNG
 
@@ -66,7 +68,9 @@ data Compatible : CRType -> List BlockLabel -> Type where
   CompatOpen    : Compatible Open [lbl]
 
 
-
+export
+getContext : CFG CBlock ins (Undefined lbl) -> DMap Variable (LLValue . GetLLType)
+getContext cfg = getOut ctx cfg
 
 
 

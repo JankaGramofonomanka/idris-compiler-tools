@@ -1,5 +1,7 @@
 module CFG
 
+
+import Data.DList
 import Utils
 
 namespace Vertex
@@ -222,4 +224,37 @@ namespace Graph
            -> vertex v Undefined Undefined
            -> CFG vertex (Undefined v) (Undefined v)
   initGraph v = SingleVertex v
+
+
+  export
+  getIn : {0 vertex : Vertex a}
+       -> ({outs : Endpoint a} -> vertex v Undefined outs -> b)
+       -> CFG vertex (Undefined v) gouts
+       -> b
+  getIn f (SingleVertex {vins = Nothing} v) = f v
+  getIn f (Connect g g')                    = getIn f g
+  getIn f (FlipOut g)                       = getIn f g
+  
+  getIn f (SingleVertex {vins = Just ins} v)  impossible
+  getIn f Empty                               impossible
+  getIn f (Cycle node loop)                   impossible
+  getIn f (Parallel g g')                     impossible
+  getIn f (FlipIn g)                          impossible
+
+  export
+  getOut : {0 vertex : Vertex a}
+          -> ({ins : Endpoint a} -> vertex v ins Undefined -> b)
+          -> CFG vertex gins (Undefined v)
+          -> b
+
+  getOut f (SingleVertex {vouts = Nothing} v) = f v
+  getOut f (Connect g g')                     = getOut f g'
+  getOut f (FlipIn g)                         = getOut f g
+  
+  getOut f (SingleVertex {vouts = Just outs} v) impossible
+  getOut f Empty                                impossible
+  getOut f (Cycle node loop)                    impossible
+  getOut f (Parallel g g')                      impossible
+  getOut f (FlipOut g)                          impossible
+
 

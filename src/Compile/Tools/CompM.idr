@@ -19,6 +19,7 @@ record CompState where
 public export
 data Error : Type where
   NoSuchVariable : Variable t -> Error
+  NoSuchFunction : FunId t ts -> Error
 
 
 public export

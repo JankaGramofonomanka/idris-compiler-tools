@@ -1,6 +1,7 @@
 module Compile.Expr
 
 import Control.Monad.State
+import Control.Monad.Either
 
 import Data.Some
 import Data.DMap
@@ -14,6 +15,7 @@ import Compile.Tools
 import Compile.Tools.CBlock
 import Compile.Tools.CompileResult
 import Compile.Tools.CompM
+import Compile.Tools.VariableCTX
 import CFG
 
 import Utils
@@ -65,10 +67,20 @@ integerize {prf} (val, val') = let
 
 mutual
 
+  public export
+  CompM' : Type -> Type
+  CompM' = StateT VarCTX CompM
+
+  getValue : Variable t -> CompM' (LLValue (GetLLType t))
+  getValue var = do
+    Just val <- gets (lookup var) | Nothing => lift $ throwError (NoSuchVariable var)
+    pure val
+
+
   export
   compileExpr : (labelIn : BlockLabel)
              -> Expr t
-             -> CompM ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue (GetLLType t))
+             -> CompM' ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue (GetLLType t))
 
 
 
@@ -76,12 +88,6 @@ mutual
 
   compileExpr labelIn (Var var) = do
     
-    {-
-    TODO where to get values of variables from?
-    
-    possible solution: pass contexts as arguments, but then there is a lot of
-    parameters
-    -}
     val <- getValue var
 
     pure ((labelIn ** initCFG), val)
@@ -116,7 +122,7 @@ mutual
     Neg => do
 
       ((lbl ** g), val) <- compileExpr labelIn expr
-      reg <- freshRegister
+      reg <- lift freshRegister
 
       -- TODO: Is this OK or is it a hack?
       let g' = mapOut {outs = Undefined} (<+ Assign reg (BinOperation SUB (ILit 0) val)) g
@@ -127,11 +133,11 @@ mutual
 
   
   compileExpr labelIn (Call fun args) = do
-    funPtr <- getFunPtr fun
+    funPtr <- lift $ getFunPtr fun
 
     ((lbl ** g), args') <- compileExprs labelIn args
 
-    reg <- freshRegister
+    reg <- lift freshRegister
     let g' = mapOut {outs = Undefined} (<+ Assign reg (Call funPtr args')) g
 
     pure ((lbl ** g'), Var reg)
@@ -142,7 +148,7 @@ mutual
   -----------------------------------------------------------------------------
   compileExprs : (labelIn : BlockLabel)
               -> DList Expr ts
-              -> CompM  ( (lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl))
+              -> CompM' ( (lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl))
                         , DList LLValue (map GetLLType ts)
                         )
   compileExprs labelIn [] = pure ((labelIn ** initCFG), [])
@@ -161,10 +167,10 @@ mutual
   compileOperands : (labelIn : BlockLabel)
                  -> Expr t
                  -> Expr t'
-                 -> CompM ( (lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl))
-                          , LLValue (GetLLType t)
-                          , LLValue (GetLLType t')
-                          )
+                 -> CompM' ( (lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl))
+                           , LLValue (GetLLType t)
+                           , LLValue (GetLLType t')
+                           )
 
   compileOperands labelIn lhs rhs = do
     
@@ -183,11 +189,11 @@ mutual
                 -> BinOperator I32 I32 I32
                 -> Expr TInt
                 -> Expr TInt
-                -> CompM ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue I32)
+                -> CompM' ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue I32)
   compileAritmOp labelIn op lhs rhs = do
     ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
     
-    reg <- freshRegister
+    reg <- lift freshRegister
     let g' = mapOut {outs = Undefined} (<+ Assign reg (BinOperation op lhs' rhs')) g
 
     pure ((lbl ** g'), Var reg)
@@ -199,7 +205,7 @@ mutual
                       -> CMPKind
                       -> Expr TInt
                       -> Expr TInt
-                      -> CompM ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue I1)
+                      -> CompM' ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue I1)
   compileOrdComparison labelIn cmpKind lhs rhs = do
     ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
 
@@ -214,9 +220,9 @@ mutual
          -> CFG CBlock ins (Undefined labelOut)
          -> LLValue (I k)
          -> LLValue (I k)
-         -> CompM (CFG CBlock ins (Undefined labelOut), LLValue I1)
+         -> CompM' (CFG CBlock ins (Undefined labelOut), LLValue I1)
   addICMP cmpKind g lhs rhs = do
-    reg <- freshRegister
+    reg <- lift freshRegister
     let g' = mapOut {outs = Undefined} (<+ Assign reg (ICMP cmpKind lhs rhs)) g
     
     pure (g', Var reg)
@@ -235,16 +241,16 @@ mutual
          -> (expr : Expr TBool)
          -> (labelThen : BlockLabel)
          -> (labelElse : BlockLabel)
-         -> CompM ( outsThen ** outsElse ** 
-                    ( CFG CBlock (Undefined labelIn) (Ends $ outsThen ++ outsElse)
-                    , outsThen `AllLeadTo` labelThen
-                    , outsElse `AllLeadTo` labelElse
+         -> CompM'  ( outsThen ** outsElse ** 
+                      ( CFG CBlock (Undefined labelIn) (Ends $ outsThen ++ outsElse)
+                      , outsThen `AllLeadTo` labelThen
+                      , outsElse `AllLeadTo` labelElse
+                      )
                     )
-                  )
 
   ifology labelIn (BinOperation And lhs rhs) labelThen labelElse = do
 
-    labelMid <- freshLabel
+    labelMid <- lift freshLabel
     (outsMid  ** outsElse   ** (gl, prfM, prfE))  <- ifology labelIn  lhs labelMid  labelElse
     (outsThen ** outsElse'  ** (gr, prfT, prfE')) <- ifology labelMid rhs labelThen labelElse
 
@@ -263,7 +269,7 @@ mutual
   
   ifology labelIn (BinOperation Or lhs rhs) labelThen labelElse = do
 
-    labelMid <- freshLabel
+    labelMid <- lift freshLabel
     (outsThen   ** outsMid  ** (gl, prfT,   prfM)) <- ifology labelIn   lhs labelThen labelMid
     (outsThen'  ** outsElse ** (gr, prfT',  prfE)) <- ifology labelMid  rhs labelThen labelElse
 
@@ -300,14 +306,14 @@ mutual
 
   compileBoolExpr : (labelIn : BlockLabel)
                  -> Expr TBool
-                 -> CompM ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue I1)
+                 -> CompM' ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue I1)
 
   compileBoolExpr labelIn expr = do
-    labelTrue <- freshLabel
-    labelFalse <- freshLabel
+    labelTrue <- lift freshLabel
+    labelFalse <- lift freshLabel
     (outsT ** outsF ** (ifologyG, prfT, prfF)) <- ifology labelIn expr labelTrue labelFalse
     
-    labelPost <- freshLabel
+    labelPost <- lift freshLabel
     
     
     let trueBLK : CBlock labelTrue (Just $ map Origin outsT) (Just [labelPost])
@@ -326,7 +332,7 @@ mutual
                  in SingleVertex {vins = Just $ map Origin outsF, vouts = Just [labelPost]} falseBLK
     
     
-    reg <- freshRegister
+    reg <- lift freshRegister
 
     let phi : PhiExpr (MkInputs [labelTrue, labelFalse]) I1
         phi = Phi [(labelTrue, ILit 1), (labelFalse, ILit 0)]

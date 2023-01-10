@@ -11,6 +11,7 @@ import Compile.Tools
 import Compile.Tools.CBlock
 import Compile.Tools.CompileResult
 import Compile.Tools.CompM
+import Compile.Tools.VariableCTX
 import Compile.Expr
 
 import CFG
@@ -76,6 +77,7 @@ mutual
 
 
 compileInstr : (labelIn : BlockLabel)
+            -> VarCTX
             -> (instr : Instr)
             -> CompM (CompileResult labelIn $ InstrCR instr)
 
@@ -83,16 +85,17 @@ compileInstr : (labelIn : BlockLabel)
 
 
 -- Block ----------------------------------------------------------------------
-compileInstr labelIn (Block instrs) = compile' labelIn instrs where
+compileInstr labelIn ctx (Block instrs) = compile' labelIn ctx instrs where
 
   mutual
 
     compile' : (labelIn : BlockLabel)
+            -> VarCTX
             -> (instrs : List Instr)
             -> CompM (CompileResult labelIn $ InstrsCR instrs)
-    compile' labelIn [] = pure (initCR labelIn)
-    compile' labelIn (instr :: instrs) = do
-      res <- compileInstr labelIn instr
+    compile' labelIn ctx [] = pure (initCR labelIn)
+    compile' labelIn ctx (instr :: instrs) = do
+      res <- compileInstr labelIn ctx instr
       handleRes res instrs
       
     handleRes : {0 labelIn : BlockLabel}
@@ -101,15 +104,16 @@ compileInstr labelIn (Block instrs) = compile' labelIn instrs where
              -> CompM (CompileResult labelIn $ ClosedOr crt (InstrsCR instrs))
     handleRes (CRC g) instrs = pure (CRC g)
     handleRes (CRO (lbl ** g)) instrs = do
-      res <- compile' lbl instrs
+      let ctx = getContext g
+      res <- compile' lbl ctx instrs
       pure $ combineCR g res
     
 
 
 
 -- Assign ---------------------------------------------------------------------
-compileInstr labelIn (Assign var expr) = do
-  ((lbl ** g), val) <- compileExpr labelIn expr
+compileInstr labelIn ctx (Assign var expr) = do
+  ((lbl ** g), val) <- evalStateT ctx $ compileExpr labelIn expr
   
   let g' = mapOut {outs = Undefined} (assign var val) g
 
@@ -119,16 +123,16 @@ compileInstr labelIn (Assign var expr) = do
 
 
 -- If -------------------------------------------------------------------------
-compileInstr labelIn (If cond instrThen) = do
+compileInstr labelIn ctx (If cond instrThen) = do
 
   -- TODO: use `ifology`
-  ((condLabel ** condG), val) <- compileExpr labelIn cond
+  ((condLabel ** condG), val) <- evalStateT ctx $ compileExpr labelIn cond
   labelThen <- freshLabel
   labelPost <- freshLabel
 
   let condG' = mapOut {outs = Just [labelThen, labelPost]} (<+| CondBranch val labelThen labelPost) condG
   
-  thenRes <- compileInstr labelThen instrThen
+  thenRes <- compileInstr labelThen ctx instrThen
   (thenOuts ** thenG) <- handleBranchResult condLabel labelPost thenRes
 
   let branches : CFG CBlock
@@ -137,8 +141,12 @@ compileInstr labelIn (If cond instrThen) = do
 
       branches = rewrite map_append {f = (~> labelPost)} thenOuts condLabel
                  in Parallel thenG Empty
+  
+  -- TODO: here one has to segregate arbitrary number of contexts
+  --SG postCTX postPhis <- segregate ctx (getContexts branches)
 
   -- TODO: phis
+  -- TODO: add context
   let postBLK : CBlock labelPost (Just $ thenOuts ++ [condLabel]) Undefined
       postBLK = ?h_if_phis |++> initCBlock
   
@@ -153,17 +161,17 @@ compileInstr labelIn (If cond instrThen) = do
 
 
 -- IfElse ---------------------------------------------------------------------
-compileInstr labelIn (IfElse cond instrThen instrElse) = do
+compileInstr labelIn ctx (IfElse cond instrThen instrElse) = do
 
   -- TODO: use `ifology`
-  ((condLabel ** condG), val) <- compileExpr labelIn cond
+  ((condLabel ** condG), val) <- evalStateT ctx $ compileExpr labelIn cond
   labelThen <- freshLabel
   labelElse <- freshLabel
   labelPost <- freshLabel
 
   let condG' = mapOut {outs = Just [labelThen, labelElse]} (<+| CondBranch val labelThen labelElse) condG
-  thenRes <- compileInstr labelThen instrThen
-  elseRes <- compileInstr labelElse instrElse
+  thenRes <- compileInstr labelThen ctx instrThen
+  elseRes <- compileInstr labelElse ctx instrElse
 
   handleBranchResults labelIn condLabel condG' thenRes elseRes
   
@@ -181,6 +189,8 @@ compileInstr labelIn (IfElse cond instrThen instrElse) = do
 
     mkOpenCFG node thenOuts thenG elseOuts elseG = do
 
+      -- TODO: phis
+      -- TODO: add context
       let postG : CFG CBlock (Ends $ map (~> labelPost) (thenOuts ++ elseOuts)) (Undefined labelPost)
           postG = SingleVertex {vins = Just (thenOuts ++ elseOuts), vouts = Undefined} 
                 $ ?h_if_else_phis |++> initCBlock
@@ -232,24 +242,27 @@ compileInstr labelIn (IfElse cond instrThen instrElse) = do
     
 
 -- Return ---------------------------------------------------------------------
-compileInstr labelIn (While cond loop) = do
+compileInstr labelIn ctx (While cond loop) = do
 
   condLabelIn <- freshLabel
 
+  -- TODO: add context
   let incoming : CFG CBlock (Undefined labelIn) (Ends [labelIn ~> condLabelIn])
       incoming = SingleVertex {vouts = Just [condLabelIn]}
                $ initCBlock <+| Branch condLabelIn
 
-  ((condLabelOut ** condG), val) <- compileExpr condLabelIn cond
+  ((condLabelOut ** condG), val) <- evalStateT ctx $ compileExpr condLabelIn cond
   labelLoop <- freshLabel
   labelPost <- freshLabel
 
   let condG' = mapOut {outs = Just [labelLoop, labelPost]} (<+| CondBranch val labelLoop labelPost) condG
 
-  loopRes <- compileInstr labelLoop loop
+  loopRes <- compileInstr labelLoop ?hctxWhileLoop loop
   
   whileG <- handleLoopResult labelIn condLabelIn condLabelOut condG' loopRes
 
+  -- TODO: phis
+  -- TODO: add context
   let post : CFG CBlock (Ends [condLabelOut ~> labelPost]) (Undefined labelPost)
       post = SingleVertex {vins = Just [condLabelOut]} $ ?h_while_phis |++> initCBlock
 
@@ -282,13 +295,13 @@ compileInstr labelIn (While cond loop) = do
       let final = Cycle node' loop'
       
       pure final
-                    
-  
+
+
 
 
 -- Return ---------------------------------------------------------------------
-compileInstr labelIn (Return expr) = do
-  ((_ ** g), val) <- compileExpr labelIn expr
+compileInstr labelIn ctx (Return expr) = do
+  ((_ ** g), val) <- evalStateT ctx $ compileExpr labelIn expr
   
   let g' = mapOut {outs = Closed} (<+| Ret val) g
   pure (CRC g')
@@ -297,7 +310,7 @@ compileInstr labelIn (Return expr) = do
 
 
 -- RetVoid --------------------------------------------------------------------
-compileInstr labelIn RetVoid = do
+compileInstr labelIn ctx RetVoid = do
   let g = mapOut {outs = Closed} (<+| RetVoid) initCFG
   pure (CRC g)
 
