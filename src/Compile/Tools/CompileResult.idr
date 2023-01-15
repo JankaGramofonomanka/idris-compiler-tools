@@ -3,12 +3,14 @@ module Compile.Tools.CompileResult
 import Control.Monad.State
 
 import Data.DMap
+import Data.Attached
 
 import LLVM
 import LNG
 
 import Compile.Tools
 import Compile.Tools.CBlock
+import Compile.Tools.VariableCTX
 import CFG
 
 
@@ -44,12 +46,15 @@ toCRType (Just _) = Open
 public export
 data CompileResult : BlockLabel -> CRType -> Type where
   CRC : CFG CBlock (Undefined lbl) Closed -> CompileResult lbl Closed
-  CRO : (lbl' ** CFG CBlock (Undefined lbl) (Undefined lbl')) -> CompileResult lbl Open
+  CRO : (lbl' **  ( CFG CBlock (Undefined lbl) (Undefined lbl')
+                  , Attached lbl' VarCTX
+                  ))
+     -> CompileResult lbl Open
 
 
 export
 initCR : (lbl : BlockLabel) -> CompileResult lbl Open
-initCR lbl = CRO (lbl ** initCFG)
+initCR lbl = CRO (lbl ** (initCFG, attach lbl emptyCtx))
 
 
 
@@ -57,7 +62,7 @@ initCR lbl = CRO (lbl ** initCFG)
 export
 combineCR : CFG CBlock (Undefined lbl) (Undefined lbl') -> CompileResult lbl' os -> CompileResult lbl os
 combineCR g (CRC g') = CRC $ connect g g'
-combineCR g (CRO (lbl'' ** g')) = CRO $ (lbl'' ** connect g g')
+combineCR g (CRO (lbl'' ** (g', ctx))) = CRO $ (lbl'' ** (connect g g', ctx))
 
 
 
@@ -68,9 +73,12 @@ data Compatible : CRType -> List BlockLabel -> Type where
   CompatOpen    : Compatible Open [lbl]
 
 
+-- TODO: consider hiding the attachment somewhere, eg. in the `CBlock` itself
 export
-getContext : CFG CBlock ins (Undefined lbl) -> DMap Variable (LLValue . GetLLType)
-getContext cfg = getOut ctx cfg
+getContext : {lbl : BlockLabel}
+          -> CFG CBlock ins (Undefined lbl)
+          -> Attached lbl $ DMap Variable (LLValue . GetLLType)
+getContext {lbl} cfg = attach lbl $ getOut ctx cfg
 
 
 

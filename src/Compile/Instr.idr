@@ -3,6 +3,7 @@ module Compile.Instr
 import Control.Monad.State
 
 import Data.Some
+import Data.Attached
 
 import LNG
 import LLVM
@@ -36,7 +37,7 @@ handleBranchResult labelIn labelPost (CRC g) = let
 
   in pure ([] ** g')
 
-handleBranchResult labelIn labelPost (CRO (lbl' ** g)) = let
+handleBranchResult labelIn labelPost (CRO (lbl' ** (g, ctx))) = let
 
   -- TODO: phis
   g' = mapIn  {ins  = Just [labelIn]}   (?hbr_phis2 |++>)
@@ -77,7 +78,7 @@ mutual
 
 
 compileInstr : (labelIn : BlockLabel)
-            -> VarCTX
+            -> Attached labelIn VarCTX
             -> (instr : Instr)
             -> CompM (CompileResult labelIn $ InstrCR instr)
 
@@ -90,7 +91,7 @@ compileInstr labelIn ctx (Block instrs) = compile' labelIn ctx instrs where
   mutual
 
     compile' : (labelIn : BlockLabel)
-            -> VarCTX
+            -> Attached labelIn VarCTX
             -> (instrs : List Instr)
             -> CompM (CompileResult labelIn $ InstrsCR instrs)
     compile' labelIn ctx [] = pure (initCR labelIn)
@@ -103,8 +104,8 @@ compileInstr labelIn ctx (Block instrs) = compile' labelIn ctx instrs where
              -> (instrs : List Instr)
              -> CompM (CompileResult labelIn $ ClosedOr crt (InstrsCR instrs))
     handleRes (CRC g) instrs = pure (CRC g)
-    handleRes (CRO (lbl ** g)) instrs = do
-      let ctx = getContext g
+    handleRes (CRO (lbl ** (g, ctx))) instrs = do
+      --let ctx = getContext g
       res <- compile' lbl ctx instrs
       pure $ combineCR g res
     
@@ -113,11 +114,14 @@ compileInstr labelIn ctx (Block instrs) = compile' labelIn ctx instrs where
 
 -- Assign ---------------------------------------------------------------------
 compileInstr labelIn ctx (Assign var expr) = do
-  ((lbl ** g), val) <- evalStateT ctx $ compileExpr labelIn expr
+
+  -- TODO: consider having attached context in the state
+  ((lbl ** g), val) <- evalStateT (detach ctx) $ compileExpr labelIn expr
   
   let g' = mapOut {outs = Undefined} (assign var val) g
 
-  pure $ CRO (lbl ** g')
+  let ctx' = getContext g'
+  pure $ CRO (lbl ** (g', ctx'))
   
   
 
@@ -126,13 +130,13 @@ compileInstr labelIn ctx (Assign var expr) = do
 compileInstr labelIn ctx (If cond instrThen) = do
 
   -- TODO: use `ifology`
-  ((condLabel ** condG), val) <- evalStateT ctx $ compileExpr labelIn cond
+  ((condLabel ** condG), val) <- evalStateT (detach ctx) $ compileExpr labelIn cond
   labelThen <- freshLabel
   labelPost <- freshLabel
 
   let condG' = mapOut {outs = Just [labelThen, labelPost]} (<+| CondBranch val labelThen labelPost) condG
   
-  thenRes <- compileInstr labelThen ctx instrThen
+  thenRes <- compileInstr labelThen (reattach labelThen ctx) instrThen
   (thenOuts ** thenG) <- handleBranchResult condLabel labelPost thenRes
 
   let branches : CFG CBlock
@@ -155,7 +159,7 @@ compileInstr labelIn ctx (If cond instrThen) = do
   
   let final = Connect condG' (Connect branches postG)
   
-  pure $ CRO (labelPost ** final)
+  pure $ CRO (labelPost ** (final, ?hctxIf))
   
 
 
@@ -164,14 +168,14 @@ compileInstr labelIn ctx (If cond instrThen) = do
 compileInstr labelIn ctx (IfElse cond instrThen instrElse) = do
 
   -- TODO: use `ifology`
-  ((condLabel ** condG), val) <- evalStateT ctx $ compileExpr labelIn cond
+  ((condLabel ** condG), val) <- evalStateT (detach ctx) $ compileExpr labelIn cond
   labelThen <- freshLabel
   labelElse <- freshLabel
   labelPost <- freshLabel
 
   let condG' = mapOut {outs = Just [labelThen, labelElse]} (<+| CondBranch val labelThen labelElse) condG
-  thenRes <- compileInstr labelThen ctx instrThen
-  elseRes <- compileInstr labelElse ctx instrElse
+  thenRes <- compileInstr labelThen (reattach labelThen ctx) instrThen
+  elseRes <- compileInstr labelElse (reattach labelElse ctx) instrElse
 
   handleBranchResults labelIn condLabel condG' thenRes elseRes
   
@@ -226,7 +230,7 @@ compileInstr labelIn ctx (IfElse cond instrThen instrElse) = do
       (elseOuts ** elseG') <- handleBranchResult nodeOut labelPost elseRes
 
       final <- mkOpenCFG node thenOuts thenG' elseOuts elseG'
-      pure $ CRO (labelPost ** final)
+      pure $ CRO (labelPost ** (final, ?hctxIfElse1))
 
     handleBranchResults nodeIn nodeOut node thenRes@(CRO (thenOut ** thenG)) elseRes = do
 
@@ -236,7 +240,7 @@ compileInstr labelIn ctx (IfElse cond instrThen instrElse) = do
       (elseOuts ** elseG') <- handleBranchResult nodeOut labelPost elseRes
 
       final <- mkOpenCFG node thenOuts thenG' elseOuts elseG'
-      pure $ CRO (labelPost ** final)
+      pure $ CRO (labelPost ** (final, ?hctxIfElse2))
 
 
     
@@ -251,7 +255,7 @@ compileInstr labelIn ctx (While cond loop) = do
       incoming = SingleVertex {vouts = Just [condLabelIn]}
                $ initCBlock <+| Branch condLabelIn
 
-  ((condLabelOut ** condG), val) <- evalStateT ctx $ compileExpr condLabelIn cond
+  ((condLabelOut ** condG), val) <- evalStateT (detach ctx) $ compileExpr condLabelIn cond
   labelLoop <- freshLabel
   labelPost <- freshLabel
 
@@ -268,7 +272,7 @@ compileInstr labelIn ctx (While cond loop) = do
 
   let final = Connect incoming (Connect whileG post)
   
-  pure $ CRO (labelPost ** final)
+  pure $ CRO (labelPost ** (final, ?hctxWhile))
 
   where
     
@@ -285,7 +289,7 @@ compileInstr labelIn ctx (While cond loop) = do
       
       pure final
 
-    handleLoopResult labelIn nodeIn nodeOut node (CRO (loopOut ** loop)) = do
+    handleLoopResult labelIn nodeIn nodeOut node (CRO (loopOut ** (loop, ctx))) = do
       
       let node' = mapIn {ins = Just [loopOut, labelIn]} (?hlr_phis2 |++>) node
       let loop' = mapIn  {ins  = Just [nodeOut]}  (?hlr_phis3 |++>)
@@ -301,7 +305,7 @@ compileInstr labelIn ctx (While cond loop) = do
 
 -- Return ---------------------------------------------------------------------
 compileInstr labelIn ctx (Return expr) = do
-  ((_ ** g), val) <- evalStateT ctx $ compileExpr labelIn expr
+  ((_ ** g), val) <- evalStateT (detach ctx) $ compileExpr labelIn expr
   
   let g' = mapOut {outs = Closed} (<+| Ret val) g
   pure (CRC g')

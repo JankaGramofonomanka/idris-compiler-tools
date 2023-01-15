@@ -3,15 +3,36 @@ module Data.Attached
 
 
 
-public export
+export
 data Attached : (x : t) -> Type -> Type where
-  Attach : (x : t) -> (y : t') -> Attached x t'
+  Attach : (0 x : t) -> (y : t') -> Attached x t'
 
 export
 combine : (a -> b -> c) -> Attached x a -> Attached x b -> Attached x c
 combine f (Attach x a) (Attach x b) = Attach x (f a b)
 
 export
+attach : (0 x : t) -> (y : t') -> Attached x t'
+attach = Attach
+
+export
 detach : Attached x t -> t
 detach (Attach x a) = a
+
+export
+reattach : {x : t} -> (y : t) -> Attached x a -> Attached y a
+reattach y (Attach x a) = Attach y a
+
+export
+implementation Functor (Attached x) where
+  map f (Attach x y) = Attach x (f y)
+
+
+export
+distribute : Attached x (List a) -> List (Attached x a)
+distribute (Attach x l) = foldr (\elem => (Attach x elem ::)) Nil l
+
+export
+detachParam : {f : a -> Type} -> Attached x (y ** f y) -> (y ** Attached x (f y))
+detachParam (Attach x (y ** fy)) = (y ** Attach x fy)
 
