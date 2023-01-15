@@ -45,7 +45,9 @@ export
 initCBlock : CBlock lbl Undefined Undefined
 initCBlock = MkBB () [] () DMap.empty
 
-
+export
+emptyCBlock : DMap Variable (LLValue . GetLLType) -> CBlock lbl Undefined Undefined
+emptyCBlock ctx = MkBB () [] () ctx
 
 
 

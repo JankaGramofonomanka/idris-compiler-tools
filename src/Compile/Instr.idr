@@ -4,6 +4,8 @@ import Control.Monad.State
 
 import Data.Some
 import Data.Attached
+import Data.DList
+import Data.DMap
 
 import LNG
 import LLVM
@@ -28,24 +30,26 @@ control flow graph
 handleBranchResult : (labelIn : BlockLabel)
                   -> (labelPost : BlockLabel)
                   -> CompileResult lbl crt
-                  -> CompM (outs ** CFG CBlock (Ends [labelIn ~> lbl]) (Ends $ map (~> labelPost) outs))
+                  -> CompM (outs ** ( CFG CBlock (Ends [labelIn ~> lbl]) (Ends $ map (~> labelPost) outs)
+                                    , DList (\lbl => Attached lbl VarCTX) outs
+                                    ))
 
 handleBranchResult labelIn labelPost (CRC g) = let
 
-  -- TODO: phis
-  g' = mapIn {ins = Just [labelIn]} (?hbr_phis1 |++>) g
+  -- there is only one input so phi instructions make no sense
+  g' = mapIn {ins = Just [labelIn]} ([] |++>) g
 
-  in pure ([] ** g')
+  in pure ([] ** (g', []))
 
 handleBranchResult labelIn labelPost (CRO (lbl' ** (g, ctx))) = let
 
-  -- TODO: phis
-  g' = mapIn  {ins  = Just [labelIn]}   (?hbr_phis2 |++>)
+  -- there is only one input so phi instructions make no sense
+  g' = mapIn  {ins  = Just [labelIn]}   ([] |++>)
      $ mapOut {outs = Just [labelPost]} (<+| Branch labelPost)
      $ g
   
   
-  in pure ([lbl'] ** g')
+  in pure ([lbl'] ** (g', [ctx]))
 
 
 
@@ -137,7 +141,7 @@ compileInstr labelIn ctx (If cond instrThen) = do
   let condG' = mapOut {outs = Just [labelThen, labelPost]} (<+| CondBranch val labelThen labelPost) condG
   
   thenRes <- compileInstr labelThen (reattach labelThen ctx) instrThen
-  (thenOuts ** thenG) <- handleBranchResult condLabel labelPost thenRes
+  (thenOuts ** (thenG, thenCTXs)) <- handleBranchResult condLabel labelPost thenRes
 
   let branches : CFG CBlock
                   (Ends [condLabel ~> labelThen, condLabel ~> labelPost])
@@ -146,20 +150,18 @@ compileInstr labelIn ctx (If cond instrThen) = do
       branches = rewrite map_append {f = (~> labelPost)} thenOuts condLabel
                  in Parallel thenG Empty
   
-  -- TODO: here one has to segregate arbitrary number of contexts
-  --SG postCTX postPhis <- segregate ctx (getContexts branches)
-
-  -- TODO: phis
-  -- TODO: add context
+  let ctx' = reattach condLabel ctx
+  SG postCTX postPhis <- segregate (thenCTXs ++ [ctx'])
+  
   let postBLK : CBlock labelPost (Just $ thenOuts ++ [condLabel]) Undefined
-      postBLK = ?h_if_phis |++> initCBlock
+      postBLK = postPhis |++> emptyCBlock postCTX
   
   let postG : CFG CBlock (Ends $ map (~> labelPost) (thenOuts ++ [condLabel])) (Undefined labelPost)
       postG = SingleVertex {vins = Just (thenOuts ++ [condLabel]), vouts = Undefined} postBLK
   
   let final = Connect condG' (Connect branches postG)
   
-  pure $ CRO (labelPost ** (final, ?hctxIf))
+  pure $ CRO (labelPost ** (final, attach labelPost postCTX))
   
 
 
@@ -185,25 +187,29 @@ compileInstr labelIn ctx (IfElse cond instrThen instrElse) = do
                         
              -> (thenOuts : List BlockLabel)
              -> (thenG : CFG CBlock (Ends [nodeOut ~> labelThen]) (Ends $ map (~> labelPost) thenOuts))
+             -> (thenCTXs : DList (\lbl => Attached lbl VarCTX) thenOuts)
              
              -> (elseOuts : List BlockLabel)
              -> (elseG : CFG CBlock (Ends [nodeOut ~> labelElse]) (Ends $ map (~> labelPost) elseOuts))
+             -> (elseCTXs : DList (\lbl => Attached lbl VarCTX) elseOuts)
              
-             -> CompM (CFG CBlock (Undefined nodeIn) (Undefined labelPost))
+             -> CompM ( CFG CBlock (Undefined nodeIn) (Undefined labelPost)
+                      , Attached labelPost VarCTX
+                      )
 
-    mkOpenCFG node thenOuts thenG elseOuts elseG = do
+    mkOpenCFG node thenOuts thenG thenCTXs elseOuts elseG elseCTXs = do
 
-      -- TODO: phis
-      -- TODO: add context
+      SG postCTX postPhis <- segregate (thenCTXs ++ elseCTXs)
+
       let postG : CFG CBlock (Ends $ map (~> labelPost) (thenOuts ++ elseOuts)) (Undefined labelPost)
           postG = SingleVertex {vins = Just (thenOuts ++ elseOuts), vouts = Undefined} 
-                $ ?h_if_else_phis |++> initCBlock
+                $ postPhis |++> emptyCBlock postCTX
       
       let final = Connect (node `Connect` (Parallel thenG elseG)) 
                 $ rewrite revEq $ map_concat {f = (~> labelPost)} thenOuts elseOuts
                   in postG
 
-      pure final
+      pure (final, attach labelPost postCTX)
 
 
     
@@ -215,8 +221,9 @@ compileInstr labelIn ctx (IfElse cond instrThen instrElse) = do
 
     handleBranchResults nodeIn nodeOut node (CRC thenG) (CRC elseG) = do
       
-      let thenG' = mapIn {ins = Just [nodeOut]} (?hbrs_phis0 |++>) thenG
-      let elseG' = mapIn {ins = Just [nodeOut]} (?hbrs_phis1 |++>) elseG
+      -- there is only one input so phi instructions make no sense
+      let thenG' = mapIn {ins = Just [nodeOut]} ([] |++>) thenG
+      let elseG' = mapIn {ins = Just [nodeOut]} ([] |++>) elseG
       
       let final = Connect node (Parallel thenG' elseG')
       
@@ -226,34 +233,33 @@ compileInstr labelIn ctx (IfElse cond instrThen instrElse) = do
 
       labelPost <- freshLabel
 
-      (thenOuts ** thenG') <- handleBranchResult nodeOut labelPost thenRes
-      (elseOuts ** elseG') <- handleBranchResult nodeOut labelPost elseRes
+      (thenOuts ** (thenG', thenCTXs)) <- handleBranchResult nodeOut labelPost thenRes
+      (elseOuts ** (elseG', elseCTXs)) <- handleBranchResult nodeOut labelPost elseRes
 
-      final <- mkOpenCFG node thenOuts thenG' elseOuts elseG'
-      pure $ CRO (labelPost ** (final, ?hctxIfElse1))
+      final <- mkOpenCFG node thenOuts thenG' thenCTXs elseOuts elseG' elseCTXs
+      pure $ CRO (labelPost ** final)
 
     handleBranchResults nodeIn nodeOut node thenRes@(CRO (thenOut ** thenG)) elseRes = do
 
       labelPost <- freshLabel
 
-      (thenOuts ** thenG') <- handleBranchResult nodeOut labelPost thenRes
-      (elseOuts ** elseG') <- handleBranchResult nodeOut labelPost elseRes
+      (thenOuts ** (thenG', thenCTXs)) <- handleBranchResult nodeOut labelPost thenRes
+      (elseOuts ** (elseG', elseCTXs)) <- handleBranchResult nodeOut labelPost elseRes
 
-      final <- mkOpenCFG node thenOuts thenG' elseOuts elseG'
-      pure $ CRO (labelPost ** (final, ?hctxIfElse2))
+      final <- mkOpenCFG node thenOuts thenG' thenCTXs elseOuts elseG' elseCTXs
+      pure $ CRO (labelPost ** final)
 
 
-    
+
 
 -- Return ---------------------------------------------------------------------
 compileInstr labelIn ctx (While cond loop) = do
 
   condLabelIn <- freshLabel
 
-  -- TODO: add context
   let incoming : CFG CBlock (Undefined labelIn) (Ends [labelIn ~> condLabelIn])
       incoming = SingleVertex {vouts = Just [condLabelIn]}
-               $ initCBlock <+| Branch condLabelIn
+               $ emptyCBlock (detach ctx) <+| Branch condLabelIn
 
   ((condLabelOut ** condG), val) <- evalStateT (detach ctx) $ compileExpr condLabelIn cond
   labelLoop <- freshLabel
@@ -268,11 +274,11 @@ compileInstr labelIn ctx (While cond loop) = do
   -- TODO: phis
   -- TODO: add context
   let post : CFG CBlock (Ends [condLabelOut ~> labelPost]) (Undefined labelPost)
-      post = SingleVertex {vins = Just [condLabelOut]} $ ?h_while_phis |++> initCBlock
+      post = SingleVertex {vins = Just [condLabelOut]} $ ?h_while_phis |++> emptyCBlock ?hctxWhile0
 
   let final = Connect incoming (Connect whileG post)
   
-  pure $ CRO (labelPost ** (final, ?hctxWhile))
+  pure $ CRO (labelPost ** (final, ?hctxWhile1))
 
   where
     
