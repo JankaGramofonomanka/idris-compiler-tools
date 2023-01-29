@@ -166,9 +166,34 @@ segregate' (ctx :: ctxs) = addCTX ctx (segregate' ctxs)
 
 
 
-
+-- TODO: consider another name - `merge`
 export
 segregate : {labels : List BlockLabel}
           -> DList (\lbl => Attached lbl VarCTX) labels
           -> CompM $ Segregated (MkInputs labels)
 segregate ctxs = finalize (segregate' ctxs)
+
+
+
+public export
+VarCTX' : Type
+VarCTX' = DMap Variable (Reg . GetLLType)
+
+
+export
+newRegForAll : {0 lbl : BlockLabel} -> Attached lbl VarCTX -> CompM (Attached lbl VarCTX')
+newRegForAll ctx = do
+  let listified = map DMap.toList ctx
+
+  traverse (foldlM addNewReg DMap.empty) listified
+  
+  where
+    
+    addNewReg : VarCTX'
+             -> (t ** Item Variable (LLValue . GetLLType) t)
+             -> CompM VarCTX'
+    
+    addNewReg ctx item = pure (insert (snd item).key !freshReg ctx)
+
+
+

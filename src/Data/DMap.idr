@@ -31,3 +31,5 @@ export
 merge : DMap k f -> DMap k f -> DMap k f
 merge m m' = fromList (DMap.toList m ++ DMap.toList m')
 
+export
+map : ({x : t} -> f x -> g x) -> DMap k f -> DMap k g

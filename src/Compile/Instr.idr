@@ -1,6 +1,7 @@
 module Compile.Instr
 
 import Control.Monad.State
+import Control.Monad.Either
 
 import Data.Some
 import Data.Attached
@@ -23,9 +24,8 @@ import Utils
 
 
 {-
-Add phi assignments and a terminating instruction if necessary to the blocks
-that are a result of compilation of a sub instruction and add the blocks to the
-control flow graph
+Complete a control flow graph by adding phi assignments and a terminating
+instruction if necessary
 -}
 handleBranchResult : (labelIn : BlockLabel)
                   -> (labelPost : BlockLabel)
@@ -252,7 +252,8 @@ compileInstr labelIn ctx (IfElse cond instrThen instrElse) = do
 
 
 
--- Return ---------------------------------------------------------------------
+-- While ----------------------------------------------------------------------
+-- TODO: tidy up contexts (naming and their place in function arguments)
 compileInstr labelIn ctx (While cond loop) = do
 
   condLabelIn <- freshLabel
@@ -260,51 +261,86 @@ compileInstr labelIn ctx (While cond loop) = do
   let incoming : CFG CBlock (Undefined labelIn) (Ends [labelIn ~> condLabelIn])
       incoming = SingleVertex {vouts = Just [condLabelIn]}
                $ emptyCBlock (detach ctx) <+| Branch condLabelIn
+  
+  -- TODO: get rid of unnecessary assignments
+  condCTX' <- reattach condLabelIn <$> newRegForAll ctx
+  let condCTX = Prelude.map (DMap.map Var) condCTX'
 
-  ((condLabelOut ** condG), val) <- evalStateT (detach ctx) $ compileExpr condLabelIn cond
+  ((condLabelOut ** condG), val) <- evalStateT (detach condCTX) $ compileExpr condLabelIn cond
   labelLoop <- freshLabel
   labelPost <- freshLabel
 
   let condG' = mapOut {outs = Just [labelLoop, labelPost]} (<+| CondBranch val labelLoop labelPost) condG
 
-  loopRes <- compileInstr labelLoop ?hctxWhileLoop loop
+  let loopInCTX = reattach labelLoop condCTX
+  loopRes <- compileInstr labelLoop loopInCTX loop
   
-  whileG <- handleLoopResult labelIn condLabelIn condLabelOut condG' loopRes
+  loopG <- handleLoopResult condCTX' ctx condG' loopRes
 
-  -- TODO: phis
-  -- TODO: add context
+  let postCTX = reattach labelPost condCTX
+
+  -- there is only one input so phi instructions make no sense
   let post : CFG CBlock (Ends [condLabelOut ~> labelPost]) (Undefined labelPost)
-      post = SingleVertex {vins = Just [condLabelOut]} $ ?h_while_phis |++> emptyCBlock ?hctxWhile0
+      post = SingleVertex {vins = Just [condLabelOut]} $ [] |++> emptyCBlock (detach postCTX)
 
-  let final = Connect incoming (Connect whileG post)
+  let final = Connect incoming (Connect loopG post)
   
-  pure $ CRO (labelPost ** (final, ?hctxWhile1))
+  pure $ CRO (labelPost ** (final, postCTX))
 
   where
     
-    handleLoopResult : (labelIn, nodeIn, nodeOut : BlockLabel)
+    handleLoopResult : {labelIn, nodeIn, nodeOut : BlockLabel}
+                    -> (regMap : Attached nodeIn VarCTX')
+                    -> (inCTX : Attached labelIn VarCTX)
                     -> (node : CFG CBlock (Undefined nodeIn) (Ends [nodeOut ~> labelLoop, nodeOut ~> labelPost]))
                     -> (loopRes : CompileResult labelLoop crt)
                     -> CompM $ CFG CBlock (Ends [labelIn ~> nodeIn]) (Ends [nodeOut ~> labelPost])
     
-    handleLoopResult labelIn nodeIn nodeOut node (CRC loop) = do
+    handleLoopResult {labelIn, nodeIn, nodeOut} regMap inCTX node (CRC loop) = do
       
-      let node' = mapIn {ins = Just [labelIn]} (?hlr_phis0 |++>) node
-      let loop' = mapIn {ins = Just [nodeOut]} (?hlr_phis1 |++>) loop
+      -- there is only one input so phi instructions make no sense
+      let node' = mapIn {ins = Just [labelIn]} ([] |++>) node
+      let loop' = mapIn {ins = Just [nodeOut]} ([] |++>) loop
       let final = Connect node' (Parallel loop' Empty)
       
       pure final
 
-    handleLoopResult labelIn nodeIn nodeOut node (CRO (loopOut ** (loop, ctx))) = do
+    handleLoopResult {labelIn, nodeIn, nodeOut} regMap inCTX node (CRO (loopOut ** (loop, loopCTX))) = do
+
+      phis <- mkPhis (detach regMap) loopCTX inCTX
       
-      let node' = mapIn {ins = Just [loopOut, labelIn]} (?hlr_phis2 |++>) node
-      let loop' = mapIn  {ins  = Just [nodeOut]}  (?hlr_phis3 |++>)
+      let node' = mapIn {ins = Just [loopOut, labelIn]} (phis |++>) node
+      
+      -- there is only one input so phi instructions make no sense
+      let loop' = mapIn  {ins  = Just [nodeOut]}  ([] |++>)
                 $ mapOut {outs = Just [nodeIn]}   (<+| Branch nodeIn)
                 $ loop
       
       let final = Cycle node' loop'
       
       pure final
+
+      where
+
+        mkPhis : VarCTX'
+              -> {lbl, lbl' : BlockLabel}
+              -> Attached lbl VarCTX
+              -> Attached lbl' VarCTX
+              -> CompM $ List (PhiInstr (MkInputs [lbl, lbl']))
+        mkPhis ctx ctx' ctx'' = traverse mkPhi' (DMap.toList ctx) where
+          
+          mkPhi' : (t ** Item Variable (Reg . GetLLType) t)
+                -> CompM $ PhiInstr (MkInputs [lbl, lbl'])
+
+          mkPhi' (t ** MkItem key reg) = do
+            let Just val'   = lookup key (detach ctx')
+                            | Nothing => throwError $ Impossible "variable non existent in loop body or node context"
+            
+            let Just val''  = lookup key (detach ctx'')
+                            | Nothing => throwError $ Impossible "variable non existent in loop body or node context"
+
+            pure $ AssignPhi reg $ Phi [(lbl, val'), (lbl', val')]
+            
 
 
 

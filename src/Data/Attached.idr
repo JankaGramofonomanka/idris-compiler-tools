@@ -27,6 +27,15 @@ export
 implementation Functor (Attached x) where
   map f (Attach x y) = Attach x (f y)
 
+export
+implementation Foldable (Attached x) where
+  foldr f acc (Attach x elem) = f elem acc
+
+export
+implementation Traversable (Attached x) where
+  traverse f (Attach x y) = pure (Attach x) <*> (f y)
+    
+
 
 export
 distribute : Attached x (List a) -> List (Attached x a)
