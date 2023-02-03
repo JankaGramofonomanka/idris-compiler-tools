@@ -6,6 +6,12 @@ import Utils
 
 namespace Vertex
   
+  {-
+  `Endpoint a` - neighbors of a vertex with identifier of type `a`
+  - `Just l` means that vertices identified by labels in `l` are neighbors of
+    our vertex
+  - `Nothing` means that we haven't yet defined the neghbors of our vertex.
+  -}
   public export
   Endpoint : Type -> Type
   Endpoint a = Maybe (List a)
@@ -22,6 +28,13 @@ namespace Vertex
   Single : a -> Endpoint a
   Single x = Just [x]
 
+  {-
+  `Vertex a` - constructor of verteices of a directed graph, with identifiers
+  of type `a`
+
+  if `vertex : Vertex a` then `vertex l ins outs` is a type of vertex with
+  identifier `l`, inputs `ins` and outputs `outs`.
+  -}
   public export
   Vertex : Type -> Type
   Vertex a = a -> Endpoint a -> Endpoint a -> Type
@@ -35,6 +48,8 @@ namespace Vertex
 namespace Graph
 
   infix 6 ~>, <~
+
+  -- `v ~> w` - an edge from `v` to `w`
   public export
   data Edge : Type -> Type where
     (~>) : a -> a -> Edge a  
@@ -51,6 +66,20 @@ namespace Graph
   Origin : Edge a -> a
   Origin (from ~> to) = from
 
+  {-
+  `Endpoints a` - edges of an incomplete graph, that have only one end in the
+  graph
+
+  - `Undefined v` means the graph has one vertex labeled `v`, with undefined
+  inputs (outputs). All other vertices have their inputs (outputs) in the
+  graph.
+  
+  - `Ends edges` means the vertices that are the destinations (origins) of
+  edges in `edges` have inputs (outputs) that are the origins (destitnations)
+  of edges in `edges`.
+  More precisely, if `v ~> w` is a n element of `edges`, then `w` (`v`) is in
+  the graph and has input `v` (output `w`), but `v` (`w`) is not in the graph.
+  -}
   public export
   data Endpoints a = Undefined a | Ends (List (Edge a))
 
@@ -68,7 +97,7 @@ namespace Graph
     ALTCons : es `AllLeadTo` to
            -> ((from ~> to) :: es) `AllLeadTo` to
 
-  
+
 
   export
   alt_map : ends `AllLeadTo` lbl -> ends = map (~> lbl) (map Origin ends)
@@ -91,6 +120,13 @@ namespace Graph
   fromVIn Nothing     v = Undefined v
   fromVIn (Just ins)  v = Ends $ map (~> v) ins
 
+  {-
+  A potentially incomplete control flow graph.
+  `CFG vertex ins outs` is a graph where:
+    `ins`     - edges from "to be defined" vertices to vertices in the graph
+    `outs`    - edges from vertices in the graph to "to be defined" vertices
+    `vertex`  - constructor of vertex types.
+  -}
   public export
   data CFG : Vertex a -> Endpoints a -> Endpoints a -> Type where
 

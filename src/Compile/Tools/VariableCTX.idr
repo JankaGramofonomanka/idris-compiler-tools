@@ -12,7 +12,10 @@ import Compile.Tools.CompM
 
 
 
-
+{-
+A map, that stores the values of variables in a particular place in the control
+flow graph
+-}
 public export
 VarCTX : Type
 VarCTX = DMap Variable (LLValue . GetLLType)
@@ -167,6 +170,10 @@ segregate' (ctx :: ctxs) = addCTX ctx (segregate' ctxs)
 
 
 -- TODO: consider another name - `merge`
+{-
+Combine contexts from different branches by adding phi instructions in case of
+conflicting values
+-}
 export
 segregate : {labels : List BlockLabel}
           -> DList (\lbl => Attached lbl VarCTX) labels
@@ -174,7 +181,7 @@ segregate : {labels : List BlockLabel}
 segregate ctxs = finalize (segregate' ctxs)
 
 
-
+-- Same as `VarCTX` but every value is in a register
 public export
 VarCTX' : Type
 VarCTX' = DMap Variable (Reg . GetLLType)

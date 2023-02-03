@@ -23,6 +23,7 @@ data Error : Type where
   Impossible : String -> Error
 
 
+-- TODO: remove the `public` keyword
 public export
 CompM : Type -> Type
 CompM = StateT CompState (Either Error)

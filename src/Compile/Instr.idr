@@ -80,9 +80,13 @@ mutual
   InstrsCR (instr :: instrs) = ClosedOr (InstrCR instr) (InstrsCR instrs)
 
 
-
+{-
+Returns a control flow graph that executes the instruction `instr`.
+The graph starts in a block labeled `labelIn` with `ctx` describing values of
+variables at the start of the graph.
+-}
 compileInstr : (labelIn : BlockLabel)
-            -> Attached labelIn VarCTX
+            -> (ctx : Attached labelIn VarCTX)
             -> (instr : Instr)
             -> CompM (CompileResult labelIn $ InstrCR instr)
 
@@ -109,7 +113,6 @@ compileInstr labelIn ctx (Block instrs) = compile' labelIn ctx instrs where
              -> CompM (CompileResult labelIn $ ClosedOr crt (InstrsCR instrs))
     handleRes (CRC g) instrs = pure (CRC g)
     handleRes (CRO (lbl ** (g, ctx))) instrs = do
-      --let ctx = getContext g
       res <- compile' lbl ctx instrs
       pure $ combineCR g res
     
