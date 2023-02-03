@@ -10,6 +10,12 @@ import CFG
 
 import FEq
 
+{-
+TODO: define a "pseudo LLVM" type that would generalize over `LLValue`, that is
+an LLVM parametrized by the type of values that can be put in expressions.
+This will allow to add placeholders to expressions.
+-}
+
 public export
 data LLType
   = I Nat

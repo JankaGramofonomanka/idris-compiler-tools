@@ -121,6 +121,15 @@ namespace Graph
   fromVIn (Just ins)  v = Ends $ map (~> v) ins
 
   {-
+  TODO: Consider adding an `data` parameter to `CFG` that would be the type of
+  data that would be stored alongside vertices.
+  
+  The `data` could be:
+    - the values of variables
+    - variables that were changed
+    - variables that are live
+  -}
+  {-
   A potentially incomplete control flow graph.
   `CFG vertex ins outs` is a graph where:
     `ins`     - edges from "to be defined" vertices to vertices in the graph
