@@ -3,6 +3,7 @@ module Compile.Tools.CompileResult
 import Control.Monad.State
 
 import Data.DMap
+import Data.DList
 import Data.Attached
 
 import LLVM
@@ -82,6 +83,15 @@ getContext {lbl} cfg = attach lbl $ getOut ctx cfg
 
 
 
+
+
+public export
+data CompileResultD : BlockLabel -> BlockLabel -> CRType -> Type where
+  CRDC : CFG CBlock (Undefined lbl) Closed -> CompileResultD lbl lbl' Closed
+  CRDO : (lbls ** ( CFG CBlock (Undefined lbl) (Ends $ map (~> lbl') lbls)
+                  , DList (\lbl' => Attached lbl' VarCTX) lbls
+                  ))
+     -> CompileResultD lbl lbl' Open
 
 
 
