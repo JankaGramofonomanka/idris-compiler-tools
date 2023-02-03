@@ -256,50 +256,54 @@ compileInstr labelIn ctx (IfElse cond instrThen instrElse) = do
 
 
 -- While ----------------------------------------------------------------------
--- TODO: tidy up contexts (naming and their place in function arguments)
-compileInstr labelIn ctx (While cond loop) = do
+compileInstr labelIn ctxIn (While cond loop) = do
 
-  condLabelIn <- freshLabel
+  labelNodeIn <- freshLabel
 
-  let incoming : CFG CBlock (Undefined labelIn) (Ends [labelIn ~> condLabelIn])
-      incoming = SingleVertex {vouts = Just [condLabelIn]}
-               $ emptyCBlock (detach ctx) <+| Branch condLabelIn
+  let incoming : CFG CBlock (Undefined labelIn) (Ends [labelIn ~> labelNodeIn])
+      incoming = SingleVertex {vouts = Just [labelNodeIn]}
+               $ emptyCBlock (detach ctxIn) <+| Branch labelNodeIn
   
   -- TODO: get rid of unnecessary assignments
-  condCTX' <- reattach condLabelIn <$> newRegForAll ctx
-  let condCTX = Prelude.map (DMap.map Var) condCTX'
+  ctxNode' <- reattach labelNodeIn <$> newRegForAll ctxIn
+  let ctxNode = Prelude.map (DMap.map Var) ctxNode'
 
-  ((condLabelOut ** condG), val) <- evalStateT (detach condCTX) $ compileExpr condLabelIn cond
+  ((labelNodeOut ** nodeG), val) <- evalStateT (detach ctxNode) $ compileExpr labelNodeIn cond
   labelLoop <- freshLabel
   labelPost <- freshLabel
 
-  let condG' = mapOut {outs = Just [labelLoop, labelPost]} (<+| CondBranch val labelLoop labelPost) condG
+  let nodeG' = mapOut {outs = Just [labelLoop, labelPost]} (<+| CondBranch val labelLoop labelPost) nodeG
 
-  let loopInCTX = reattach labelLoop condCTX
-  loopRes <- compileInstr labelLoop loopInCTX loop
+  let ctxLoopIn = reattach labelLoop ctxNode
+  loopRes <- compileInstr labelLoop ctxLoopIn loop
   
-  loopG <- handleLoopResult condCTX' ctx condG' loopRes
+  loopG <- handleLoopResult ctxNode' ctxIn nodeG' loopRes
 
-  let postCTX = reattach labelPost condCTX
+  let ctxPost = reattach labelPost ctxNode
 
   -- there is only one input so phi instructions make no sense
-  let post : CFG CBlock (Ends [condLabelOut ~> labelPost]) (Undefined labelPost)
-      post = SingleVertex {vins = Just [condLabelOut]} $ [] |++> emptyCBlock (detach postCTX)
+  let post : CFG CBlock (Ends [labelNodeOut ~> labelPost]) (Undefined labelPost)
+      post = SingleVertex {vins = Just [labelNodeOut]} $ [] |++> emptyCBlock (detach ctxPost)
 
   let final = Connect incoming (Connect loopG post)
   
-  pure $ CRO (labelPost ** (final, postCTX))
+  pure $ CRO (labelPost ** (final, ctxPost))
 
   where
     
     handleLoopResult : {labelIn, nodeIn, nodeOut : BlockLabel}
-                    -> (regMap : Attached nodeIn VarCTX')
-                    -> (inCTX : Attached labelIn VarCTX)
+                    -> (ctxNode : Attached nodeIn VarCTX')
+                    -> (ctxIn : Attached labelIn VarCTX)
                     -> (node : CFG CBlock (Undefined nodeIn) (Ends [nodeOut ~> labelLoop, nodeOut ~> labelPost]))
                     -> (loopRes : CompileResult labelLoop crt)
                     -> CompM $ CFG CBlock (Ends [labelIn ~> nodeIn]) (Ends [nodeOut ~> labelPost])
     
-    handleLoopResult {labelIn, nodeIn, nodeOut} regMap inCTX node (CRC loop) = do
+    handleLoopResult {labelIn, nodeIn, nodeOut} ctxNode ctxIn node (CRC loop) = do
+
+      {-
+      TODO: take care of the fact that, new registers were assigned to every
+      variable, but nothing represents that in the generated code.
+      -}
       
       -- there is only one input so phi instructions make no sense
       let node' = mapIn {ins = Just [labelIn]} ([] |++>) node
@@ -308,9 +312,9 @@ compileInstr labelIn ctx (While cond loop) = do
       
       pure final
 
-    handleLoopResult {labelIn, nodeIn, nodeOut} regMap inCTX node (CRO (loopOut ** (loop, loopCTX))) = do
+    handleLoopResult {labelIn, nodeIn, nodeOut} ctxNode ctxIn node (CRO (loopOut ** (loop, ctxLoop))) = do
 
-      phis <- mkPhis (detach regMap) loopCTX inCTX
+      phis <- mkPhis (detach ctxNode) ctxLoop ctxIn
       
       let node' = mapIn {ins = Just [loopOut, labelIn]} (phis |++>) node
       
