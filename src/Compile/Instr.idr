@@ -266,7 +266,7 @@ compileInstr labelIn ctxIn (While cond loop) = do
   
   -- TODO: get rid of unnecessary assignments
   ctxNode' <- reattach labelNodeIn <$> newRegForAll ctxIn
-  let ctxNode = Prelude.map (DMap.map Var) ctxNode'
+  let ctxNode = map (DMap.dmap Var) ctxNode'
 
   ((labelNodeOut ** nodeG), val) <- evalStateT (detach ctxNode) $ compileExpr labelNodeIn cond
   labelLoop <- freshLabel
