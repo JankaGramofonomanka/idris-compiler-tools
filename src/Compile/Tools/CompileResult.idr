@@ -12,7 +12,10 @@ import LNG
 import Compile.Tools
 import Compile.Tools.CBlock
 import Compile.Tools.VariableCTX
+import Compile.Tools.CompM
 import CFG
+
+import Utils
 
 
 export
@@ -60,17 +63,151 @@ data CompileResultUU : BlockLabel -> CRType -> Type where
        -> CompileResultUU lbl Open
 
 
+
+public export
+data CompileResultUD : BlockLabel -> BlockLabel -> CRType -> Type where
+  CRUDC : CFG CBlock (Undefined lbl) Closed -> CompileResultUD lbl lbl' Closed
+  CRUDO : (lbls ** ( CFG CBlock (Undefined lbl) (Ends $ map (~> lbl') lbls)
+                   , DList (\lbl' => Attached lbl' VarCTX) lbls
+                   ))
+       -> CompileResultUD lbl lbl' Open
+
+
+
+public export
+data CompileResultDD : BlockLabel -> List BlockLabel -> BlockLabel -> CRType -> Type where
+  CRDDC : CFG CBlock (Ends $ map (lbl ~>) lbls) Closed -> CompileResultDD lbl lbls lbl' Closed
+  CRDDO : (lbls' ** ( CFG CBlock (Ends $ map (lbl ~>) lbls) (Ends $ map (~> lbl') lbls')
+                    , DList (\l => Attached l VarCTX) lbls'
+                    ))
+       -> CompileResultDD lbl lbls lbl' Open
+
+
+
+
+
+export
+unwrapCRUD : CompileResultUD lbl lbl' crt
+          -> (outs ** ( CFG CBlock (Undefined lbl) (Ends $ map (~> lbl') outs)
+                      , DList (\l => Attached l VarCTX) outs
+                      ))
+unwrapCRUD (CRUDC g) = ([] ** (g, []))
+unwrapCRUD (CRUDO (outs ** (g, ctxs))) = (outs ** (g, ctxs))
+
+export
+unwrapCRDD : CompileResultDD lbl lbls lbl' crt
+          -> (outs ** ( CFG CBlock (Ends $ map (lbl ~>) lbls) (Ends $ map (~> lbl') outs)
+                      , DList (\l => Attached l VarCTX) outs
+                      ))
+unwrapCRDD (CRDDC g) = ([] ** (g, []))
+unwrapCRDD (CRDDO (outs ** (g, ctxs))) = (outs ** (g, ctxs))
+
+
+
+
+
+
 export
 initCRUU : (lbl : BlockLabel) -> CompileResultUU lbl Open
 initCRUU lbl = CRUUO (lbl ** (initCFG, attach lbl emptyCtx))
 
+export
+initCRUD : (lbl, lbl' : BlockLabel) -> CompileResultUD lbl lbl' Open
+initCRUD lbl lbl' = CRUDO ([lbl] ** (mapOut {outs = Just [lbl']} (<+| Branch lbl') initCFG, [attach lbl emptyCtx]))
+
+
+
+
+
 
 
 
 export
-combineCRUU : CFG CBlock (Undefined lbl) (Undefined lbl') -> CompileResultUU lbl' os -> CompileResultUU lbl os
-combineCRUU g (CRUUC g') = CRUUC $ connect g g'
-combineCRUU g (CRUUO (lbl'' ** (g', ctx))) = CRUUO $ (lbl'' ** (connect g g', ctx))
+connectCRUU : CFG CBlock (Undefined lbl) (Undefined lbl') -> CompileResultUU lbl' os -> CompileResultUU lbl os
+connectCRUU g (CRUUC g') = CRUUC $ connect g g'
+connectCRUU g (CRUUO (lbl'' ** (g', ctx))) = CRUUO $ (lbl'' ** (connect g g', ctx))
+
+
+export
+connectCRUD : CFG CBlock (Undefined lbl) (Undefined lbl')
+           -> CompileResultUD lbl' lbl'' os
+           -> CompileResultUD lbl lbl'' os
+connectCRUD g (CRUDC g') = CRUDC $ connect g g'
+connectCRUD g (CRUDO (lbls ** (g', ctxs))) = CRUDO $ (lbls ** (connect g g', ctxs))
+
+
+export
+connectCRDD : CFG CBlock (Undefined lbl) (Ends $ map (lbl' ~>) lbls)
+           -> CompileResultDD lbl' lbls lbl'' crt
+           -> CompileResultUD lbl lbl'' crt
+
+connectCRDD pre (CRDDC g) = CRUDC (Connect pre g)
+connectCRDD pre (CRDDO (lbls ** (g, ctxs))) = let
+  
+  g' = Connect pre g
+  
+  in CRUDO (lbls ** (g', ctxs))
+
+
+
+
+
+
+
+export
+parallelCR : {lbl' : BlockLabel}
+          -> (lres : CompileResultDD lbl lins lbl' lcrt)
+          -> (rres : CompileResultDD lbl rins lbl' rcrt)
+          
+          -> CompileResultDD lbl (lins ++ rins) lbl' (OpenOr lcrt rcrt)
+
+parallelCR {lbl'} (CRDDC lg) (CRDDC rg)
+  = CRDDC $ rewrite map_concat {f = (lbl ~>)} lins rins in Parallel lg rg
+
+parallelCR {lbl'} (CRDDC lg) (CRDDO (routs ** (rg, rctxs))) = let
+  g = rewrite map_concat {f = (lbl ~>)} lins rins in Parallel lg rg
+  in CRDDO (routs ** (g, rctxs))
+
+parallelCR {lbl'} (CRDDO (louts ** (lg, lctxs))) (CRDDC rg) = let
+
+  g = rewrite map_concat {f = (lbl ~>)} lins rins
+      in rewrite revEq $ concat_nil (map (~> lbl') louts)
+      in Parallel lg rg
+
+  in CRDDO (louts ** (g, lctxs))
+
+parallelCR {lbl'} (CRDDO (louts ** (lg, lctxs))) (CRDDO (routs ** (rg, rctxs))) = let
+
+  g = rewrite map_concat {f = (lbl ~>)} lins rins
+      in rewrite map_concat {f = (~> lbl')} louts routs
+      in Parallel lg rg
+
+  in CRDDO (louts ++ routs ** (g, lctxs ++ rctxs))
+
+
+
+
+
+
+
+
+export
+collectCR : {lbl' : BlockLabel} -> CompileResultUD lbl lbl' crt -> CompM $ CompileResultUU lbl crt
+collectCR {lbl' = labelPost} (CRUDC g) = pure $ CRUUC g
+collectCR {lbl' = labelPost} (CRUDO (lbls ** (g, ctxs))) = do
+  SG ctx phis <- segregate ctxs
+
+  let ctxPost = attach labelPost ctx
+
+  let post : CFG CBlock (Ends $ map (~> labelPost) lbls) (Undefined labelPost)
+      post = SingleVertex {vins = Just lbls} $ phis |++> emptyCBlock (detach ctxPost)
+  
+  let final = Connect g post
+
+  pure $ CRUUO (labelPost ** (final, ctxPost))
+
+
+
 
 
 
@@ -92,37 +229,19 @@ getContext {lbl} cfg = attach lbl $ getOut ctx cfg
 
 
 
-public export
-data CompileResultUD : BlockLabel -> BlockLabel -> CRType -> Type where
-  CRUDC : CFG CBlock (Undefined lbl) Closed -> CompileResultUD lbl lbl' Closed
-  CRUDO : (lbls ** ( CFG CBlock (Undefined lbl) (Ends $ map (~> lbl') lbls)
-                   , DList (\lbl' => Attached lbl' VarCTX) lbls
-                   ))
-       -> CompileResultUD lbl lbl' Open
-
-
-export
-initCRUD : (lbl, lbl' : BlockLabel) -> CompileResultUD lbl lbl' Open
-initCRUD lbl lbl' = CRUDO ([lbl] ** (mapOut {outs = Just [lbl']} (<+| Branch lbl') initCFG, [attach lbl emptyCtx]))
-
-
-export
-combineCRUD : CFG CBlock (Undefined lbl) (Undefined lbl') -> CompileResultUD lbl' lbl'' os -> CompileResultUD lbl lbl'' os
-combineCRUD g (CRUDC g') = CRUDC $ connect g g'
-combineCRUD g (CRUDO (lbls ** (g', ctxs))) = CRUDO $ (lbls ** (connect g g', ctxs))
 
 
 
 
 
 
-public export
-data CompileResultDD : Edge BlockLabel -> BlockLabel -> CRType -> Type where
-  CRDDC : CFG CBlock (Ends [edge]) Closed -> CompileResultDD edge lbl Closed
-  CRDDO : (lbls ** ( CFG CBlock (Ends [edge]) (Ends $ map (~> lbl) lbls)
-                   , DList (\l => Attached l VarCTX) lbls
-                   ))
-       -> CompileResultDD edge lbl Open
+
+
+
+
+
+
+
 
 
 

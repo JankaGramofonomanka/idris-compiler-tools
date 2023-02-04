@@ -28,24 +28,6 @@ TODO: Figure out how to reduce the number of attachments and detachments
 
 
 
-
-collect : {lbl' : BlockLabel} -> CompileResultUD lbl lbl' crt -> CompM $ CompileResultUU lbl crt
-collect {lbl' = labelPost} (CRUDC g) = pure $ CRUUC g
-collect {lbl' = labelPost} (CRUDO (lbls ** (g, ctxs))) = do
-  SG ctx phis <- segregate ctxs
-
-  let ctxPost = attach labelPost ctx
-
-  let post : CFG CBlock (Ends $ map (~> labelPost) lbls) (Undefined labelPost)
-      post = SingleVertex {vins = Just lbls} $ phis |++> emptyCBlock (detach ctxPost)
-  
-  let final = Connect g post
-
-  pure $ CRUUO (labelPost ** (final, ctxPost))
-
-
-
-
 jumpTo : (lbl' : BlockLabel) -> CompileResultUU lbl crt -> CompileResultUD lbl lbl' crt
 jumpTo labelPost (CRUUC g) = CRUDC g
 jumpTo labelPost (CRUUO (lbl ** (g, ctx))) = let
@@ -53,7 +35,7 @@ jumpTo labelPost (CRUUO (lbl ** (g, ctx))) = let
   in CRUDO ([lbl] ** (g', [ctx]))
 
 
-jumpFrom : (lbl : BlockLabel) -> CompileResultUD lbl' lbl'' crt -> CompileResultDD (lbl ~> lbl') lbl'' crt
+jumpFrom : (lbl : BlockLabel) -> CompileResultUD lbl' lbl'' crt -> CompileResultDD lbl [lbl'] lbl'' crt
 jumpFrom labelPre (CRUDC g) = CRDDC $ mapIn {ins = Just [labelPre]} ([] |++>) g
 jumpFrom labelPre (CRUDO (lbls ** (g, ctxs))) = let
   g' = mapIn {ins = Just [labelPre]} ([] |++>) g
@@ -62,6 +44,13 @@ jumpFrom labelPre (CRUDO (lbls ** (g, ctxs))) = let
 
 
 mutual
+  {-
+  TODO: Consider getting rid of `InstrCR` in favor of returning a dependent
+  pair (lbls ** CFG _ ins (Ends $ map (~> lbl) lbls))
+  or (maybeLBL ** CFG _ ins (fromMaybe Closed $ map Undefined maybeLBL))
+  -}
+
+  
   InstrCR : Instr -> CRType
   InstrCR (Block is)      = InstrsCR is
 
@@ -132,7 +121,7 @@ mutual
       handleRes (CRUUC g) instrs = pure (CRUUC g)
       handleRes (CRUUO (lbl ** (g, ctx))) instrs = do
         res <- compile' lbl ctx instrs
-        pure $ combineCRUU g res
+        pure $ connectCRUU g res
       
 
   -- Assign -------------------------------------------------------------------
@@ -149,15 +138,15 @@ mutual
     
   -- If -----------------------------------------------------------------------
   compileInstrUU labelIn ctx instr@(If cond instrThen)
-    = compileInstrUD labelIn !freshLabel ctx instr >>= collect
+    = compileInstrUD labelIn !freshLabel ctx instr >>= collectCR
 
   -- IfElse -------------------------------------------------------------------
   compileInstrUU labelIn ctx instr@(IfElse cond instrThen instrElse)
-    = compileInstrUD labelIn !freshLabel ctx instr >>= collect
+    = compileInstrUD labelIn !freshLabel ctx instr >>= collectCR
 
   -- While --------------------------------------------------------------------
   compileInstrUU labelIn ctx instr@(While cond loop)
-    = compileInstrUD labelIn !freshLabel ctx instr >>= collect
+    = compileInstrUD labelIn !freshLabel ctx instr >>= collectCR
               
 
   -- Return -------------------------------------------------------------------
@@ -251,7 +240,7 @@ mutual
             let thm : (InstrsCR instrs = ClosedOr (InstrCR instr) (InstrsCR instrs))
                 thm = rewrite cro in Refl
             
-            pure $ rewrite revEq thm in combineCRUD g res'
+            pure $ rewrite revEq thm in connectCRUD g res'
 
 
 
@@ -266,7 +255,7 @@ mutual
     let condG' = mapOut {outs = Just [labelThen, labelPost]} (<+| CondBranch val labelThen labelPost) condG
     
     thenRes <- compileInstrDD condLabel labelThen labelPost (reattach condLabel ctx) instrThen
-    let (thenOuts ** (thenG, thenCTXs)) = handleBranchResult thenRes
+    let (thenOuts ** (thenG, thenCTXs)) = unwrapCRDD thenRes
 
     let branches : CFG CBlock
                     (Ends [condLabel ~> labelThen, condLabel ~> labelPost])
@@ -279,17 +268,7 @@ mutual
     let final = Connect condG' branches
     
     pure $ CRUDO (thenOuts ++ [condLabel] ** (final, thenCTXs ++ [ctx']))
-
     
-    where
-
-      handleBranchResult : CompileResultDD edge lbl' crt
-                        -> (outs ** ( CFG CBlock (Ends [edge]) (Ends $ map (~> lbl') outs)
-                                    , DList (\lbl => Attached lbl VarCTX) outs
-                                    ))
-      
-      handleBranchResult (CRDDC g) = ([] ** (g, []))
-      handleBranchResult (CRDDO (outs ** (g, ctxs))) = (outs ** (g, ctxs))
 
 
 
@@ -307,55 +286,10 @@ mutual
     thenRes <- compileInstrDD condLabel labelThen labelPost condCTX instrThen
     elseRes <- compileInstrDD condLabel labelElse labelPost condCTX instrElse
 
-    pure $ handleBranchResults labelIn condLabel condG' thenRes elseRes
-    
-    where
+    let branches = parallelCR thenRes elseRes
 
-      handleBranchResults : (nodeIn, nodeOut : BlockLabel)
-                         -> (node : CFG CBlock (Undefined nodeIn) (Ends [nodeOut ~> labelThen, nodeOut ~> labelElse]))
-                         
-                         -> {labelPost : BlockLabel}
-                         -> (thenRes : CompileResultDD (nodeOut ~> labelThen) labelPost crtT)
-                         -> (elseRes : CompileResultDD (nodeOut ~> labelElse) labelPost crtE)
-                         
-                         -> CompileResultUD nodeIn labelPost (OpenOr crtT crtE)
+    pure $ connectCRDD condG' branches
 
-      handleBranchResults nodeIn nodeOut node (CRDDC thenG) (CRDDC elseG) = let
-        
-        final = Connect node (Parallel thenG elseG)
-        
-        in CRUDC final
-
-      handleBranchResults nodeIn nodeOut node (CRDDC thenG) (CRDDO (elseOuts ** (elseG, elseCTXs))) = let
-
-        final = node `Connect` (thenG `Parallel` elseG)
-
-        in CRUDO (elseOuts ** (final, elseCTXs))
-
-      handleBranchResults nodeIn nodeOut node {labelPost} (CRDDO (thenOuts ** (thenG, thenCTXs))) (CRDDC elseG) = let
-
-        final = node `Connect` (thenG `Parallel` elseG)
-        final' = rewrite revEq $ concat_nil (map (\arg => arg ~> labelPost) thenOuts)
-                 in final
-
-        in CRUDO (thenOuts ** (final', thenCTXs))
-      
-      handleBranchResults
-        nodeIn
-        nodeOut
-        node
-        {labelPost}
-        (CRDDO (thenOuts ** (thenG, thenCTXs)))
-        (CRDDO (elseOuts ** (elseG, elseCTXs)))
-        
-        = let
-
-          final = node `Connect` (thenG `Parallel` elseG)
-          final' = rewrite map_concat {f = (~> labelPost)} thenOuts elseOuts
-                   in final
-
-          in CRUDO (thenOuts ++ elseOuts ** (final', thenCTXs ++ elseCTXs))
-  
 
 
 
@@ -368,22 +302,7 @@ mutual
         pre = SingleVertex {vouts = Just [labelNodeIn]}
             $ emptyCBlock (detach ctxIn) <+| Branch labelNodeIn
 
-    handleRes pre <$> compileInstrDD labelIn labelNodeIn labelPost ctxIn instr
-
-    
-
-    where
-
-      handleRes : CFG CBlock (Undefined lbl) (Ends [lbl ~> lbl'])
-               -> CompileResultDD (lbl ~> lbl') lbl'' crt
-               -> CompileResultUD lbl lbl'' crt
-      
-      handleRes pre (CRDDC g) = CRUDC (Connect pre g)
-      handleRes pre (CRDDO (lbls ** (g, ctxs))) = let
-        
-        g' = Connect pre g
-        
-        in CRUDO (lbls ** (g', ctxs))
+    connectCRDD pre <$> compileInstrDD labelIn labelNodeIn labelPost ctxIn instr
 
 
     
@@ -396,7 +315,7 @@ mutual
   compileInstrDD : (labelPre, labelIn, labelPost : BlockLabel)
                 -> (ctx : Attached labelPre VarCTX)
                 -> (instr : Instr)
-                -> CompM (CompileResultDD (labelPre ~> labelIn) labelPost $ InstrCR instr)
+                -> CompM (CompileResultDD labelPre [labelIn] labelPost $ InstrCR instr)
 
 
 
