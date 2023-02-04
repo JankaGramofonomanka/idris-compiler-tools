@@ -52,25 +52,25 @@ toCRType (Just _) = Open
 
 
 public export
-data CompileResult : BlockLabel -> CRType -> Type where
-  CRC : CFG CBlock (Undefined lbl) Closed -> CompileResult lbl Closed
-  CRO : (lbl' **  ( CFG CBlock (Undefined lbl) (Undefined lbl')
-                  , Attached lbl' VarCTX
-                  ))
-     -> CompileResult lbl Open
+data CompileResultUU : BlockLabel -> CRType -> Type where
+  CRUUC : CFG CBlock (Undefined lbl) Closed -> CompileResultUU lbl Closed
+  CRUUO : (lbl' **  ( CFG CBlock (Undefined lbl) (Undefined lbl')
+                    , Attached lbl' VarCTX
+                    ))
+       -> CompileResultUU lbl Open
 
 
 export
-initCR : (lbl : BlockLabel) -> CompileResult lbl Open
-initCR lbl = CRO (lbl ** (initCFG, attach lbl emptyCtx))
+initCRUU : (lbl : BlockLabel) -> CompileResultUU lbl Open
+initCRUU lbl = CRUUO (lbl ** (initCFG, attach lbl emptyCtx))
 
 
 
 
 export
-combineCR : CFG CBlock (Undefined lbl) (Undefined lbl') -> CompileResult lbl' os -> CompileResult lbl os
-combineCR g (CRC g') = CRC $ connect g g'
-combineCR g (CRO (lbl'' ** (g', ctx))) = CRO $ (lbl'' ** (connect g g', ctx))
+combineCRUU : CFG CBlock (Undefined lbl) (Undefined lbl') -> CompileResultUU lbl' os -> CompileResultUU lbl os
+combineCRUU g (CRUUC g') = CRUUC $ connect g g'
+combineCRUU g (CRUUO (lbl'' ** (g', ctx))) = CRUUO $ (lbl'' ** (connect g g', ctx))
 
 
 
@@ -93,21 +93,42 @@ getContext {lbl} cfg = attach lbl $ getOut ctx cfg
 
 
 public export
-data CompileResultD : BlockLabel -> BlockLabel -> CRType -> Type where
-  CRDC : CFG CBlock (Undefined lbl) Closed -> CompileResultD lbl lbl' Closed
-  CRDO : (lbls ** ( CFG CBlock (Undefined lbl) (Ends $ map (~> lbl') lbls)
-                  , DList (\lbl' => Attached lbl' VarCTX) lbls
-                  ))
-     -> CompileResultD lbl lbl' Open
+data CompileResultUD : BlockLabel -> BlockLabel -> CRType -> Type where
+  CRUDC : CFG CBlock (Undefined lbl) Closed -> CompileResultUD lbl lbl' Closed
+  CRUDO : (lbls ** ( CFG CBlock (Undefined lbl) (Ends $ map (~> lbl') lbls)
+                   , DList (\lbl' => Attached lbl' VarCTX) lbls
+                   ))
+       -> CompileResultUD lbl lbl' Open
 
 
 export
-initCRD : (lbl, lbl' : BlockLabel) -> CompileResultD lbl lbl' Open
-initCRD lbl lbl' = CRDO ([lbl] ** (mapOut {outs = Just [lbl']} (<+| Branch lbl') initCFG, [attach lbl emptyCtx]))
+initCRUD : (lbl, lbl' : BlockLabel) -> CompileResultUD lbl lbl' Open
+initCRUD lbl lbl' = CRUDO ([lbl] ** (mapOut {outs = Just [lbl']} (<+| Branch lbl') initCFG, [attach lbl emptyCtx]))
 
 
 export
-combineCRD : CFG CBlock (Undefined lbl) (Undefined lbl') -> CompileResultD lbl' lbl'' os -> CompileResultD lbl lbl'' os
-combineCRD g (CRDC g') = CRDC $ connect g g'
-combineCRD g (CRDO (lbls ** (g', ctxs))) = CRDO $ (lbls ** (connect g g', ctxs))
+combineCRUD : CFG CBlock (Undefined lbl) (Undefined lbl') -> CompileResultUD lbl' lbl'' os -> CompileResultUD lbl lbl'' os
+combineCRUD g (CRUDC g') = CRUDC $ connect g g'
+combineCRUD g (CRUDO (lbls ** (g', ctxs))) = CRUDO $ (lbls ** (connect g g', ctxs))
+
+
+
+
+
+
+public export
+data CompileResultDD : Edge BlockLabel -> BlockLabel -> CRType -> Type where
+  CRDDC : CFG CBlock (Ends [edge]) Closed -> CompileResultDD edge lbl Closed
+  CRDDO : (lbls ** ( CFG CBlock (Ends [edge]) (Ends $ map (~> lbl) lbls)
+                   , DList (\l => Attached l VarCTX) lbls
+                   ))
+       -> CompileResultDD edge lbl Open
+
+
+
+
+
+
+
+
 

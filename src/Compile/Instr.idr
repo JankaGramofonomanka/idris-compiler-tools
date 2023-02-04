@@ -29,9 +29,9 @@ TODO: Figure out how to reduce the number of attachments and detachments
 
 
 
-collect : {lbl' : BlockLabel} -> CompileResultD lbl lbl' crt -> CompM $ CompileResult lbl crt
-collect {lbl' = labelPost} (CRDC g) = pure $ CRC g
-collect {lbl' = labelPost} (CRDO (lbls ** (g, ctxs))) = do
+collect : {lbl' : BlockLabel} -> CompileResultUD lbl lbl' crt -> CompM $ CompileResultUU lbl crt
+collect {lbl' = labelPost} (CRUDC g) = pure $ CRUUC g
+collect {lbl' = labelPost} (CRUDO (lbls ** (g, ctxs))) = do
   SG ctx phis <- segregate ctxs
 
   let ctxPost = attach labelPost ctx
@@ -41,16 +41,16 @@ collect {lbl' = labelPost} (CRDO (lbls ** (g, ctxs))) = do
   
   let final = Connect g post
 
-  pure $ CRO (labelPost ** (final, ctxPost))
+  pure $ CRUUO (labelPost ** (final, ctxPost))
 
 
 
 
-terminate : (lbl' : BlockLabel) -> CompileResult lbl crt -> CompileResultD lbl lbl' crt
-terminate labelPost (CRC g) = CRDC g
-terminate labelPost (CRO (lbl ** (g, ctx))) = let
+terminate : (lbl' : BlockLabel) -> CompileResultUU lbl crt -> CompileResultUD lbl lbl' crt
+terminate labelPost (CRUUC g) = CRUDC g
+terminate labelPost (CRUUO (lbl ** (g, ctx))) = let
   g' = mapOut {outs = Just [labelPost]} (<+| Branch labelPost) g
-  in CRDO ([lbl] ** (g', [ctx]))
+  in CRUDO ([lbl] ** (g', [ctx]))
 
 
 
@@ -79,45 +79,59 @@ mutual
 
 
 mutual
+
+  {-
+  The convention is that names of funcions and data types shall have a
+  suffix <X><Y> where:
+  - <X> describes the kind of expected input of a graph
+  - <Y> describes the kind of expected output of a graph
+  
+  <X> and <Y> can be one of two values:
+  - 'U' (undefined) - the graph can have one undefined endpoint, that is
+    a vertex without specified inputs or outputs
+  - 'D' (defined) - the graph can have only defined endpoints, that is
+    vertices with already known inputs or outputs.
+  -}
+
   {-
   Returns a control flow graph that executes the instruction `instr`.
   The graph starts in a block labeled `labelIn` with `ctx` describing values of
   variables at the start of the graph.
   -}
-  compileInstr : (labelIn : BlockLabel)
+  compileInstrUU : (labelIn : BlockLabel)
               -> (ctx : Attached labelIn VarCTX)
               -> (instr : Instr)
-              -> CompM (CompileResult labelIn $ InstrCR instr)
+              -> CompM (CompileResultUU labelIn $ InstrCR instr)
 
 
 
 
   -- Block --------------------------------------------------------------------
-  compileInstr labelIn ctx (Block instrs) = compile' labelIn ctx instrs where
+  compileInstrUU labelIn ctx (Block instrs) = compile' labelIn ctx instrs where
 
     mutual
 
       compile' : (labelIn : BlockLabel)
               -> Attached labelIn VarCTX
               -> (instrs : List Instr)
-              -> CompM (CompileResult labelIn $ InstrsCR instrs)
-      compile' labelIn ctx [] = pure (initCR labelIn)
+              -> CompM (CompileResultUU labelIn $ InstrsCR instrs)
+      compile' labelIn ctx [] = pure (initCRUU labelIn)
       compile' labelIn ctx (instr :: instrs) = do
-        res <- compileInstr labelIn ctx instr
+        res <- compileInstrUU labelIn ctx instr
         handleRes res instrs
         
       handleRes : {0 labelIn : BlockLabel}
-              -> CompileResult labelIn crt
+              -> CompileResultUU labelIn crt
               -> (instrs : List Instr)
-              -> CompM (CompileResult labelIn $ ClosedOr crt (InstrsCR instrs))
-      handleRes (CRC g) instrs = pure (CRC g)
-      handleRes (CRO (lbl ** (g, ctx))) instrs = do
+              -> CompM (CompileResultUU labelIn $ ClosedOr crt (InstrsCR instrs))
+      handleRes (CRUUC g) instrs = pure (CRUUC g)
+      handleRes (CRUUO (lbl ** (g, ctx))) instrs = do
         res <- compile' lbl ctx instrs
-        pure $ combineCR g res
+        pure $ combineCRUU g res
       
 
   -- Assign -------------------------------------------------------------------
-  compileInstr labelIn ctx (Assign var expr) = do
+  compileInstrUU labelIn ctx (Assign var expr) = do
 
     -- TODO: consider having attached context in the state
     ((lbl ** g), val) <- evalStateT (detach ctx) $ compileExpr labelIn expr
@@ -125,34 +139,34 @@ mutual
     let g' = mapOut {outs = Undefined} (assign var val) g
 
     let ctx' = getContext g'
-    pure $ CRO (lbl ** (g', ctx'))
+    pure $ CRUUO (lbl ** (g', ctx'))
     
     
   -- If -----------------------------------------------------------------------
-  compileInstr labelIn ctx instr@(If cond instrThen)
-    = compileInstrAndJump labelIn !freshLabel ctx instr >>= collect
+  compileInstrUU labelIn ctx instr@(If cond instrThen)
+    = compileInstrUD labelIn !freshLabel ctx instr >>= collect
 
   -- IfElse -------------------------------------------------------------------
-  compileInstr labelIn ctx instr@(IfElse cond instrThen instrElse)
-    = compileInstrAndJump labelIn !freshLabel ctx instr >>= collect
+  compileInstrUU labelIn ctx instr@(IfElse cond instrThen instrElse)
+    = compileInstrUD labelIn !freshLabel ctx instr >>= collect
 
   -- While --------------------------------------------------------------------
-  compileInstr labelIn ctx instr@(While cond loop)
-    = compileInstrAndJump labelIn !freshLabel ctx instr >>= collect
+  compileInstrUU labelIn ctx instr@(While cond loop)
+    = compileInstrUD labelIn !freshLabel ctx instr >>= collect
               
 
   -- Return -------------------------------------------------------------------
-  compileInstr labelIn ctx (Return expr) = do
+  compileInstrUU labelIn ctx (Return expr) = do
     ((_ ** g), val) <- evalStateT (detach ctx) $ compileExpr labelIn expr
     
     let g' = mapOut {outs = Closed} (<+| Ret val) g
-    pure (CRC g')
+    pure (CRUUC g')
 
 
   -- RetVoid ------------------------------------------------------------------
-  compileInstr labelIn ctx RetVoid = do
+  compileInstrUU labelIn ctx RetVoid = do
     let g = mapOut {outs = Closed} (<+| RetVoid) initCFG
-    pure (CRC g)
+    pure (CRUUC g)
 
 
 
@@ -165,28 +179,28 @@ mutual
 
 
 
-  compileInstrAndJump : (labelIn, labelPost : BlockLabel)
+  compileInstrUD : (labelIn, labelPost : BlockLabel)
                      -> (ctx : Attached labelIn VarCTX)
                      -> (instr : Instr)
-                     -> CompM (CompileResultD labelIn labelPost $ InstrCR instr)
+                     -> CompM (CompileResultUD labelIn labelPost $ InstrCR instr)
 
   -- Assign -------------------------------------------------------------------
-  compileInstrAndJump labelIn labelPost ctx instr@(Assign var expr)
-    = terminate labelPost <$> compileInstr labelIn ctx instr
+  compileInstrUD labelIn labelPost ctx instr@(Assign var expr)
+    = terminate labelPost <$> compileInstrUU labelIn ctx instr
 
   -- Return -------------------------------------------------------------------
-  compileInstrAndJump labelIn labelPost ctx instr@(Return expr)
-    = terminate labelPost <$> compileInstr labelIn ctx instr
+  compileInstrUD labelIn labelPost ctx instr@(Return expr)
+    = terminate labelPost <$> compileInstrUU labelIn ctx instr
 
   -- RetVoid ------------------------------------------------------------------
-  compileInstrAndJump labelIn labelPost ctx instr@RetVoid
-    = terminate labelPost <$> compileInstr labelIn ctx instr
+  compileInstrUD labelIn labelPost ctx instr@RetVoid
+    = terminate labelPost <$> compileInstrUU labelIn ctx instr
 
 
 
 
   -- Block --------------------------------------------------------------------
-  compileInstrAndJump labelIn labelPost ctx (Block instrs)
+  compileInstrUD labelIn labelPost ctx (Block instrs)
     = compile' labelIn ctx instrs
     
     where
@@ -201,19 +215,19 @@ mutual
         compile' : (labelIn : BlockLabel)
                 -> Attached labelIn VarCTX
                 -> (instrs : List Instr)
-                -> CompM (CompileResultD labelIn labelPost $ InstrsCR instrs)
-        compile' labelIn ctx Nil = pure (initCRD labelIn labelPost)
+                -> CompM (CompileResultUD labelIn labelPost $ InstrsCR instrs)
+        compile' labelIn ctx Nil = pure (initCRUD labelIn labelPost)
         
         compile' labelIn ctx (instr :: Nil)
           
           = rewrite closed_or_commut (InstrCR instr) (InstrsCR Nil)
-            in compileInstrAndJump labelIn labelPost ctx instr
+            in compileInstrUD labelIn labelPost ctx instr
           
         compile' labelIn ctx (instr :: instrs) with (decideInstrCR instr)
 
           
           compile' labelIn ctx (instr :: instrs) | Left crc = do
-            res <- compileInstrAndJump labelIn labelPost ctx instr
+            res <- compileInstrUD labelIn labelPost ctx instr
 
             let thm : (InstrCR instr = ClosedOr (InstrCR instr) (InstrsCR instrs))
                 thm = rewrite crc in Refl
@@ -223,22 +237,22 @@ mutual
 
           compile' labelIn ctx (instr :: instrs) | Right cro = do
             
-            res <- compileInstr labelIn ctx instr
+            res <- compileInstrUU labelIn ctx instr
             
-            let CRO (lbl ** (g, ctx)) = the (CompileResult labelIn Open) $ rewrite revEq cro in res
+            let CRUUO (lbl ** (g, ctx)) = the (CompileResultUU labelIn Open) $ rewrite revEq cro in res
             
             res' <- compile' lbl ctx instrs
             
             let thm : (InstrsCR instrs = ClosedOr (InstrCR instr) (InstrsCR instrs))
                 thm = rewrite cro in Refl
             
-            pure $ rewrite revEq thm in combineCRD g res'
+            pure $ rewrite revEq thm in combineCRUD g res'
 
 
 
 
   -- If -----------------------------------------------------------------------
-  compileInstrAndJump labelIn labelPost ctx (If cond instrThen) = do
+  compileInstrUD labelIn labelPost ctx (If cond instrThen) = do
 
     -- TODO: use `ifology`
     ((condLabel ** condG), val) <- evalStateT (detach ctx) $ compileExpr labelIn cond
@@ -246,7 +260,7 @@ mutual
 
     let condG' = mapOut {outs = Just [labelThen, labelPost]} (<+| CondBranch val labelThen labelPost) condG
     
-    thenRes <- compileInstrAndJump labelThen labelPost (reattach labelThen ctx) instrThen
+    thenRes <- compileInstrUD labelThen labelPost (reattach labelThen ctx) instrThen
     (thenOuts ** (thenG, thenCTXs)) <- handleBranchResult condLabel thenRes
 
     let branches : CFG CBlock
@@ -259,29 +273,29 @@ mutual
     let ctx' = reattach condLabel ctx
     let final = Connect condG' branches
     
-    pure $ CRDO (thenOuts ++ [condLabel] ** (final, thenCTXs ++ [ctx']))
+    pure $ CRUDO (thenOuts ++ [condLabel] ** (final, thenCTXs ++ [ctx']))
 
     
     where
 
       handleBranchResult : (labelIn : BlockLabel)
-                        -> CompileResultD lbl lbl' crt
+                        -> CompileResultUD lbl lbl' crt
                         -> CompM (outs ** ( CFG CBlock (Ends [labelIn ~> lbl]) (Ends $ map (~> lbl') outs)
                                           , DList (\lbl => Attached lbl VarCTX) outs
                                           ))
       
-      handleBranchResult labelIn (CRDC g) = do
+      handleBranchResult labelIn (CRUDC g) = do
         let g' = mapIn {ins = Just [labelIn]} ([] |++>) g
         pure ([] ** (g', []))
 
-      handleBranchResult labelIn (CRDO (outs ** (g, ctxs))) = do
+      handleBranchResult labelIn (CRUDO (outs ** (g, ctxs))) = do
         let g' = mapIn {ins = Just [labelIn]} ([] |++>) g
         pure (outs ** (g', ctxs))
 
 
 
   -- IfElse -------------------------------------------------------------------
-  compileInstrAndJump labelIn labelPost ctx (IfElse cond instrThen instrElse) = do
+  compileInstrUD labelIn labelPost ctx (IfElse cond instrThen instrElse) = do
 
     -- TODO: use `ifology`
     ((condLabel ** condG), val) <- evalStateT (detach ctx) $ compileExpr labelIn cond
@@ -289,8 +303,8 @@ mutual
     labelElse <- freshLabel
 
     let condG' = mapOut {outs = Just [labelThen, labelElse]} (<+| CondBranch val labelThen labelElse) condG
-    thenRes <- compileInstrAndJump labelThen labelPost (reattach labelThen ctx) instrThen
-    elseRes <- compileInstrAndJump labelElse labelPost (reattach labelElse ctx) instrElse
+    thenRes <- compileInstrUD labelThen labelPost (reattach labelThen ctx) instrThen
+    elseRes <- compileInstrUD labelElse labelPost (reattach labelElse ctx) instrElse
 
     handleBranchResults labelIn condLabel condG' thenRes elseRes
     
@@ -300,12 +314,12 @@ mutual
                          -> (node : CFG CBlock (Undefined nodeIn) (Ends [nodeOut ~> labelThen, nodeOut ~> labelElse]))
                          
                          -> {labelPost : BlockLabel}
-                         -> (thenRes : CompileResultD labelThen labelPost crtT)
-                         -> (elseRes : CompileResultD labelElse labelPost crtE)
+                         -> (thenRes : CompileResultUD labelThen labelPost crtT)
+                         -> (elseRes : CompileResultUD labelElse labelPost crtE)
                          
-                         -> CompM (CompileResultD nodeIn labelPost (OpenOr crtT crtE))
+                         -> CompM (CompileResultUD nodeIn labelPost (OpenOr crtT crtE))
 
-      handleBranchResults nodeIn nodeOut node (CRDC thenG) (CRDC elseG) = do
+      handleBranchResults nodeIn nodeOut node (CRUDC thenG) (CRUDC elseG) = do
         
         -- there is only one input so phi instructions make no sense
         let thenG' = mapIn {ins = Just [nodeOut]} ([] |++>) thenG
@@ -313,18 +327,18 @@ mutual
         
         let final = Connect node (Parallel thenG' elseG')
         
-        pure (CRDC final)
+        pure (CRUDC final)
 
-      handleBranchResults nodeIn nodeOut node (CRDC thenG) (CRDO (elseOuts ** (elseG, elseCTXs))) = do
+      handleBranchResults nodeIn nodeOut node (CRUDC thenG) (CRUDO (elseOuts ** (elseG, elseCTXs))) = do
 
         let thenG' = mapIn {ins = Just [nodeOut]} ([] |++>) thenG
         let elseG' = mapIn {ins = Just [nodeOut]} ([] |++>) elseG
 
         let final = node `Connect` (thenG' `Parallel` elseG')
 
-        pure $ CRDO (elseOuts ** (final, elseCTXs))
+        pure $ CRUDO (elseOuts ** (final, elseCTXs))
 
-      handleBranchResults nodeIn nodeOut node {labelPost} (CRDO (thenOuts ** (thenG, thenCTXs))) (CRDC elseG) = do
+      handleBranchResults nodeIn nodeOut node {labelPost} (CRUDO (thenOuts ** (thenG, thenCTXs))) (CRUDC elseG) = do
 
         let thenG' = mapIn {ins = Just [nodeOut]} ([] |++>) thenG
         let elseG' = mapIn {ins = Just [nodeOut]} ([] |++>) elseG
@@ -333,15 +347,15 @@ mutual
         let final' = rewrite revEq $ concat_nil (map (\arg => arg ~> labelPost) thenOuts)
                      in final
 
-        pure $ CRDO (thenOuts ** (final', thenCTXs))
+        pure $ CRUDO (thenOuts ** (final', thenCTXs))
       
       handleBranchResults
         nodeIn
         nodeOut
         node
         {labelPost}
-        (CRDO (thenOuts ** (thenG, thenCTXs)))
-        (CRDO (elseOuts ** (elseG, elseCTXs)))
+        (CRUDO (thenOuts ** (thenG, thenCTXs)))
+        (CRUDO (elseOuts ** (elseG, elseCTXs)))
         
         = do
 
@@ -352,13 +366,13 @@ mutual
           let final' = rewrite map_concat {f = (~> labelPost)} thenOuts elseOuts
                      in final
 
-          pure $ CRDO (thenOuts ++ elseOuts ** (final', thenCTXs ++ elseCTXs))
+          pure $ CRUDO (thenOuts ++ elseOuts ** (final', thenCTXs ++ elseCTXs))
   
 
 
 
   -- While --------------------------------------------------------------------
-  compileInstrAndJump labelIn labelPost ctxIn (While cond loop) = do
+  compileInstrUD labelIn labelPost ctxIn (While cond loop) = do
 
     labelNodeIn <- freshLabel
 
@@ -379,17 +393,17 @@ mutual
     let ctxLoopIn = reattach labelLoop ctxNode
 
     {-
-    TODO: Consider using `compileInstrAndJump` here. This would require 
+    TODO: Consider using `compileInstrUD` here. This would require 
     modifying the definition of `Cycle` so that `node` can have multiple inputs
     from the loop body.
     -}
-    loopRes <- compileInstr labelLoop ctxLoopIn loop
+    loopRes <- compileInstrUU labelLoop ctxLoopIn loop
     
     loopG <- handleLoopResult ctxNode' ctxIn nodeG' loopRes
 
     let final = Connect incoming loopG
     
-    pure $ CRDO ([labelNodeOut] ** (final, [ctxNodeOut]))
+    pure $ CRUDO ([labelNodeOut] ** (final, [ctxNodeOut]))
 
     where
       
@@ -397,10 +411,10 @@ mutual
                       -> (ctxNode : Attached nodeIn VarCTX')
                       -> (ctxIn : Attached labelIn VarCTX)
                       -> (node : CFG CBlock (Undefined nodeIn) (Ends [nodeOut ~> labelLoop, nodeOut ~> labelPost]))
-                      -> (loopRes : CompileResult labelLoop crt)
+                      -> (loopRes : CompileResultUU labelLoop crt)
                       -> CompM $ CFG CBlock (Ends [labelIn ~> nodeIn]) (Ends [nodeOut ~> labelPost])
       
-      handleLoopResult {labelIn, nodeIn, nodeOut} ctxNode ctxIn node (CRC loop) = do
+      handleLoopResult {labelIn, nodeIn, nodeOut} ctxNode ctxIn node (CRUUC loop) = do
 
         {-
         TODO: take care of the fact that, new registers were assigned to every
@@ -414,7 +428,7 @@ mutual
         
         pure final
 
-      handleLoopResult {labelIn, nodeIn, nodeOut} ctxNode ctxIn node (CRO (loopOut ** (loop, ctxLoop))) = do
+      handleLoopResult {labelIn, nodeIn, nodeOut} ctxNode ctxIn node (CRUUO (loopOut ** (loop, ctxLoop))) = do
 
         phis <- mkPhis (detach ctxNode) ctxLoop ctxIn
         
