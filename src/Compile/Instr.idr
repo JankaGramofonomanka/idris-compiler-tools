@@ -46,13 +46,18 @@ collect {lbl' = labelPost} (CRUDO (lbls ** (g, ctxs))) = do
 
 
 
-terminate : (lbl' : BlockLabel) -> CompileResultUU lbl crt -> CompileResultUD lbl lbl' crt
-terminate labelPost (CRUUC g) = CRUDC g
-terminate labelPost (CRUUO (lbl ** (g, ctx))) = let
+jumpTo : (lbl' : BlockLabel) -> CompileResultUU lbl crt -> CompileResultUD lbl lbl' crt
+jumpTo labelPost (CRUUC g) = CRUDC g
+jumpTo labelPost (CRUUO (lbl ** (g, ctx))) = let
   g' = mapOut {outs = Just [labelPost]} (<+| Branch labelPost) g
   in CRUDO ([lbl] ** (g', [ctx]))
 
 
+jumpFrom : (lbl : BlockLabel) -> CompileResultUD lbl' lbl'' crt -> CompileResultDD (lbl ~> lbl') lbl'' crt
+jumpFrom labelPre (CRUDC g) = CRDDC $ mapIn {ins = Just [labelPre]} ([] |++>) g
+jumpFrom labelPre (CRUDO (lbls ** (g, ctxs))) = let
+  g' = mapIn {ins = Just [labelPre]} ([] |++>) g
+  in CRDDO (lbls ** (g', ctxs))
 
 
 
@@ -186,15 +191,15 @@ mutual
 
   -- Assign -------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx instr@(Assign var expr)
-    = terminate labelPost <$> compileInstrUU labelIn ctx instr
+    = jumpTo labelPost <$> compileInstrUU labelIn ctx instr
 
   -- Return -------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx instr@(Return expr)
-    = terminate labelPost <$> compileInstrUU labelIn ctx instr
+    = jumpTo labelPost <$> compileInstrUU labelIn ctx instr
 
   -- RetVoid ------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx instr@RetVoid
-    = terminate labelPost <$> compileInstrUU labelIn ctx instr
+    = jumpTo labelPost <$> compileInstrUU labelIn ctx instr
 
 
 
@@ -372,14 +377,77 @@ mutual
 
 
   -- While --------------------------------------------------------------------
-  compileInstrUD labelIn labelPost ctxIn (While cond loop) = do
-
+  compileInstrUD labelIn labelPost ctxIn instr@(While cond loop) = do
+  
     labelNodeIn <- freshLabel
 
-    let incoming : CFG CBlock (Undefined labelIn) (Ends [labelIn ~> labelNodeIn])
-        incoming = SingleVertex {vouts = Just [labelNodeIn]}
-                $ emptyCBlock (detach ctxIn) <+| Branch labelNodeIn
+    let pre : CFG CBlock (Undefined labelIn) (Ends [labelIn ~> labelNodeIn])
+        pre = SingleVertex {vouts = Just [labelNodeIn]}
+            $ emptyCBlock (detach ctxIn) <+| Branch labelNodeIn
+
+    handleRes pre <$> compileInstrDD labelIn labelNodeIn labelPost ctxIn instr
+
     
+
+    where
+
+      handleRes : CFG CBlock (Undefined lbl) (Ends [lbl ~> lbl'])
+               -> CompileResultDD (lbl ~> lbl') lbl'' crt
+               -> CompileResultUD lbl lbl'' crt
+      
+      handleRes pre (CRDDC g) = CRUDC (Connect pre g)
+      handleRes pre (CRDDO (lbls ** (g, ctxs))) = let
+        
+        g' = Connect pre g
+        
+        in CRUDO (lbls ** (g', ctxs))
+
+
+    
+
+
+    
+
+
+
+  compileInstrDD : (labelPre, labelIn, labelPost : BlockLabel)
+                -> (ctx : Attached labelPre VarCTX)
+                -> (instr : Instr)
+                -> CompM (CompileResultDD (labelPre ~> labelIn) labelPost $ InstrCR instr)
+
+
+
+
+  -- Block --------------------------------------------------------------------
+  compileInstrDD labelPre labelIn labelPost ctx instr@(Block instrs)
+    = jumpFrom labelPre <$> compileInstrUD labelIn labelPost (reattach labelIn ctx) instr
+  
+  -- Assign -------------------------------------------------------------------
+  compileInstrDD labelPre labelIn labelPost ctx instr@(Assign var expr)
+    = jumpFrom labelPre <$> compileInstrUD labelIn labelPost (reattach labelIn ctx) instr
+
+  -- If -----------------------------------------------------------------------
+  compileInstrDD labelPre labelIn labelPost ctx instr@(If cond instrThen)
+    = jumpFrom labelPre <$> compileInstrUD labelIn labelPost (reattach labelIn ctx) instr
+
+  -- IfElse -------------------------------------------------------------------
+  compileInstrDD labelPre labelIn labelPost ctx instr@(IfElse cond instrThen instrElse)
+    = jumpFrom labelPre <$> compileInstrUD labelIn labelPost (reattach labelIn ctx) instr
+
+  -- Return -------------------------------------------------------------------
+  compileInstrDD labelPre labelIn labelPost ctx instr@(Return expr)
+    = jumpFrom labelPre <$> compileInstrUD labelIn labelPost (reattach labelIn ctx) instr
+  
+  -- RetVoid ------------------------------------------------------------------
+  compileInstrDD labelPre labelIn labelPost ctx instr@RetVoid
+    = jumpFrom labelPre <$> compileInstrUD labelIn labelPost (reattach labelIn ctx) instr
+  
+
+
+
+  -- While --------------------------------------------------------------------
+  compileInstrDD labelPre labelNodeIn labelPost ctxIn instr@(While cond loop) = do
+
     -- TODO: get rid of unnecessary assignments
     ctxNode' <- reattach labelNodeIn <$> newRegForAll ctxIn
     let ctxNode = map (DMap.dmap Var) ctxNode'
@@ -399,11 +467,11 @@ mutual
     -}
     loopRes <- compileInstrUU labelLoop ctxLoopIn loop
     
-    loopG <- handleLoopResult ctxNode' ctxIn nodeG' loopRes
+    final <- handleLoopResult ctxNode' ctxIn nodeG' loopRes
 
-    let final = Connect incoming loopG
     
-    pure $ CRUDO ([labelNodeOut] ** (final, [ctxNodeOut]))
+    
+    pure $ CRDDO ([labelNodeOut] ** (final, [ctxNodeOut]))
 
     where
       
@@ -463,18 +531,4 @@ mutual
                               | Nothing => throwError $ Impossible "variable non existent in loop body or node context"
 
               pure $ AssignPhi reg $ Phi [(lbl, val'), (lbl', val')]
-
-
-
-
-
     
-
-
-
-
-
-
-
-
-
