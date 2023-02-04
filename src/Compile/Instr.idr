@@ -265,8 +265,8 @@ mutual
 
     let condG' = mapOut {outs = Just [labelThen, labelPost]} (<+| CondBranch val labelThen labelPost) condG
     
-    thenRes <- compileInstrUD labelThen labelPost (reattach labelThen ctx) instrThen
-    (thenOuts ** (thenG, thenCTXs)) <- handleBranchResult condLabel thenRes
+    thenRes <- compileInstrDD condLabel labelThen labelPost (reattach condLabel ctx) instrThen
+    let (thenOuts ** (thenG, thenCTXs)) = handleBranchResult thenRes
 
     let branches : CFG CBlock
                     (Ends [condLabel ~> labelThen, condLabel ~> labelPost])
@@ -283,19 +283,13 @@ mutual
     
     where
 
-      handleBranchResult : (labelIn : BlockLabel)
-                        -> CompileResultUD lbl lbl' crt
-                        -> CompM (outs ** ( CFG CBlock (Ends [labelIn ~> lbl]) (Ends $ map (~> lbl') outs)
-                                          , DList (\lbl => Attached lbl VarCTX) outs
-                                          ))
+      handleBranchResult : CompileResultDD edge lbl' crt
+                        -> (outs ** ( CFG CBlock (Ends [edge]) (Ends $ map (~> lbl') outs)
+                                    , DList (\lbl => Attached lbl VarCTX) outs
+                                    ))
       
-      handleBranchResult labelIn (CRUDC g) = do
-        let g' = mapIn {ins = Just [labelIn]} ([] |++>) g
-        pure ([] ** (g', []))
-
-      handleBranchResult labelIn (CRUDO (outs ** (g, ctxs))) = do
-        let g' = mapIn {ins = Just [labelIn]} ([] |++>) g
-        pure (outs ** (g', ctxs))
+      handleBranchResult (CRDDC g) = ([] ** (g, []))
+      handleBranchResult (CRDDO (outs ** (g, ctxs))) = (outs ** (g, ctxs))
 
 
 
@@ -307,11 +301,13 @@ mutual
     labelThen <- freshLabel
     labelElse <- freshLabel
 
-    let condG' = mapOut {outs = Just [labelThen, labelElse]} (<+| CondBranch val labelThen labelElse) condG
-    thenRes <- compileInstrUD labelThen labelPost (reattach labelThen ctx) instrThen
-    elseRes <- compileInstrUD labelElse labelPost (reattach labelElse ctx) instrElse
+    let condCTX = reattach condLabel ctx
 
-    handleBranchResults labelIn condLabel condG' thenRes elseRes
+    let condG' = mapOut {outs = Just [labelThen, labelElse]} (<+| CondBranch val labelThen labelElse) condG
+    thenRes <- compileInstrDD condLabel labelThen labelPost condCTX instrThen
+    elseRes <- compileInstrDD condLabel labelElse labelPost condCTX instrElse
+
+    pure $ handleBranchResults labelIn condLabel condG' thenRes elseRes
     
     where
 
@@ -319,59 +315,46 @@ mutual
                          -> (node : CFG CBlock (Undefined nodeIn) (Ends [nodeOut ~> labelThen, nodeOut ~> labelElse]))
                          
                          -> {labelPost : BlockLabel}
-                         -> (thenRes : CompileResultUD labelThen labelPost crtT)
-                         -> (elseRes : CompileResultUD labelElse labelPost crtE)
+                         -> (thenRes : CompileResultDD (nodeOut ~> labelThen) labelPost crtT)
+                         -> (elseRes : CompileResultDD (nodeOut ~> labelElse) labelPost crtE)
                          
-                         -> CompM (CompileResultUD nodeIn labelPost (OpenOr crtT crtE))
+                         -> CompileResultUD nodeIn labelPost (OpenOr crtT crtE)
 
-      handleBranchResults nodeIn nodeOut node (CRUDC thenG) (CRUDC elseG) = do
+      handleBranchResults nodeIn nodeOut node (CRDDC thenG) (CRDDC elseG) = let
         
-        -- there is only one input so phi instructions make no sense
-        let thenG' = mapIn {ins = Just [nodeOut]} ([] |++>) thenG
-        let elseG' = mapIn {ins = Just [nodeOut]} ([] |++>) elseG
+        final = Connect node (Parallel thenG elseG)
         
-        let final = Connect node (Parallel thenG' elseG')
-        
-        pure (CRUDC final)
+        in CRUDC final
 
-      handleBranchResults nodeIn nodeOut node (CRUDC thenG) (CRUDO (elseOuts ** (elseG, elseCTXs))) = do
+      handleBranchResults nodeIn nodeOut node (CRDDC thenG) (CRDDO (elseOuts ** (elseG, elseCTXs))) = let
 
-        let thenG' = mapIn {ins = Just [nodeOut]} ([] |++>) thenG
-        let elseG' = mapIn {ins = Just [nodeOut]} ([] |++>) elseG
+        final = node `Connect` (thenG `Parallel` elseG)
 
-        let final = node `Connect` (thenG' `Parallel` elseG')
+        in CRUDO (elseOuts ** (final, elseCTXs))
 
-        pure $ CRUDO (elseOuts ** (final, elseCTXs))
+      handleBranchResults nodeIn nodeOut node {labelPost} (CRDDO (thenOuts ** (thenG, thenCTXs))) (CRDDC elseG) = let
 
-      handleBranchResults nodeIn nodeOut node {labelPost} (CRUDO (thenOuts ** (thenG, thenCTXs))) (CRUDC elseG) = do
+        final = node `Connect` (thenG `Parallel` elseG)
+        final' = rewrite revEq $ concat_nil (map (\arg => arg ~> labelPost) thenOuts)
+                 in final
 
-        let thenG' = mapIn {ins = Just [nodeOut]} ([] |++>) thenG
-        let elseG' = mapIn {ins = Just [nodeOut]} ([] |++>) elseG
-
-        let final = node `Connect` (thenG' `Parallel` elseG')
-        let final' = rewrite revEq $ concat_nil (map (\arg => arg ~> labelPost) thenOuts)
-                     in final
-
-        pure $ CRUDO (thenOuts ** (final', thenCTXs))
+        in CRUDO (thenOuts ** (final', thenCTXs))
       
       handleBranchResults
         nodeIn
         nodeOut
         node
         {labelPost}
-        (CRUDO (thenOuts ** (thenG, thenCTXs)))
-        (CRUDO (elseOuts ** (elseG, elseCTXs)))
+        (CRDDO (thenOuts ** (thenG, thenCTXs)))
+        (CRDDO (elseOuts ** (elseG, elseCTXs)))
         
-        = do
+        = let
 
-          let thenG' = mapIn {ins = Just [nodeOut]} ([] |++>) thenG
-          let elseG' = mapIn {ins = Just [nodeOut]} ([] |++>) elseG
+          final = node `Connect` (thenG `Parallel` elseG)
+          final' = rewrite map_concat {f = (~> labelPost)} thenOuts elseOuts
+                   in final
 
-          let final = node `Connect` (thenG' `Parallel` elseG')
-          let final' = rewrite map_concat {f = (~> labelPost)} thenOuts elseOuts
-                     in final
-
-          pure $ CRUDO (thenOuts ++ elseOuts ** (final', thenCTXs ++ elseCTXs))
+          in CRUDO (thenOuts ++ elseOuts ** (final', thenCTXs ++ elseCTXs))
   
 
 
