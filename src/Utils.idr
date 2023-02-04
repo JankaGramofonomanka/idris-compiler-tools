@@ -19,6 +19,11 @@ concat_assoc : (l, l', l'' : List a) -> l ++ (l' ++ l'') = (l ++ l') ++ l''
 concat_assoc Nil l' l'' = Refl
 concat_assoc (x :: xs) l' l'' = rewrite revEq $ concat_assoc {l = xs, l', l''} in Refl
 
+total
+export
+concat_nil : (l : List a) -> l ++ Nil = l
+concat_nil Nil = Refl
+concat_nil (x :: xs) = rewrite concat_nil xs in Refl
 
 
 total

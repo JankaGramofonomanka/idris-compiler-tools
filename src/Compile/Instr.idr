@@ -185,95 +185,19 @@ mutual
 
 
   -- IfElse -------------------------------------------------------------------
-  compileInstr labelIn ctx (IfElse cond instrThen instrElse) = do
-
-    -- TODO: use `ifology`
-    ((condLabel ** condG), val) <- evalStateT (detach ctx) $ compileExpr labelIn cond
-    labelThen <- freshLabel
-    labelElse <- freshLabel
+  compileInstr labelIn ctx instr@(IfElse cond instrThen instrElse) = do
     labelPost <- freshLabel
+    res <- compileInstrAndJump labelIn labelPost ctx instr
 
-    let condG' = mapOut {outs = Just [labelThen, labelElse]} (<+| CondBranch val labelThen labelElse) condG
-    thenRes <- compileInstr labelThen (reattach labelThen ctx) instrThen
-    elseRes <- compileInstr labelElse (reattach labelElse ctx) instrElse
-
-    handleBranchResults labelIn condLabel condG' thenRes elseRes
-    
-    where
-
-      mkOpenCFG : (node : CFG CBlock (Undefined nodeIn) (Ends [nodeOut ~> labelThen, nodeOut ~> labelElse]))
-                          
-              -> (thenOuts : List BlockLabel)
-              -> (thenG : CFG CBlock (Ends [nodeOut ~> labelThen]) (Ends $ map (~> labelPost) thenOuts))
-              -> (thenCTXs : DList (\lbl => Attached lbl VarCTX) thenOuts)
-              
-              -> (elseOuts : List BlockLabel)
-              -> (elseG : CFG CBlock (Ends [nodeOut ~> labelElse]) (Ends $ map (~> labelPost) elseOuts))
-              -> (elseCTXs : DList (\lbl => Attached lbl VarCTX) elseOuts)
-              
-              -> CompM ( CFG CBlock (Undefined nodeIn) (Undefined labelPost)
-                        , Attached labelPost VarCTX
-                        )
-
-      mkOpenCFG node thenOuts thenG thenCTXs elseOuts elseG elseCTXs = do
-
-        SG postCTX postPhis <- segregate (thenCTXs ++ elseCTXs)
-
-        let postG : CFG CBlock (Ends $ map (~> labelPost) (thenOuts ++ elseOuts)) (Undefined labelPost)
-            postG = SingleVertex {vins = Just (thenOuts ++ elseOuts), vouts = Undefined} 
-                  $ postPhis |++> emptyCBlock postCTX
-        
-        let final = Connect (node `Connect` (Parallel thenG elseG)) 
-                  $ rewrite revEq $ map_concat {f = (~> labelPost)} thenOuts elseOuts
-                    in postG
-
-        pure (final, attach labelPost postCTX)
-
-
-      
-      handleBranchResults : (nodeIn, nodeOut : BlockLabel)
-                        -> (node : CFG CBlock (Undefined nodeIn) (Ends [nodeOut ~> labelThen, nodeOut ~> labelElse]))
-                        -> (thenRes : CompileResult labelThen crtT)
-                        -> (elseRes : CompileResult labelElse crtE)
-                        -> CompM (CompileResult nodeIn (OpenOr crtT crtE))
-
-      handleBranchResults nodeIn nodeOut node (CRC thenG) (CRC elseG) = do
-        
-        -- there is only one input so phi instructions make no sense
-        let thenG' = mapIn {ins = Just [nodeOut]} ([] |++>) thenG
-        let elseG' = mapIn {ins = Just [nodeOut]} ([] |++>) elseG
-        
-        let final = Connect node (Parallel thenG' elseG')
-        
-        pure (CRC final)
-
-      handleBranchResults nodeIn nodeOut node thenRes@(CRC thenG) elseRes@(CRO (elseOut ** elseG)) = do
-
-        labelPost <- freshLabel
-
-        (thenOuts ** (thenG', thenCTXs)) <- handleBranchResult nodeOut labelPost thenRes
-        (elseOuts ** (elseG', elseCTXs)) <- handleBranchResult nodeOut labelPost elseRes
-
-        final <- mkOpenCFG node thenOuts thenG' thenCTXs elseOuts elseG' elseCTXs
-        pure $ CRO (labelPost ** final)
-
-      handleBranchResults nodeIn nodeOut node thenRes@(CRO (thenOut ** thenG)) elseRes = do
-
-        labelPost <- freshLabel
-
-        (thenOuts ** (thenG', thenCTXs)) <- handleBranchResult nodeOut labelPost thenRes
-        (elseOuts ** (elseG', elseCTXs)) <- handleBranchResult nodeOut labelPost elseRes
-
-        final <- mkOpenCFG node thenOuts thenG' thenCTXs elseOuts elseG' elseCTXs
-        pure $ CRO (labelPost ** final)
+    collect labelPost res
 
 
 
 
   -- While --------------------------------------------------------------------
-  compileInstr labelIn ctxIn instr@(While cond loop) = do
+  compileInstr labelIn ctx instr@(While cond loop) = do
     labelPost <- freshLabel
-    res <- compileInstrAndJump labelIn labelPost ctxIn instr
+    res <- compileInstrAndJump labelIn labelPost ctx instr
 
     collect labelPost res
               
@@ -307,13 +231,9 @@ mutual
 
 
   compileInstrAndJump : (labelIn, labelPost : BlockLabel)
-                    -> (ctx : Attached labelIn VarCTX)
-                    -> (instr : Instr)
-                    -> CompM (CompileResultD labelIn labelPost $ InstrCR instr)
-                    -- -> CompM (labels ** ( CFG CBlock (Undefined labelIn) (Ends $ map (~> labelPost) labels)
-                    --                     , DList (\lbl => Attached lbl VarCTX) labels
-                    --                     ))
-
+                     -> (ctx : Attached labelIn VarCTX)
+                     -> (instr : Instr)
+                     -> CompM (CompileResultD labelIn labelPost $ InstrCR instr)
 
   -- Block --------------------------------------------------------------------
   compileInstrAndJump labelIn labelPost ctx (Block instrs) = ?hBlock
@@ -322,7 +242,82 @@ mutual
   -- If -----------------------------------------------------------------------
   compileInstrAndJump labelIn labelPost ctx (If cond instrThen) = ?hIf
   -- IfElse -------------------------------------------------------------------
-  compileInstrAndJump labelIn labelPost ctx (IfElse cond instrThen instrElse) = ?hIfElse
+  compileInstrAndJump labelIn labelPost ctx (IfElse cond instrThen instrElse) = do
+
+    -- TODO: use `ifology`
+    ((condLabel ** condG), val) <- evalStateT (detach ctx) $ compileExpr labelIn cond
+    labelThen <- freshLabel
+    labelElse <- freshLabel
+
+    let condG' = mapOut {outs = Just [labelThen, labelElse]} (<+| CondBranch val labelThen labelElse) condG
+    thenRes <- compileInstrAndJump labelThen labelPost (reattach labelThen ctx) instrThen
+    elseRes <- compileInstrAndJump labelElse labelPost (reattach labelElse ctx) instrElse
+
+    handleBranchResults labelIn condLabel condG' thenRes elseRes
+    
+    where
+
+      handleBranchResults : (nodeIn, nodeOut : BlockLabel)
+                         -> (node : CFG CBlock (Undefined nodeIn) (Ends [nodeOut ~> labelThen, nodeOut ~> labelElse]))
+                         
+                         -> {labelPost : BlockLabel}
+                         -> (thenRes : CompileResultD labelThen labelPost crtT)
+                         -> (elseRes : CompileResultD labelElse labelPost crtE)
+                         
+                         -> CompM (CompileResultD nodeIn labelPost (OpenOr crtT crtE))
+
+      handleBranchResults nodeIn nodeOut node (CRDC thenG) (CRDC elseG) = do
+        
+        -- there is only one input so phi instructions make no sense
+        let thenG' = mapIn {ins = Just [nodeOut]} ([] |++>) thenG
+        let elseG' = mapIn {ins = Just [nodeOut]} ([] |++>) elseG
+        
+        let final = Connect node (Parallel thenG' elseG')
+        
+        pure (CRDC final)
+
+      handleBranchResults nodeIn nodeOut node (CRDC thenG) (CRDO (elseOuts ** (elseG, elseCTXs))) = do
+
+        let thenG' = mapIn {ins = Just [nodeOut]} ([] |++>) thenG
+        let elseG' = mapIn {ins = Just [nodeOut]} ([] |++>) elseG
+
+        let final = node `Connect` (thenG' `Parallel` elseG')
+
+        pure $ CRDO (elseOuts ** (final, elseCTXs))
+
+      handleBranchResults nodeIn nodeOut node {labelPost} (CRDO (thenOuts ** (thenG, thenCTXs))) (CRDC elseG) = do
+
+        let thenG' = mapIn {ins = Just [nodeOut]} ([] |++>) thenG
+        let elseG' = mapIn {ins = Just [nodeOut]} ([] |++>) elseG
+
+        let final = node `Connect` (thenG' `Parallel` elseG')
+        let final' = rewrite revEq $ concat_nil (map (\arg => arg ~> labelPost) thenOuts)
+                     in final
+
+        pure $ CRDO (thenOuts ** (final', thenCTXs))
+      
+      handleBranchResults
+        nodeIn
+        nodeOut
+        node
+        {labelPost}
+        (CRDO (thenOuts ** (thenG, thenCTXs)))
+        (CRDO (elseOuts ** (elseG, elseCTXs)))
+        
+        = do
+
+          let thenG' = mapIn {ins = Just [nodeOut]} ([] |++>) thenG
+          let elseG' = mapIn {ins = Just [nodeOut]} ([] |++>) elseG
+
+          let final = node `Connect` (thenG' `Parallel` elseG')
+          let final' = rewrite map_concat {f = (~> labelPost)} thenOuts elseOuts
+                     in final
+
+          pure $ CRDO (thenOuts ++ elseOuts ** (final', thenCTXs ++ elseCTXs))
+  
+
+
+
   -- While --------------------------------------------------------------------
   compileInstrAndJump labelIn labelPost ctxIn (While cond loop) = do
 
