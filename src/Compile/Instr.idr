@@ -25,41 +25,13 @@ import Utils
 TODO: Figure out how to reduce the number of attachments and detachments
 -}
 
-{-
-Complete a control flow graph by adding phi assignments and a terminating
-instruction if necessary
--}
-handleBranchResult : (labelIn : BlockLabel)
-                  -> (labelPost : BlockLabel)
-                  -> CompileResult lbl crt
-                  -> CompM (outs ** ( CFG CBlock (Ends [labelIn ~> lbl]) (Ends $ map (~> labelPost) outs)
-                                    , DList (\lbl => Attached lbl VarCTX) outs
-                                    ))
-
-handleBranchResult labelIn labelPost (CRC g) = let
-
-  -- there is only one input so phi instructions make no sense
-  g' = mapIn {ins = Just [labelIn]} ([] |++>) g
-
-  in pure ([] ** (g', []))
-
-handleBranchResult labelIn labelPost (CRO (lbl' ** (g, ctx))) = let
-
-  -- there is only one input so phi instructions make no sense
-  g' = mapIn  {ins  = Just [labelIn]}   ([] |++>)
-     $ mapOut {outs = Just [labelPost]} (<+| Branch labelPost)
-     $ g
-  
-  
-  in pure ([lbl'] ** (g', [ctx]))
 
 
 
 
-
-collect : (lbl' : BlockLabel) -> CompileResultD lbl lbl' crt -> CompM $ CompileResult lbl crt
-collect labelPost (CRDC g) = pure $ CRC g
-collect labelPost (CRDO (lbls ** (g, ctxs))) = do
+collect : {lbl' : BlockLabel} -> CompileResultD lbl lbl' crt -> CompM $ CompileResult lbl crt
+collect {lbl' = labelPost} (CRDC g) = pure $ CRC g
+collect {lbl' = labelPost} (CRDO (lbls ** (g, ctxs))) = do
   SG ctx phis <- segregate ctxs
 
   let ctxPost = attach labelPost ctx
@@ -71,6 +43,14 @@ collect labelPost (CRDO (lbls ** (g, ctxs))) = do
 
   pure $ CRO (labelPost ** (final, ctxPost))
 
+
+
+
+terminate : (lbl' : BlockLabel) -> CompileResult lbl crt -> CompileResultD lbl lbl' crt
+terminate labelPost (CRC g) = CRDC g
+terminate labelPost (CRO (lbl ** (g, ctx))) = let
+  g' = mapOut {outs = Just [labelPost]} (<+| Branch labelPost) g
+  in CRDO ([lbl] ** (g', [ctx]))
 
 
 
@@ -149,57 +129,22 @@ mutual
 
 
   -- If -----------------------------------------------------------------------
-  compileInstr labelIn ctx (If cond instrThen) = do
+  compileInstr labelIn ctx instr@(If cond instrThen)
+    = compileInstrAndJump labelIn !freshLabel ctx instr >>= collect
 
-    -- TODO: use `ifology`
-    ((condLabel ** condG), val) <- evalStateT (detach ctx) $ compileExpr labelIn cond
-    labelThen <- freshLabel
-    labelPost <- freshLabel
-
-    let condG' = mapOut {outs = Just [labelThen, labelPost]} (<+| CondBranch val labelThen labelPost) condG
-    
-    thenRes <- compileInstr labelThen (reattach labelThen ctx) instrThen
-    (thenOuts ** (thenG, thenCTXs)) <- handleBranchResult condLabel labelPost thenRes
-
-    let branches : CFG CBlock
-                    (Ends [condLabel ~> labelThen, condLabel ~> labelPost])
-                    (Ends $ map (~> labelPost) (thenOuts ++ [condLabel]))
-
-        branches = rewrite map_append {f = (~> labelPost)} thenOuts condLabel
-                  in Parallel thenG Empty
-    
-    let ctx' = reattach condLabel ctx
-    SG postCTX postPhis <- segregate (thenCTXs ++ [ctx'])
-    
-    let postBLK : CBlock labelPost (Just $ thenOuts ++ [condLabel]) Undefined
-        postBLK = postPhis |++> emptyCBlock postCTX
-    
-    let postG : CFG CBlock (Ends $ map (~> labelPost) (thenOuts ++ [condLabel])) (Undefined labelPost)
-        postG = SingleVertex {vins = Just (thenOuts ++ [condLabel]), vouts = Undefined} postBLK
-    
-    let final = Connect condG' (Connect branches postG)
-    
-    pure $ CRO (labelPost ** (final, attach labelPost postCTX))
-    
 
 
 
   -- IfElse -------------------------------------------------------------------
-  compileInstr labelIn ctx instr@(IfElse cond instrThen instrElse) = do
-    labelPost <- freshLabel
-    res <- compileInstrAndJump labelIn labelPost ctx instr
-
-    collect labelPost res
+  compileInstr labelIn ctx instr@(IfElse cond instrThen instrElse)
+    = compileInstrAndJump labelIn !freshLabel ctx instr >>= collect
 
 
 
 
   -- While --------------------------------------------------------------------
-  compileInstr labelIn ctx instr@(While cond loop) = do
-    labelPost <- freshLabel
-    res <- compileInstrAndJump labelIn labelPost ctx instr
-
-    collect labelPost res
+  compileInstr labelIn ctx instr@(While cond loop)
+    = compileInstrAndJump labelIn !freshLabel ctx instr >>= collect
               
 
 
@@ -237,10 +182,61 @@ mutual
 
   -- Block --------------------------------------------------------------------
   compileInstrAndJump labelIn labelPost ctx (Block instrs) = ?hBlock
+
+
+
+
+
   -- Assign -------------------------------------------------------------------
-  compileInstrAndJump labelIn labelPost ctx (Assign var expr) = ?hAssign
+  compileInstrAndJump labelIn labelPost ctx instr@(Assign var expr)
+    = terminate labelPost <$> compileInstr labelIn ctx instr
+
+
+
+
   -- If -----------------------------------------------------------------------
-  compileInstrAndJump labelIn labelPost ctx (If cond instrThen) = ?hIf
+  compileInstrAndJump labelIn labelPost ctx (If cond instrThen) = do
+
+    -- TODO: use `ifology`
+    ((condLabel ** condG), val) <- evalStateT (detach ctx) $ compileExpr labelIn cond
+    labelThen <- freshLabel
+
+    let condG' = mapOut {outs = Just [labelThen, labelPost]} (<+| CondBranch val labelThen labelPost) condG
+    
+    thenRes <- compileInstrAndJump labelThen labelPost (reattach labelThen ctx) instrThen
+    (thenOuts ** (thenG, thenCTXs)) <- handleBranchResult condLabel thenRes
+
+    let branches : CFG CBlock
+                    (Ends [condLabel ~> labelThen, condLabel ~> labelPost])
+                    (Ends $ map (~> labelPost) (thenOuts ++ [condLabel]))
+
+        branches = rewrite map_append {f = (~> labelPost)} thenOuts condLabel
+                  in Parallel thenG Empty
+    
+    let ctx' = reattach condLabel ctx
+    let final = Connect condG' branches
+    
+    pure $ CRDO (thenOuts ++ [condLabel] ** (final, thenCTXs ++ [ctx']))
+
+    
+    where
+
+      handleBranchResult : (labelIn : BlockLabel)
+                        -> CompileResultD lbl lbl' crt
+                        -> CompM (outs ** ( CFG CBlock (Ends [labelIn ~> lbl]) (Ends $ map (~> lbl') outs)
+                                          , DList (\lbl => Attached lbl VarCTX) outs
+                                          ))
+      
+      handleBranchResult labelIn (CRDC g) = do
+        let g' = mapIn {ins = Just [labelIn]} ([] |++>) g
+        pure ([] ** (g', []))
+
+      handleBranchResult labelIn (CRDO (outs ** (g, ctxs))) = do
+        let g' = mapIn {ins = Just [labelIn]} ([] |++>) g
+        pure (outs ** (g', ctxs))
+
+
+
   -- IfElse -------------------------------------------------------------------
   compileInstrAndJump labelIn labelPost ctx (IfElse cond instrThen instrElse) = do
 
@@ -415,17 +411,16 @@ mutual
 
 
   -- Return -------------------------------------------------------------------
-  compileInstrAndJump labelIn labelPost ctx (Return expr) = do
-    CRC g <- compileInstr labelIn ctx (Return expr)
-    pure $ CRDC g
+  compileInstrAndJump labelIn labelPost ctx instr@(Return expr)
+    = terminate labelPost <$> compileInstr labelIn ctx instr
 
 
 
 
   -- RetVoid ------------------------------------------------------------------
-  compileInstrAndJump labelIn labelPost ctx RetVoid = do
-    CRC g <- compileInstr labelIn ctx RetVoid
-    pure $ CRDC g
+  compileInstrAndJump labelIn labelPost ctx instr@RetVoid
+    = terminate labelPost <$> compileInstr labelIn ctx instr
+    
 
 
 
