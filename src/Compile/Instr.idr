@@ -74,6 +74,10 @@ mutual
   InstrsCR [] = Open
   InstrsCR (instr :: instrs) = ClosedOr (InstrCR instr) (InstrsCR instrs)
 
+
+
+
+
 mutual
   {-
   Returns a control flow graph that executes the instruction `instr`.
@@ -112,8 +116,6 @@ mutual
         pure $ combineCR g res
       
 
-
-
   -- Assign -------------------------------------------------------------------
   compileInstr labelIn ctx (Assign var expr) = do
 
@@ -126,28 +128,18 @@ mutual
     pure $ CRO (lbl ** (g', ctx'))
     
     
-
-
   -- If -----------------------------------------------------------------------
   compileInstr labelIn ctx instr@(If cond instrThen)
     = compileInstrAndJump labelIn !freshLabel ctx instr >>= collect
-
-
-
 
   -- IfElse -------------------------------------------------------------------
   compileInstr labelIn ctx instr@(IfElse cond instrThen instrElse)
     = compileInstrAndJump labelIn !freshLabel ctx instr >>= collect
 
-
-
-
   -- While --------------------------------------------------------------------
   compileInstr labelIn ctx instr@(While cond loop)
     = compileInstrAndJump labelIn !freshLabel ctx instr >>= collect
               
-
-
 
   -- Return -------------------------------------------------------------------
   compileInstr labelIn ctx (Return expr) = do
@@ -155,8 +147,6 @@ mutual
     
     let g' = mapOut {outs = Closed} (<+| Ret val) g
     pure (CRC g')
-
-
 
 
   -- RetVoid ------------------------------------------------------------------
@@ -180,16 +170,69 @@ mutual
                      -> (instr : Instr)
                      -> CompM (CompileResultD labelIn labelPost $ InstrCR instr)
 
-  -- Block --------------------------------------------------------------------
-  compileInstrAndJump labelIn labelPost ctx (Block instrs) = ?hBlock
-
-
-
-
-
   -- Assign -------------------------------------------------------------------
   compileInstrAndJump labelIn labelPost ctx instr@(Assign var expr)
     = terminate labelPost <$> compileInstr labelIn ctx instr
+
+  -- Return -------------------------------------------------------------------
+  compileInstrAndJump labelIn labelPost ctx instr@(Return expr)
+    = terminate labelPost <$> compileInstr labelIn ctx instr
+
+  -- RetVoid ------------------------------------------------------------------
+  compileInstrAndJump labelIn labelPost ctx instr@RetVoid
+    = terminate labelPost <$> compileInstr labelIn ctx instr
+
+
+
+
+  -- Block --------------------------------------------------------------------
+  compileInstrAndJump labelIn labelPost ctx (Block instrs)
+    = compile' labelIn ctx instrs
+    
+    where
+
+      mutual
+
+        decideInstrCR : (instr : Instr) -> Either (InstrCR instr = Closed) (InstrCR instr = Open)
+        decideInstrCR instr with (InstrCR instr)
+          decideInstrCR instr | Closed = Left Refl
+          decideInstrCR instr | Open = Right Refl
+
+        compile' : (labelIn : BlockLabel)
+                -> Attached labelIn VarCTX
+                -> (instrs : List Instr)
+                -> CompM (CompileResultD labelIn labelPost $ InstrsCR instrs)
+        compile' labelIn ctx Nil = pure (initCRD labelIn labelPost)
+        
+        compile' labelIn ctx (instr :: Nil)
+          
+          = rewrite closed_or_commut (InstrCR instr) (InstrsCR Nil)
+            in compileInstrAndJump labelIn labelPost ctx instr
+          
+        compile' labelIn ctx (instr :: instrs) with (decideInstrCR instr)
+
+          
+          compile' labelIn ctx (instr :: instrs) | Left crc = do
+            res <- compileInstrAndJump labelIn labelPost ctx instr
+
+            let thm : (InstrCR instr = ClosedOr (InstrCR instr) (InstrsCR instrs))
+                thm = rewrite crc in Refl
+                
+            pure $ rewrite revEq thm in res
+          
+
+          compile' labelIn ctx (instr :: instrs) | Right cro = do
+            
+            res <- compileInstr labelIn ctx instr
+            
+            let CRO (lbl ** (g, ctx)) = the (CompileResult labelIn Open) $ rewrite revEq cro in res
+            
+            res' <- compile' lbl ctx instrs
+            
+            let thm : (InstrsCR instrs = ClosedOr (InstrCR instr) (InstrsCR instrs))
+                thm = rewrite cro in Refl
+            
+            pure $ rewrite revEq thm in combineCRD g res'
 
 
 
@@ -410,16 +453,7 @@ mutual
 
 
 
-  -- Return -------------------------------------------------------------------
-  compileInstrAndJump labelIn labelPost ctx instr@(Return expr)
-    = terminate labelPost <$> compileInstr labelIn ctx instr
 
-
-
-
-  -- RetVoid ------------------------------------------------------------------
-  compileInstrAndJump labelIn labelPost ctx instr@RetVoid
-    = terminate labelPost <$> compileInstr labelIn ctx instr
     
 
 

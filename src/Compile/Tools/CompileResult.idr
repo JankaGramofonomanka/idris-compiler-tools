@@ -37,6 +37,13 @@ ClosedOr : CRType -> Lazy CRType -> CRType
 ClosedOr Closed rt = Closed
 ClosedOr Open rt = rt
 
+total
+export
+closed_or_commut : (x, y : CRType) -> ClosedOr x y = ClosedOr y x
+closed_or_commut Closed Closed = Refl
+closed_or_commut Closed Open = Refl
+closed_or_commut Open Closed = Refl
+closed_or_commut Open Open = Refl
 
 public export
 toCRType : Maybe BlockLabel -> CRType
@@ -94,6 +101,13 @@ data CompileResultD : BlockLabel -> BlockLabel -> CRType -> Type where
      -> CompileResultD lbl lbl' Open
 
 
+export
+initCRD : (lbl, lbl' : BlockLabel) -> CompileResultD lbl lbl' Open
+initCRD lbl lbl' = CRDO ([lbl] ** (mapOut {outs = Just [lbl']} (<+| Branch lbl') initCFG, [attach lbl emptyCtx]))
 
 
+export
+combineCRD : CFG CBlock (Undefined lbl) (Undefined lbl') -> CompileResultD lbl' lbl'' os -> CompileResultD lbl lbl'' os
+combineCRD g (CRDC g') = CRDC $ connect g g'
+combineCRD g (CRDO (lbls ** (g', ctxs))) = CRDO $ (lbls ** (connect g g', ctxs))
 
