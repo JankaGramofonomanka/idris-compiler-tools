@@ -250,8 +250,8 @@ mutual
          -> (expr : Expr TBool)
          -> (labelThen : BlockLabel)
          -> (labelElse : BlockLabel)
-         -> CompM'  ( outsThen ** outsElse ** 
-                      ( CFG CBlock (Undefined labelIn) (Ends $ outsThen ++ outsElse)
+         -> CompM'  ( outsThen ** outsElse **
+                      ( CFG CBlock (Undefined labelIn) (Defined $ outsThen ++ outsElse)
                       , outsThen `AllLeadTo` labelThen
                       , outsElse `AllLeadTo` labelElse
                       )
@@ -264,11 +264,11 @@ mutual
     (outsThen ** outsElse'  ** (gr, prfT, prfE')) <- ifology labelMid rhs labelThen labelElse
 
 
-    let gr' : CFG CBlock (Ends outsMid) (Ends $ outsThen ++ outsElse')
+    let gr' : CFG CBlock (Defined outsMid) (Defined $ outsThen ++ outsElse')
         gr' = rewrite alt_map prfM
               in imap {ins = Just (map Origin outsMid)} ([] |++>) gr
     
-    let inter : CFG CBlock (Ends $ outsMid ++ outsElse) (Ends (outsThen ++ outsElse' ++ outsElse))
+    let inter : CFG CBlock (Defined $ outsMid ++ outsElse) (Defined (outsThen ++ outsElse' ++ outsElse))
         inter = rewrite concat_assoc outsThen outsElse' outsElse
                 in Parallel gr' Empty
 
@@ -283,11 +283,11 @@ mutual
     (outsThen'  ** outsElse ** (gr, prfT',  prfE)) <- ifology labelMid  rhs labelThen labelElse
 
 
-    let gr' : CFG CBlock (Ends outsMid) (Ends $ outsThen' ++ outsElse)
+    let gr' : CFG CBlock (Defined outsMid) (Defined $ outsThen' ++ outsElse)
         gr' = rewrite alt_map prfM
               in imap {ins = Just (map Origin outsMid)} ([] |++>) gr
     
-    let inter : CFG CBlock (Ends $ outsThen ++ outsMid) (Ends ((outsThen ++ outsThen') ++ outsElse))
+    let inter : CFG CBlock (Defined $ outsThen ++ outsMid) (Defined ((outsThen ++ outsThen') ++ outsElse))
         inter = rewrite revEq $ concat_assoc outsThen outsThen' outsElse
                 in Parallel Empty gr'
 
@@ -328,7 +328,7 @@ mutual
     let trueBLK : CBlock labelTrue (Just $ map Origin outsT) (Just [labelPost])
         trueBLK = MkBB [] [] (Branch labelPost) DMap.empty
     
-    let trueG : CFG CBlock (Ends outsT) (Ends [labelTrue ~> labelPost])
+    let trueG : CFG CBlock (Defined outsT) (Defined [labelTrue ~> labelPost])
         trueG = rewrite alt_map prfT
                 in SingleVertex {vins = Just $ map Origin outsT, vouts = Just [labelPost]} trueBLK
     
@@ -336,7 +336,7 @@ mutual
     let falseBLK : CBlock labelFalse (Just $ map Origin outsF) (Just [labelPost])
         falseBLK = MkBB [] [] (Branch labelPost) DMap.empty
 
-    let falseG : CFG CBlock (Ends outsF) (Ends [labelFalse ~> labelPost])
+    let falseG : CFG CBlock (Defined outsF) (Defined [labelFalse ~> labelPost])
         falseG = rewrite alt_map prfF
                  in SingleVertex {vins = Just $ map Origin outsF, vouts = Just [labelPost]} falseBLK
     
@@ -353,7 +353,7 @@ mutual
     let postBLK : CBlock labelPost (Just [labelTrue, labelFalse]) Undefined
         postBLK = phiAssignment |+> initCBlock
 
-    let postG : CFG CBlock (Ends [labelTrue ~> labelPost, labelFalse ~> labelPost]) (Undefined labelPost)
+    let postG : CFG CBlock (Defined [labelTrue ~> labelPost, labelFalse ~> labelPost]) (Undefined labelPost)
         postG = SingleVertex {vins = Just [labelTrue, labelFalse], vouts = Undefined} postBLK
 
 

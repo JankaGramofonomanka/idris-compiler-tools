@@ -202,5 +202,5 @@ record FunDecl (retType : LLType) (paramTypes : List LLType) where
 
   -- TODO: enforce the existence of an entry block
   -- TODO: enforce correct return types
-  body : CFG BlockVertex (Ends []) (Ends [])
+  body : CFG BlockVertex (Defined []) (Defined [])
 

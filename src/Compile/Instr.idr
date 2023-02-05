@@ -47,7 +47,7 @@ jumpFrom labelPre (CRUDO (lbls ** (g, ctxs))) = let
 mutual
   {-
   TODO: Consider getting rid of `InstrCR` in favor of returning a dependent
-  pair (lbls ** CFG _ ins (Ends $ map (~> lbl) lbls))
+  pair (lbls ** CFG _ ins (Defined $ map (~> lbl) lbls))
   or (maybeLBL ** CFG _ ins (fromMaybe Closed $ map Undefined maybeLBL))
   -}
 
@@ -265,8 +265,8 @@ mutual
     let (thenOuts ** (thenG, thenCTXs)) = unwrapCRDD thenRes
 
     let branches : CFG CBlock
-                    (Ends [condLabel ~> labelThen, condLabel ~> labelPost])
-                    (Ends $ map (~> labelPost) (thenOuts ++ [condLabel]))
+                    (Defined [condLabel ~> labelThen, condLabel ~> labelPost])
+                    (Defined $ map (~> labelPost) (thenOuts ++ [condLabel]))
 
         branches = rewrite map_append {f = (~> labelPost)} thenOuts condLabel
                   in Parallel thenG Empty
@@ -305,7 +305,7 @@ mutual
   
     labelNodeIn <- freshLabel
 
-    let pre : CFG CBlock (Undefined labelIn) (Ends [labelIn ~> labelNodeIn])
+    let pre : CFG CBlock (Undefined labelIn) (Defined [labelIn ~> labelNodeIn])
         pre = SingleVertex {vouts = Just [labelNodeIn]}
             $ emptyCBlock (detach ctxIn) <+| Branch labelNodeIn
 
@@ -383,9 +383,9 @@ mutual
       handleLoopResult : {labelIn, nodeIn, nodeOut : BlockLabel}
                       -> (ctxNode : Attached nodeIn VarCTX')
                       -> (ctxIn : Attached labelIn VarCTX)
-                      -> (node : CFG CBlock (Undefined nodeIn) (Ends [nodeOut ~> labelLoop, nodeOut ~> labelPost]))
+                      -> (node : CFG CBlock (Undefined nodeIn) (Defined [nodeOut ~> labelLoop, nodeOut ~> labelPost]))
                       -> (loopRes : CompileResultDD nodeOut [labelLoop] nodeIn crt)
-                      -> CompM $ CFG CBlock (Ends [labelIn ~> nodeIn]) (Ends [nodeOut ~> labelPost])
+                      -> CompM $ CFG CBlock (Defined [labelIn ~> nodeIn]) (Defined [nodeOut ~> labelPost])
       
       handleLoopResult {labelIn, nodeIn, nodeOut} ctxNode ctxIn node (CRDDC loop) = do
 

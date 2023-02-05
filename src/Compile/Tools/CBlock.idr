@@ -11,7 +11,7 @@ import CFG
 -- TODO: `MbPhis Undefined = List [t ** Variable t]` - list of variables that need a phi assignment
 
 public export
-MbPhis : Endpoint BlockLabel -> Type
+MbPhis : Neighbors BlockLabel -> Type
 MbPhis Nothing = ()
 MbPhis (Just ins) = List (PhiInstr $ MkInputs ins)
 
@@ -27,12 +27,12 @@ fromCFK Return = []
 fromCFK (Jump lbls) = lbls
 
 public export
-MbTerm : Endpoint BlockLabel -> Type
+MbTerm : Neighbors BlockLabel -> Type
 MbTerm Nothing = ()
 MbTerm (Just outs) = CFInstr (toCFK outs)
 
 public export
-record CBlock (label : BlockLabel) (ins : Endpoint BlockLabel) (outs : Endpoint BlockLabel) where
+record CBlock (label : BlockLabel) (ins : Neighbors BlockLabel) (outs : Neighbors BlockLabel) where
   constructor MkBB
   phis : MbPhis ins
   body : List STInstr

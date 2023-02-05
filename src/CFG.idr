@@ -6,35 +6,30 @@ import Utils
 
 {-
 TODO:
-Consider singling out the `Just []` endpint and use `List1` instead of `List`
--}
-
-{-
-TODO:
-Consider renaming `Endpoint` and `Enpoints` to `Neighbors` and `Edges`
+Consider singling out `Just []` / `Defined []` and use `List1` instead of `List`
 -}
 
 namespace Vertex  
   {-
-  `Endpoint a` - neighbors of a vertex with identifier of type `a`
+  `Neighbors a` - neighbors of a vertex with identifier of type `a`
   - `Just l` means that vertices identified by labels in `l` are neighbors of
     our vertex
   - `Nothing` means that we haven't yet defined the neghbors of our vertex.
   -}
   public export
-  Endpoint : Type -> Type
-  Endpoint a = Maybe (List a)
+  Neighbors : Type -> Type
+  Neighbors a = Maybe (List a)
 
   public export
-  Undefined : Endpoint a
+  Undefined : Neighbors a
   Undefined = Nothing
 
   public export
-  Closed : Endpoint a
+  Closed : Neighbors a
   Closed = Just []
 
   public export
-  Single : a -> Endpoint a
+  Single : a -> Neighbors a
   Single x = Just [x]
 
   {-
@@ -46,7 +41,7 @@ namespace Vertex
   -}
   public export
   Vertex : Type -> Type
-  Vertex a = a -> Endpoint a -> Endpoint a -> Type
+  Vertex a = a -> Neighbors a -> Neighbors a -> Type
 
   public export
   interface Connectable (0 vertex : Vertex a) where
@@ -76,29 +71,29 @@ namespace Graph
   Origin (from ~> to) = from
 
   {-
-  `Endpoints a` - edges of an incomplete graph, that have only one end in the
+  `Edges a` - edges of an incomplete graph, that have only one end in the
   graph
 
   - `Undefined v` means the graph has one vertex labeled `v`, with undefined
   inputs (outputs). All other vertices have their inputs (outputs) in the
   graph.
   
-  - `Ends edges` means the vertices that are the destinations (origins) of
+  - `Defined edges` means the vertices that are the destinations (origins) of
   edges in `edges` have inputs (outputs) that are the origins (destitnations)
   of edges in `edges`.
   More precisely, if `v ~> w` is a n element of `edges`, then `w` (`v`) is in
   the graph and has input `v` (output `w`), but `v` (`w`) is not in the graph.
   -}
   public export
-  data Endpoints a = Undefined a | Ends (List (Edge a))
+  data Edges a = Undefined a | Defined (List (Edge a))
 
   public export
-  Closed : Endpoints a
-  Closed = Ends []
+  Closed : Edges a
+  Closed = Defined []
 
   public export
-  Single : a -> a -> Endpoints a
-  Single from to = Ends [from ~> to]
+  Single : a -> a -> Edges a
+  Single from to = Defined [from ~> to]
 
   public export
   data AllLeadTo : List (Edge a) -> a -> Type where
@@ -120,14 +115,14 @@ namespace Graph
 
 
   public export
-  fromVOut : a -> (e : Endpoint a) -> Endpoints a
+  fromVOut : a -> (e : Neighbors a) -> Edges a
   fromVOut v Nothing      = Undefined v
-  fromVOut v (Just outs)  = Ends $ map (v ~>) outs
+  fromVOut v (Just outs)  = Defined $ map (v ~>) outs
 
   public export
-  fromVIn : (e : Endpoint a) -> a -> Endpoints a
+  fromVIn : (e : Neighbors a) -> a -> Edges a
   fromVIn Nothing     v = Undefined v
-  fromVIn (Just ins)  v = Ends $ map (~> v) ins
+  fromVIn (Just ins)  v = Defined $ map (~> v) ins
 
   {-
   TODO: Consider adding an `data` parameter to `CFG` that would be the type of
@@ -146,64 +141,64 @@ namespace Graph
     `vertex`  - constructor of vertex types.
   -}
   public export
-  data CFG : Vertex a -> Endpoints a -> Endpoints a -> Type where
+  data CFG : Vertex a -> Edges a -> Edges a -> Type where
 
     SingleVertex : {0 vertex : Vertex a}
-                -> {vins, vouts : Endpoint a}
+                -> {vins, vouts : Neighbors a}
                 -> vertex v vins vouts
                 -> CFG vertex (fromVIn vins v) (fromVOut v vouts)
 
-    Empty : CFG vertex (Ends es) (Ends es)
+    Empty : CFG vertex (Defined es) (Defined es)
     
-    Cycle : (node : CFG vertex (Ends $ ins ++ map (~> vin) ins') (Ends $ (vout ~> w) :: outs))
-         -> (loop : CFG vertex (Single vout w) (Ends $ map (~> vin) ins'))
-         -> CFG vertex (Ends ins) (Ends outs)
+    Cycle : (node : CFG vertex (Defined $ ins ++ map (~> vin) ins') (Defined $ (vout ~> w) :: outs))
+         -> (loop : CFG vertex (Single vout w) (Defined $ map (~> vin) ins'))
+         -> CFG vertex (Defined ins) (Defined outs)
 
     
-    Connect : CFG vertex ins (Ends edges)
-           -> CFG vertex (Ends edges) outs
+    Connect : CFG vertex ins (Defined edges)
+           -> CFG vertex (Defined edges) outs
            -> CFG vertex ins outs
     
-    Parallel : CFG vertex (Ends ins) (Ends outs)
-            -> CFG vertex (Ends ins') (Ends outs')
-            -> CFG vertex (Ends $ ins ++ ins') (Ends $ outs ++ outs')
+    Parallel : CFG vertex (Defined ins) (Defined outs)
+            -> CFG vertex (Defined ins') (Defined outs')
+            -> CFG vertex (Defined $ ins ++ ins') (Defined $ outs ++ outs')
     
-    IFlip : CFG vertex (Ends $ ins ++ ins') outs
-          -> CFG vertex (Ends $ ins' ++ ins) outs
+    IFlip : CFG vertex (Defined $ ins ++ ins') outs
+          -> CFG vertex (Defined $ ins' ++ ins) outs
     
-    OFlip : CFG vertex ins (Ends $ outs ++ outs')
-          -> CFG vertex ins (Ends $ outs' ++ outs)
+    OFlip : CFG vertex ins (Defined $ outs ++ outs')
+          -> CFG vertex ins (Defined $ outs' ++ outs)
 
   public export
   prepend : {0 vertex : Vertex a}
-         -> {vins : Endpoint a}
+         -> {vins : Neighbors a}
          -> {vouts : List a}
          -> vertex v vins (Just vouts)
-         -> CFG vertex (Ends $ map (v ~>) vouts) gouts
+         -> CFG vertex (Defined $ map (v ~>) vouts) gouts
          -> CFG vertex (fromVIn vins v) gouts
   prepend v g = Connect (SingleVertex v) g
 
   public export
   append : {vins : List a}
-        -> {vouts : Endpoint a}
+        -> {vouts : Neighbors a}
         
-        -> CFG vertex gins (Ends $ map (~> v) vins)
+        -> CFG vertex gins (Defined $ map (~> v) vins)
         -> vertex v (Just vins) vouts
         -> CFG vertex gins (fromVOut v vouts)
   append g v = Connect g (SingleVertex v)
   
   branch : {0 vertex : Vertex a}
-        -> {vins : Endpoint a}
+        -> {vins : Neighbors a}
         -> {w, w' : a}
         
         -> (pre   : vertex v vins (Just [w, w']))
-        -> (left  : CFG vertex (Single v w)  (Ends louts))
-        -> (right : CFG vertex (Single v w') (Ends routs))
-        -> CFG vertex (fromVIn vins v) (Ends $ louts ++ routs)
+        -> (left  : CFG vertex (Single v w)  (Defined louts))
+        -> (right : CFG vertex (Single v w') (Defined routs))
+        -> CFG vertex (fromVIn vins v) (Defined $ louts ++ routs)
   branch pre left right = prepend pre $ Parallel left right
 
   fullBranch : {0 vertex : Vertex a}
-            -> {vins, vouts : Endpoint a}
+            -> {vins, vouts : Neighbors a}
             -> {w, w', u, u' : a}
 
             -> (pre    : vertex v vins (Just [w, w']))
@@ -215,9 +210,9 @@ namespace Graph
   
   export
   imap : {0 vertex : Vertex a}
-          -> {ins : Endpoint a}
+          -> {ins : Neighbors a}
 
-          -> ({outs : Endpoint a} -> vertex v Undefined outs -> vertex v ins outs)
+          -> ({outs : Neighbors a} -> vertex v Undefined outs -> vertex v ins outs)
           -> CFG vertex (Undefined v) gouts
           -> CFG vertex (fromVIn ins v) gouts
 
@@ -234,9 +229,9 @@ namespace Graph
   
   export
   omap : {0 vertex : Vertex a}
-          -> {outs : Endpoint a}
+          -> {outs : Neighbors a}
 
-          -> ({ins : Endpoint a} -> vertex v ins Undefined -> vertex v ins outs)
+          -> ({ins : Neighbors a} -> vertex v ins Undefined -> vertex v ins outs)
           -> CFG vertex gins (Undefined v)
           -> CFG vertex gins (fromVOut v outs)
 
@@ -276,7 +271,7 @@ namespace Graph
 
   export
   iget : {0 vertex : Vertex a}
-       -> ({outs : Endpoint a} -> vertex v Undefined outs -> b)
+       -> ({outs : Neighbors a} -> vertex v Undefined outs -> b)
        -> CFG vertex (Undefined v) gouts
        -> b
   iget f (SingleVertex {vins = Nothing} v)  = f v
@@ -291,7 +286,7 @@ namespace Graph
 
   export
   oget : {0 vertex : Vertex a}
-          -> ({ins : Endpoint a} -> vertex v ins Undefined -> b)
+          -> ({ins : Neighbors a} -> vertex v ins Undefined -> b)
           -> CFG vertex gins (Undefined v)
           -> b
 
