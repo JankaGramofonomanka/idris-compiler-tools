@@ -4,8 +4,17 @@ module CFG
 import Data.DList
 import Utils
 
-namespace Vertex
-  
+{-
+TODO:
+Consider singling out the `Just []` endpint and use `List1` instead of `List`
+-}
+
+{-
+TODO:
+Consider renaming `Endpoint` and `Enpoints` to `Neighbors` and `Edges`
+-}
+
+namespace Vertex  
   {-
   `Endpoint a` - neighbors of a vertex with identifier of type `a`
   - `Just l` means that vertices identified by labels in `l` are neighbors of
