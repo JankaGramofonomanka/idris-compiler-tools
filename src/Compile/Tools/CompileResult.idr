@@ -67,7 +67,7 @@ data CompileResultUU : BlockLabel -> CRType -> Type where
 public export
 data CompileResultUD : BlockLabel -> BlockLabel -> CRType -> Type where
   CRUDC : CFG CBlock (Undefined lbl) Closed -> CompileResultUD lbl lbl' Closed
-  CRUDO : (lbls ** ( CFG CBlock (Undefined lbl) (Defined $ map (~> lbl') lbls)
+  CRUDO : (lbls ** ( CFG CBlock (Undefined lbl) (Defined $ lbls ~~> lbl')
                    , DList (\lbl' => Attached lbl' VarCTX) lbls
                    ))
        -> CompileResultUD lbl lbl' Open
@@ -76,8 +76,8 @@ data CompileResultUD : BlockLabel -> BlockLabel -> CRType -> Type where
 
 public export
 data CompileResultDD : BlockLabel -> List BlockLabel -> BlockLabel -> CRType -> Type where
-  CRDDC : CFG CBlock (Defined $ map (lbl ~>) lbls) Closed -> CompileResultDD lbl lbls lbl' Closed
-  CRDDO : (lbls' ** ( CFG CBlock (Defined $ map (lbl ~>) lbls) (Defined $ map (~> lbl') lbls')
+  CRDDC : CFG CBlock (Defined $ lbl ~>> lbls) Closed -> CompileResultDD lbl lbls lbl' Closed
+  CRDDO : (lbls' ** ( CFG CBlock (Defined $ lbl ~>> lbls) (Defined $ lbls' ~~> lbl')
                     , DList (\l => Attached l VarCTX) lbls'
                     ))
        -> CompileResultDD lbl lbls lbl' Open
@@ -88,7 +88,7 @@ data CompileResultDD : BlockLabel -> List BlockLabel -> BlockLabel -> CRType -> 
 
 export
 unwrapCRUD : CompileResultUD lbl lbl' crt
-          -> (outs ** ( CFG CBlock (Undefined lbl) (Defined $ map (~> lbl') outs)
+          -> (outs ** ( CFG CBlock (Undefined lbl) (Defined $ outs ~~> lbl')
                       , DList (\l => Attached l VarCTX) outs
                       ))
 unwrapCRUD (CRUDC g) = ([] ** (g, []))
@@ -96,7 +96,7 @@ unwrapCRUD (CRUDO (outs ** (g, ctxs))) = (outs ** (g, ctxs))
 
 export
 unwrapCRDD : CompileResultDD lbl lbls lbl' crt
-          -> (outs ** ( CFG CBlock (Defined $ map (lbl ~>) lbls) (Defined $ map (~> lbl') outs)
+          -> (outs ** ( CFG CBlock (Defined $ lbl ~>> lbls) (Defined $ outs ~~> lbl')
                       , DList (\l => Attached l VarCTX) outs
                       ))
 unwrapCRDD (CRDDC g) = ([] ** (g, []))
@@ -137,7 +137,7 @@ connectCRUD g (CRUDO (lbls ** (g', ctxs))) = CRUDO $ (lbls ** (connect g g', ctx
 
 
 export
-connectCRDD : CFG CBlock (Undefined lbl) (Defined $ map (lbl' ~>) lbls)
+connectCRDD : CFG CBlock (Undefined lbl) (Defined $ lbl' ~>> lbls)
            -> CompileResultDD lbl' lbls lbl'' crt
            -> CompileResultUD lbl lbl'' crt
 
@@ -162,24 +162,24 @@ parallelCR : {lbl' : BlockLabel}
           -> CompileResultDD lbl (lins ++ rins) lbl' (OpenOr lcrt rcrt)
 
 parallelCR {lbl'} (CRDDC lg) (CRDDC rg)
-  = CRDDC $ rewrite map_concat {f = (lbl ~>)} lins rins in Parallel lg rg
+  = CRDDC $ rewrite distribute_concat lbl lins rins in Parallel lg rg
 
 parallelCR {lbl'} (CRDDC lg) (CRDDO (routs ** (rg, rctxs))) = let
-  g = rewrite map_concat {f = (lbl ~>)} lins rins in Parallel lg rg
+  g = rewrite distribute_concat lbl lins rins in Parallel lg rg
   in CRDDO (routs ** (g, rctxs))
 
 parallelCR {lbl'} (CRDDO (louts ** (lg, lctxs))) (CRDDC rg) = let
 
-  g = rewrite map_concat {f = (lbl ~>)} lins rins
-      in rewrite revEq $ concat_nil (map (~> lbl') louts)
+  g = rewrite distribute_concat lbl lins rins
+      in rewrite revEq $ concat_nil (louts ~~> lbl')
       in Parallel lg rg
 
   in CRDDO (louts ** (g, lctxs))
 
 parallelCR {lbl'} (CRDDO (louts ** (lg, lctxs))) (CRDDO (routs ** (rg, rctxs))) = let
 
-  g = rewrite map_concat {f = (lbl ~>)} lins rins
-      in rewrite map_concat {f = (~> lbl')} louts routs
+  g = rewrite distribute_concat lbl lins rins
+      in rewrite collect_concat lbl' louts routs
       in Parallel lg rg
 
   in CRDDO (louts ++ routs ** (g, lctxs ++ rctxs))
@@ -199,7 +199,7 @@ collectCR {lbl' = labelPost} (CRUDO (lbls ** (g, ctxs))) = do
 
   let ctxPost = attach labelPost ctx
 
-  let post : CFG CBlock (Defined $ map (~> labelPost) lbls) (Undefined labelPost)
+  let post : CFG CBlock (Defined $ lbls ~~> labelPost) (Undefined labelPost)
       post = SingleVertex {vins = Just lbls} $ phis |++> emptyCBlock (detach ctxPost)
   
   let final = Connect g post

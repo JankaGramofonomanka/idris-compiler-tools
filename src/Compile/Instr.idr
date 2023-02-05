@@ -47,7 +47,7 @@ jumpFrom labelPre (CRUDO (lbls ** (g, ctxs))) = let
 mutual
   {-
   TODO: Consider getting rid of `InstrCR` in favor of returning a dependent
-  pair (lbls ** CFG _ ins (Defined $ map (~> lbl) lbls))
+  pair (lbls ** CFG _ ins (Defined $ lbls ~~> lbl))
   or (maybeLBL ** CFG _ ins (fromMaybe Closed $ map Undefined maybeLBL))
   -}
 
@@ -266,9 +266,9 @@ mutual
 
     let branches : CFG CBlock
                     (Defined [condLabel ~> labelThen, condLabel ~> labelPost])
-                    (Defined $ map (~> labelPost) (thenOuts ++ [condLabel]))
+                    (Defined $ (thenOuts ++ [condLabel]) ~~> labelPost)
 
-        branches = rewrite map_append {f = (~> labelPost)} thenOuts condLabel
+        branches = rewrite collect_append labelPost thenOuts condLabel
                   in Parallel thenG Empty
     
     let ctx' = reattach condLabel ctx

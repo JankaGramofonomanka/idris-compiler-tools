@@ -70,6 +70,7 @@ namespace Graph
   Origin : Edge a -> a
   Origin (from ~> to) = from
 
+
   {-
   `Edges a` - edges of an incomplete graph, that have only one end in the
   graph
@@ -95,6 +96,43 @@ namespace Graph
   Single : a -> a -> Edges a
   Single from to = Defined [from ~> to]
 
+
+  infix 8 ~~>, ~>>, <~~, <<~
+
+  public export
+  (~~>) : List v -> v -> List (Edge v)
+  vs ~~> v = map (~> v) vs
+
+  public export
+  (~>>) : v -> List v -> List (Edge v)
+  v ~>> vs = map (v ~>) vs
+
+  public export
+  (<~~) : v -> List v -> List (Edge v)
+  (<~~) = flip (~~>)
+  
+  public export
+  (<<~) : List v -> v -> List (Edge v)
+  (<<~) = flip (~>>)
+
+  export
+  collect_concat : (v : a) -> (vs, ws : List a) -> (vs ++ ws) ~~> v = vs ~~> v ++ ws ~~> v
+  collect_concat v vs ws = map_concat {f = (~> v)} vs ws
+
+  export
+  distribute_concat : (v : a) -> (vs, ws : List a) -> v ~>> (vs ++ ws) = v ~>> vs ++ v ~>> ws
+  distribute_concat v vs ws = map_concat {f = (v ~>)} vs ws
+
+  export
+  collect_append : (v : a) -> (vs : List a) -> (w : a) -> (vs ++ [w]) ~~> v = vs ~~> v ++ [w ~> v]
+  collect_append v vs w = collect_concat v vs [w]
+
+  export
+  distribute_append : (v : a) -> (vs : List a) -> (w : a) -> v ~>> (vs ++ [w]) = v ~>> vs ++ [v ~> w]
+  distribute_append v vs w = distribute_concat v vs [w]
+
+
+
   public export
   data AllLeadTo : List (Edge a) -> a -> Type where
     ALTNil : Nil `AllLeadTo` e
@@ -104,7 +142,7 @@ namespace Graph
 
 
   export
-  alt_map : ends `AllLeadTo` lbl -> ends = map (~> lbl) (map Origin ends)
+  alt_map : ends `AllLeadTo` lbl -> ends = (map Origin ends) ~~> lbl
   alt_map ALTNil = Refl
   alt_map (ALTCons {es, from, to} prf) = rewrite revEq $ alt_map prf in Refl
 
@@ -117,12 +155,12 @@ namespace Graph
   public export
   fromVOut : a -> (e : Neighbors a) -> Edges a
   fromVOut v Nothing      = Undefined v
-  fromVOut v (Just outs)  = Defined $ map (v ~>) outs
+  fromVOut v (Just outs)  = Defined (v ~>> outs)
 
   public export
   fromVIn : (e : Neighbors a) -> a -> Edges a
   fromVIn Nothing     v = Undefined v
-  fromVIn (Just ins)  v = Defined $ map (~> v) ins
+  fromVIn (Just ins)  v = Defined (ins ~~> v)
 
   {-
   TODO: Consider adding an `data` parameter to `CFG` that would be the type of
@@ -150,8 +188,8 @@ namespace Graph
 
     Empty : CFG vertex (Defined es) (Defined es)
     
-    Cycle : (node : CFG vertex (Defined $ ins ++ map (~> vin) ins') (Defined $ (vout ~> w) :: outs))
-         -> (loop : CFG vertex (Single vout w) (Defined $ map (~> vin) ins'))
+    Cycle : (node : CFG vertex (Defined $ ins ++ ins' ~~> vin) (Defined $ (vout ~> w) :: outs))
+         -> (loop : CFG vertex (Single vout w) (Defined $ ins' ~~> vin))
          -> CFG vertex (Defined ins) (Defined outs)
 
     
@@ -174,7 +212,7 @@ namespace Graph
          -> {vins : Neighbors a}
          -> {vouts : List a}
          -> vertex v vins (Just vouts)
-         -> CFG vertex (Defined $ map (v ~>) vouts) gouts
+         -> CFG vertex (Defined $ v ~>> vouts) gouts
          -> CFG vertex (fromVIn vins v) gouts
   prepend v g = Connect (SingleVertex v) g
 
@@ -182,7 +220,7 @@ namespace Graph
   append : {vins : List a}
         -> {vouts : Neighbors a}
         
-        -> CFG vertex gins (Defined $ map (~> v) vins)
+        -> CFG vertex gins (Defined $ vins ~~> v)
         -> vertex v (Just vins) vouts
         -> CFG vertex gins (fromVOut v vouts)
   append g v = Connect g (SingleVertex v)
