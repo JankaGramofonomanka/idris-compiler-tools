@@ -36,7 +36,7 @@ jumpTo labelPost (CRUUO (lbl ** (g, ctx))) = let
   in CRUDO ([lbl] ** (g', [ctx]))
 
 
-jumpFrom : (lbl : BlockLabel) -> CompileResultUD lbl' lbl'' crt -> CompileResultDD lbl [lbl'] lbl'' crt
+jumpFrom : (lbl : BlockLabel) -> CompileResultUD lbl' lbl'' crt -> CompileResultDD [lbl ~> lbl'] lbl'' crt
 jumpFrom labelPre (CRUDC g) = CRDDC $ imap {ins = Just [labelPre]} ([] |++>) g
 jumpFrom labelPre (CRUDO (lbls ** (g, ctxs))) = let
   g' = imap {ins = Just [labelPre]} ([] |++>) g
@@ -144,15 +144,15 @@ mutual
     
   -- If -----------------------------------------------------------------------
   compileInstrUU labelIn ctx instr@(If cond instrThen)
-    = compileInstrUD labelIn !freshLabel ctx instr >>= collectCR
+    = compileInstrUD labelIn !freshLabel ctx instr >>= collectOutsCR
 
   -- IfElse -------------------------------------------------------------------
   compileInstrUU labelIn ctx instr@(IfElse cond instrThen instrElse)
-    = compileInstrUD labelIn !freshLabel ctx instr >>= collectCR
+    = compileInstrUD labelIn !freshLabel ctx instr >>= collectOutsCR
 
   -- While --------------------------------------------------------------------
   compileInstrUU labelIn ctx instr@(While cond loop)
-    = compileInstrUD labelIn !freshLabel ctx instr >>= collectCR
+    = compileInstrUD labelIn !freshLabel ctx instr >>= collectOutsCR
               
 
   -- Return -------------------------------------------------------------------
@@ -261,7 +261,7 @@ mutual
 
     let condG' = omap {outs = Just [labelThen, labelPost]} (<+| CondBranch val labelThen labelPost) condG
     
-    thenRes <- compileInstrDD condLabel labelThen labelPost (reattach condLabel ctx) instrThen
+    thenRes <- compileInstrDD [condLabel] labelThen labelPost [reattach condLabel ctx] instrThen
     let (thenOuts ** (thenG, thenCTXs)) = unwrapCRDD thenRes
 
     let branches : CFG CBlock
@@ -290,12 +290,12 @@ mutual
     let condCTX = reattach condLabel ctx
 
     let condG' = omap {outs = Just [labelThen, labelElse]} (<+| CondBranch val labelThen labelElse) condG
-    thenRes <- compileInstrDD condLabel labelThen labelPost condCTX instrThen
-    elseRes <- compileInstrDD condLabel labelElse labelPost condCTX instrElse
+    thenRes <- compileInstrDD [condLabel] labelThen labelPost [condCTX] instrThen
+    elseRes <- compileInstrDD [condLabel] labelElse labelPost [condCTX] instrElse
 
     let branches = parallelCR thenRes elseRes
 
-    pure $ connectCRDD condG' branches
+    pure $ connectCRDDCRUD condG' branches
 
 
 
@@ -309,7 +309,7 @@ mutual
         pre = SingleVertex {vouts = Just [labelNodeIn]}
             $ emptyCBlock (detach ctxIn) <+| Branch labelNodeIn
 
-    connectCRDD pre <$> compileInstrDD labelIn labelNodeIn labelPost ctxIn instr
+    connectCRDDCRUD pre <$> compileInstrDD [labelIn] labelNodeIn labelPost [ctxIn] instr
 
 
     
@@ -322,46 +322,61 @@ mutual
   --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   -- DD -----------------------------------------------------------------------
   --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  compileInstrDD : (labelPre, labelIn, labelPost : BlockLabel)
-                -> (ctx : Attached labelPre VarCTX)
+  compileInstrDDViaUD : (pre : List BlockLabel)
+                     -> (labelIn, labelPost : BlockLabel)
+                     -> (ctxs : DList (\l => Attached l VarCTX) pre)
+                     -> (instr : Instr)
+                     -> CompM (CompileResultDD (pre ~~> labelIn) labelPost $ InstrCR instr)
+  
+  compileInstrDDViaUD pre labelIn labelPost ctxs instr = do
+    SG ctx phis <- segregate ctxs
+    let ctx' = attach labelIn ctx
+    res <- compileInstrUD labelIn labelPost ctx' instr
+
+    collectInsCR pre phis ctx' res
+
+
+  compileInstrDD : (pre : List BlockLabel)
+                -> (labelIn, labelPost : BlockLabel)
+                -> (ctxs : DList (\l => Attached l VarCTX) pre)
                 -> (instr : Instr)
-                -> CompM (CompileResultDD labelPre [labelIn] labelPost $ InstrCR instr)
+                -> CompM (CompileResultDD (pre ~~> labelIn) labelPost $ InstrCR instr)
 
 
 
 
   -- Block --------------------------------------------------------------------
-  compileInstrDD labelPre labelIn labelPost ctx instr@(Block instrs)
-    = jumpFrom labelPre <$> compileInstrUD labelIn labelPost (reattach labelIn ctx) instr
-  
+  compileInstrDD pre labelIn labelPost ctxs instr@(Block instrs)
+    = compileInstrDDViaUD pre labelIn labelPost ctxs instr
+
   -- Assign -------------------------------------------------------------------
-  compileInstrDD labelPre labelIn labelPost ctx instr@(Assign var expr)
-    = jumpFrom labelPre <$> compileInstrUD labelIn labelPost (reattach labelIn ctx) instr
+  compileInstrDD pre labelIn labelPost ctxs instr@(Assign var expr)
+    = compileInstrDDViaUD pre labelIn labelPost ctxs instr
 
   -- If -----------------------------------------------------------------------
-  compileInstrDD labelPre labelIn labelPost ctx instr@(If cond instrThen)
-    = jumpFrom labelPre <$> compileInstrUD labelIn labelPost (reattach labelIn ctx) instr
+  compileInstrDD pre labelIn labelPost ctxs instr@(If cond instrThen)
+    = compileInstrDDViaUD pre labelIn labelPost ctxs instr
 
   -- IfElse -------------------------------------------------------------------
-  compileInstrDD labelPre labelIn labelPost ctx instr@(IfElse cond instrThen instrElse)
-    = jumpFrom labelPre <$> compileInstrUD labelIn labelPost (reattach labelIn ctx) instr
+  compileInstrDD pre labelIn labelPost ctxs instr@(IfElse cond instrThen instrElse)
+    = compileInstrDDViaUD pre labelIn labelPost ctxs instr
 
   -- Return -------------------------------------------------------------------
-  compileInstrDD labelPre labelIn labelPost ctx instr@(Return expr)
-    = jumpFrom labelPre <$> compileInstrUD labelIn labelPost (reattach labelIn ctx) instr
+  compileInstrDD pre labelIn labelPost ctxs instr@(Return expr)
+    = compileInstrDDViaUD pre labelIn labelPost ctxs instr
   
   -- RetVoid ------------------------------------------------------------------
-  compileInstrDD labelPre labelIn labelPost ctx instr@RetVoid
-    = jumpFrom labelPre <$> compileInstrUD labelIn labelPost (reattach labelIn ctx) instr
+  compileInstrDD pre labelIn labelPost ctxs instr@RetVoid
+    = compileInstrDDViaUD pre labelIn labelPost ctxs instr
   
 
 
 
   -- While --------------------------------------------------------------------
-  compileInstrDD labelPre labelNodeIn labelPost ctxIn instr@(While cond loop) = do
+  compileInstrDD pre labelNodeIn labelPost ctxsIn instr@(While cond loop) = do
 
     -- TODO: get rid of unnecessary assignments
-    ctxNode' <- reattach labelNodeIn <$> newRegForAll ctxIn
+    ctxNode' <- attach labelNodeIn <$> newRegForAll (commonKeys ctxsIn)
     let ctxNode = map (DMap.dmap Var) ctxNode'
 
     ((labelNodeOut ** nodeG), val) <- evalStateT (detach ctxNode) $ compileExpr labelNodeIn cond
@@ -370,75 +385,77 @@ mutual
 
     let nodeG' = omap {outs = Just [labelLoop, labelPost]} (<+| CondBranch val labelLoop labelPost) nodeG
 
-    loopRes <- compileInstrDD labelNodeOut labelLoop labelNodeIn ctxNodeOut loop
+    loopRes <- compileInstrDD [labelNodeOut] labelLoop labelNodeIn [ctxNodeOut] loop
     
-    final <- handleLoopResult ctxNode' ctxIn nodeG' loopRes
+    final <- handleLoopResult ctxNode' ctxsIn nodeG' loopRes
 
     
     
     pure $ CRDDO ([labelNodeOut] ** (final, [ctxNodeOut]))
-
+    
     where
-      
-      handleLoopResult : {labelIn, nodeIn, nodeOut : BlockLabel}
-                      -> (ctxNode : Attached nodeIn VarCTX')
-                      -> (ctxIn : Attached labelIn VarCTX)
-                      -> (node : CFG CBlock (Undefined nodeIn) (Defined [nodeOut ~> labelLoop, nodeOut ~> labelPost]))
-                      -> (loopRes : CompileResultDD nodeOut [labelLoop] nodeIn crt)
-                      -> CompM $ CFG CBlock (Defined [labelIn ~> nodeIn]) (Defined [nodeOut ~> labelPost])
-      
-      handleLoopResult {labelIn, nodeIn, nodeOut} ctxNode ctxIn node (CRDDC loop) = do
 
-        {-
-        TODO: take care of the fact that, new registers were assigned to every
-        variable, but nothing represents that in the generated code.
-        -}
+      mkPhis : VarCTX'
+            -> {lbls : List BlockLabel}
+            -> DList (\lbl => Attached lbl VarCTX) lbls
+            -> CompM $ List (PhiInstr (MkInputs lbls))
+      
+      mkPhis ctx {lbls} ctxs = traverse mkPhi' (DMap.toList ctx) where
         
-        -- there is only one input so phi instructions make no sense
-        let node' = imap {ins = Just [labelIn]} ([] |++>) node
+        mkPhi' : (t ** Item Variable (Reg . GetLLType) t)
+              -> CompM $ PhiInstr (MkInputs lbls)
+
+        mkPhi' (t ** MkItem key reg) = do
+
+          vals <- dtraverse (traverse (getVal key)) ctxs
+
+          let vals' = phiFromDList lbls vals
+          
+          pure $ AssignPhi reg $ vals'
+
+          where
+
+
+            getVal : (key : Variable t) -> VarCTX -> CompM $ LLValue (GetLLType t)
+
+            getVal key ctx = do
+              let Just val  = lookup key ctx
+                            | Nothing => throwError $ Impossible "variable non existent in loop body or node context"
+              pure val
+      
+
+
+      
+      handleLoopResult : {pre : List BlockLabel}
+                      -> {nodeIn, nodeOut : BlockLabel}
+                      -> (ctxNode : Attached nodeIn VarCTX')
+                      -> (ctxsIn : DList (\l => Attached l VarCTX) pre)
+                      -> (node : CFG CBlock (Undefined nodeIn) (Defined [nodeOut ~> labelLoop, nodeOut ~> labelPost]))
+                      -> (loopRes : CompileResultDD [nodeOut ~> labelLoop] nodeIn crt)
+                      -> CompM $ CFG CBlock (Defined $ pre ~~> nodeIn) (Defined [nodeOut ~> labelPost])
+      
+      handleLoopResult {pre, nodeIn, nodeOut} ctxNode ctxsIn node (CRDDC loop) = do
+
+        phis <- mkPhis (detach ctxNode) ctxsIn
+        
+        let node' = imap {ins = Just pre} (phis |++>) node
         let final = Connect node' (Parallel loop Empty)
         
         pure final
 
-      handleLoopResult {labelIn, nodeIn, nodeOut} ctxNode ctxIn node (CRDDO (loopOuts ** (loop, ctxsLoop))) = do
+      handleLoopResult {pre, nodeIn, nodeOut} ctxNode ctxsIn node (CRDDO (loopOuts ** (loop, ctxsLoop))) = do
 
-        phis <- mkPhis (detach ctxNode) (ctxIn :: ctxsLoop)
-        
-        let node' = imap {ins = Just $ labelIn :: loopOuts} (phis |++>) node
+        phis <- mkPhis (detach ctxNode) (ctxsIn ++ ctxsLoop)
+
+        let node' : CFG CBlock (Defined $ pre ~~> nodeIn ++ loopOuts ~~> nodeIn) (Defined $ (nodeOut ~>> [labelLoop, labelPost]))
+            node' = rewrite revEq $ collect_concat nodeIn pre loopOuts
+                     in imap {ins = Just $ pre ++ loopOuts} (phis |++>) node
         
         let final = Cycle node' loop
         
         pure final
 
-        where
-
-          mkPhis : VarCTX'
-                -> {lbls : List BlockLabel}
-                -> DList (\lbl => Attached lbl VarCTX) lbls
-                -> CompM $ List (PhiInstr (MkInputs lbls))
-          
-          mkPhis ctx {lbls} ctxs = traverse mkPhi' (DMap.toList ctx) where
-            
-            mkPhi' : (t ** Item Variable (Reg . GetLLType) t)
-                  -> CompM $ PhiInstr (MkInputs lbls)
-
-            mkPhi' (t ** MkItem key reg) = do
-
-              vals <- dtraverse (traverse (getVal key)) ctxs
-
-              let vals' = phiFromDList lbls vals
-              
-              pure $ AssignPhi reg $ vals'
-
-              where
-
-
-                getVal : (key : Variable t) -> VarCTX -> CompM $ LLValue (GetLLType t)
-
-                getVal key ctx = do
-                  let Just val  = lookup key ctx
-                                | Nothing => throwError $ Impossible "variable non existent in loop body or node context"
-                  pure val
+      
                 
                 
                 

@@ -182,19 +182,18 @@ VarCTX' = DMap Variable (Reg . GetLLType)
 
 
 export
-newRegForAll : {0 lbl : BlockLabel} -> Attached lbl VarCTX -> CompM (Attached lbl VarCTX')
-newRegForAll ctx = do
-  let listified = map DMap.toList ctx
+newRegForAll : List (t ** Variable t) -> CompM VarCTX'
+newRegForAll vars = foldlM addNewReg DMap.empty vars
 
-  traverse (foldlM addNewReg DMap.empty) listified
-  
   where
     
     addNewReg : VarCTX'
-             -> (t ** Item Variable (LLValue . GetLLType) t)
+             -> (t ** Variable t)
              -> CompM VarCTX'
     
-    addNewReg ctx item = pure (insert (snd item).key !freshReg ctx)
+    addNewReg ctx (t ** var) = pure (insert var !freshReg ctx)
 
 
-
+export
+commonKeys : DList (\l => Attached l VarCTX) lbls -> List (t ** Variable t)
+commonKeys l = ?hck
