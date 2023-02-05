@@ -31,14 +31,14 @@ TODO: Figure out how to reduce the number of attachments and detachments
 jumpTo : (lbl' : BlockLabel) -> CompileResultUU lbl crt -> CompileResultUD lbl lbl' crt
 jumpTo labelPost (CRUUC g) = CRUDC g
 jumpTo labelPost (CRUUO (lbl ** (g, ctx))) = let
-  g' = mapOut {outs = Just [labelPost]} (<+| Branch labelPost) g
+  g' = omap {outs = Just [labelPost]} (<+| Branch labelPost) g
   in CRUDO ([lbl] ** (g', [ctx]))
 
 
 jumpFrom : (lbl : BlockLabel) -> CompileResultUD lbl' lbl'' crt -> CompileResultDD lbl [lbl'] lbl'' crt
-jumpFrom labelPre (CRUDC g) = CRDDC $ mapIn {ins = Just [labelPre]} ([] |++>) g
+jumpFrom labelPre (CRUDC g) = CRDDC $ imap {ins = Just [labelPre]} ([] |++>) g
 jumpFrom labelPre (CRUDO (lbls ** (g, ctxs))) = let
-  g' = mapIn {ins = Just [labelPre]} ([] |++>) g
+  g' = imap {ins = Just [labelPre]} ([] |++>) g
   in CRDDO (lbls ** (g', ctxs))
 
 
@@ -130,7 +130,7 @@ mutual
     -- TODO: consider having attached context in the state
     ((lbl ** g), val) <- evalStateT (detach ctx) $ compileExpr labelIn expr
     
-    let g' = mapOut {outs = Undefined} (assign var val) g
+    let g' = omap {outs = Undefined} (assign var val) g
 
     let ctx' = getContext g'
     pure $ CRUUO (lbl ** (g', ctx'))
@@ -153,13 +153,13 @@ mutual
   compileInstrUU labelIn ctx (Return expr) = do
     ((_ ** g), val) <- evalStateT (detach ctx) $ compileExpr labelIn expr
     
-    let g' = mapOut {outs = Closed} (<+| Ret val) g
+    let g' = omap {outs = Closed} (<+| Ret val) g
     pure (CRUUC g')
 
 
   -- RetVoid ------------------------------------------------------------------
   compileInstrUU labelIn ctx RetVoid = do
-    let g = mapOut {outs = Closed} (<+| RetVoid) initCFG
+    let g = omap {outs = Closed} (<+| RetVoid) initCFG
     pure (CRUUC g)
 
 
@@ -252,7 +252,7 @@ mutual
     ((condLabel ** condG), val) <- evalStateT (detach ctx) $ compileExpr labelIn cond
     labelThen <- freshLabel
 
-    let condG' = mapOut {outs = Just [labelThen, labelPost]} (<+| CondBranch val labelThen labelPost) condG
+    let condG' = omap {outs = Just [labelThen, labelPost]} (<+| CondBranch val labelThen labelPost) condG
     
     thenRes <- compileInstrDD condLabel labelThen labelPost (reattach condLabel ctx) instrThen
     let (thenOuts ** (thenG, thenCTXs)) = unwrapCRDD thenRes
@@ -282,7 +282,7 @@ mutual
 
     let condCTX = reattach condLabel ctx
 
-    let condG' = mapOut {outs = Just [labelThen, labelElse]} (<+| CondBranch val labelThen labelElse) condG
+    let condG' = omap {outs = Just [labelThen, labelElse]} (<+| CondBranch val labelThen labelElse) condG
     thenRes <- compileInstrDD condLabel labelThen labelPost condCTX instrThen
     elseRes <- compileInstrDD condLabel labelElse labelPost condCTX instrElse
 
@@ -358,7 +358,7 @@ mutual
     let ctxNodeOut = reattach labelNodeOut ctxNode
     labelLoop <- freshLabel
 
-    let nodeG' = mapOut {outs = Just [labelLoop, labelPost]} (<+| CondBranch val labelLoop labelPost) nodeG
+    let nodeG' = omap {outs = Just [labelLoop, labelPost]} (<+| CondBranch val labelLoop labelPost) nodeG
 
     let ctxLoopIn = reattach labelLoop ctxNode
 
@@ -392,8 +392,8 @@ mutual
         -}
         
         -- there is only one input so phi instructions make no sense
-        let node' = mapIn {ins = Just [labelIn]} ([] |++>) node
-        let loop' = mapIn {ins = Just [nodeOut]} ([] |++>) loop
+        let node' = imap {ins = Just [labelIn]} ([] |++>) node
+        let loop' = imap {ins = Just [nodeOut]} ([] |++>) loop
         let final = Connect node' (Parallel loop' Empty)
         
         pure final
@@ -402,11 +402,11 @@ mutual
 
         phis <- mkPhis (detach ctxNode) ctxLoop ctxIn
         
-        let node' = mapIn {ins = Just [loopOut, labelIn]} (phis |++>) node
+        let node' = imap {ins = Just [loopOut, labelIn]} (phis |++>) node
         
         -- there is only one input so phi instructions make no sense
-        let loop' = mapIn  {ins  = Just [nodeOut]}  ([] |++>)
-                  $ mapOut {outs = Just [nodeIn]}   (<+| Branch nodeIn)
+        let loop' = imap  {ins  = Just [nodeOut]}  ([] |++>)
+                  $ omap {outs = Just [nodeIn]}   (<+| Branch nodeIn)
                   $ loop
         
         let final = Cycle node' loop'

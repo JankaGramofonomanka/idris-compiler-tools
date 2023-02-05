@@ -211,41 +211,41 @@ namespace Graph
   fullBranch pre left right post = append (branch pre left right) post
   
   export
-  mapIn : {0 vertex : Vertex a}
+  imap : {0 vertex : Vertex a}
           -> {ins : Endpoint a}
 
           -> ({outs : Endpoint a} -> vertex v Undefined outs -> vertex v ins outs)
           -> CFG vertex (Undefined v) gouts
           -> CFG vertex (fromVIn ins v) gouts
 
-  mapIn f (SingleVertex {vins = Nothing} v) = SingleVertex (f v)
-  mapIn f (Connect g g')                    = Connect (mapIn f g) g'
-  mapIn f (FlipOut g)                       = FlipOut (mapIn f g)
+  imap f (SingleVertex {vins = Nothing} v)  = SingleVertex (f v)
+  imap f (Connect g g')                     = Connect (imap f g) g'
+  imap f (FlipOut g)                        = FlipOut (imap f g)
   
-  mapIn f (SingleVertex {vins = Just ins} v)  impossible
-  mapIn f Empty                               impossible
-  mapIn f (Cycle node loop)                   impossible
-  mapIn f (Parallel g g')                     impossible
-  mapIn f (FlipIn g)                          impossible
+  imap f (SingleVertex {vins = Just ins} v) impossible
+  imap f Empty                              impossible
+  imap f (Cycle node loop)                  impossible
+  imap f (Parallel g g')                    impossible
+  imap f (FlipIn g)                         impossible
   
   
   export
-  mapOut : {0 vertex : Vertex a}
+  omap : {0 vertex : Vertex a}
           -> {outs : Endpoint a}
 
           -> ({ins : Endpoint a} -> vertex v ins Undefined -> vertex v ins outs)
           -> CFG vertex gins (Undefined v)
           -> CFG vertex gins (fromVOut v outs)
 
-  mapOut f (SingleVertex {vouts = Nothing} v) = SingleVertex (f v)
-  mapOut f (Connect g g')                     = Connect g (mapOut f g')
-  mapOut f (FlipIn g)                         = FlipIn (mapOut f g)
+  omap f (SingleVertex {vouts = Nothing} v)   = SingleVertex (f v)
+  omap f (Connect g g')                       = Connect g (omap f g')
+  omap f (FlipIn g)                           = FlipIn (omap f g)
   
-  mapOut f (SingleVertex {vouts = Just outs} v) impossible
-  mapOut f Empty                                impossible
-  mapOut f (Cycle node loop)                    impossible
-  mapOut f (Parallel g g')                      impossible
-  mapOut f (FlipOut g)                          impossible
+  omap f (SingleVertex {vouts = Just outs} v) impossible
+  omap f Empty                                impossible
+  omap f (Cycle node loop)                    impossible
+  omap f (Parallel g g')                      impossible
+  omap f (FlipOut g)                          impossible
 
   export
   connect : (impl : Connectable vertex)
@@ -253,7 +253,7 @@ namespace Graph
          -> CFG vertex (Undefined v) outs
          -> CFG vertex ins outs
 
-  connect (SingleVertex {vouts = Nothing} v)  g   = mapIn (cnct @{impl} v) g
+  connect (SingleVertex {vouts = Nothing} v)  g   = imap (cnct @{impl} v) g
   connect (Connect g g')                      g'' = Connect g (connect g' g'')
   connect (FlipIn g)                          g'  = FlipIn (connect g g')
 
@@ -272,34 +272,34 @@ namespace Graph
 
 
   export
-  getIn : {0 vertex : Vertex a}
+  iget : {0 vertex : Vertex a}
        -> ({outs : Endpoint a} -> vertex v Undefined outs -> b)
        -> CFG vertex (Undefined v) gouts
        -> b
-  getIn f (SingleVertex {vins = Nothing} v) = f v
-  getIn f (Connect g g')                    = getIn f g
-  getIn f (FlipOut g)                       = getIn f g
+  iget f (SingleVertex {vins = Nothing} v)  = f v
+  iget f (Connect g g')                     = iget f g
+  iget f (FlipOut g)                        = iget f g
   
-  getIn f (SingleVertex {vins = Just ins} v)  impossible
-  getIn f Empty                               impossible
-  getIn f (Cycle node loop)                   impossible
-  getIn f (Parallel g g')                     impossible
-  getIn f (FlipIn g)                          impossible
+  iget f (SingleVertex {vins = Just ins} v) impossible
+  iget f Empty                              impossible
+  iget f (Cycle node loop)                  impossible
+  iget f (Parallel g g')                    impossible
+  iget f (FlipIn g)                         impossible
 
   export
-  getOut : {0 vertex : Vertex a}
+  oget : {0 vertex : Vertex a}
           -> ({ins : Endpoint a} -> vertex v ins Undefined -> b)
           -> CFG vertex gins (Undefined v)
           -> b
 
-  getOut f (SingleVertex {vouts = Nothing} v) = f v
-  getOut f (Connect g g')                     = getOut f g'
-  getOut f (FlipIn g)                         = getOut f g
+  oget f (SingleVertex {vouts = Nothing} v)   = f v
+  oget f (Connect g g')                       = oget f g'
+  oget f (FlipIn g)                           = oget f g
   
-  getOut f (SingleVertex {vouts = Just outs} v) impossible
-  getOut f Empty                                impossible
-  getOut f (Cycle node loop)                    impossible
-  getOut f (Parallel g g')                      impossible
-  getOut f (FlipOut g)                          impossible
+  oget f (SingleVertex {vouts = Just outs} v) impossible
+  oget f Empty                                impossible
+  oget f (Cycle node loop)                    impossible
+  oget f (Parallel g g')                      impossible
+  oget f (FlipOut g)                          impossible
 
 

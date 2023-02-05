@@ -134,7 +134,7 @@ mutual
       reg <- lift freshRegister
 
       -- TODO: Is this OK or is it a hack?
-      let g' = mapOut {outs = Undefined} (<+ Assign reg (BinOperation SUB (ILit 0) val)) g
+      let g' = omap {outs = Undefined} (<+ Assign reg (BinOperation SUB (ILit 0) val)) g
       
       pure ((lbl ** g'), Var reg)
 
@@ -147,7 +147,7 @@ mutual
     ((lbl ** g), args') <- compileExprs labelIn args
 
     reg <- lift freshRegister
-    let g' = mapOut {outs = Undefined} (<+ Assign reg (Call funPtr args')) g
+    let g' = omap {outs = Undefined} (<+ Assign reg (Call funPtr args')) g
 
     pure ((lbl ** g'), Var reg)
   
@@ -203,7 +203,7 @@ mutual
     ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
     
     reg <- lift freshRegister
-    let g' = mapOut {outs = Undefined} (<+ Assign reg (BinOperation op lhs' rhs')) g
+    let g' = omap {outs = Undefined} (<+ Assign reg (BinOperation op lhs' rhs')) g
 
     pure ((lbl ** g'), Var reg)
   
@@ -232,7 +232,7 @@ mutual
          -> CompM' (CFG CBlock ins (Undefined labelOut), LLValue I1)
   addICMP cmpKind g lhs rhs = do
     reg <- lift freshRegister
-    let g' = mapOut {outs = Undefined} (<+ Assign reg (ICMP cmpKind lhs rhs)) g
+    let g' = omap {outs = Undefined} (<+ Assign reg (ICMP cmpKind lhs rhs)) g
     
     pure (g', Var reg)
   
@@ -266,7 +266,7 @@ mutual
 
     let gr' : CFG CBlock (Ends outsMid) (Ends $ outsThen ++ outsElse')
         gr' = rewrite alt_map prfM
-              in mapIn {ins = Just (map Origin outsMid)} ([] |++>) gr
+              in imap {ins = Just (map Origin outsMid)} ([] |++>) gr
     
     let inter : CFG CBlock (Ends $ outsMid ++ outsElse) (Ends (outsThen ++ outsElse' ++ outsElse))
         inter = rewrite concat_assoc outsThen outsElse' outsElse
@@ -285,7 +285,7 @@ mutual
 
     let gr' : CFG CBlock (Ends outsMid) (Ends $ outsThen' ++ outsElse)
         gr' = rewrite alt_map prfM
-              in mapIn {ins = Just (map Origin outsMid)} ([] |++>) gr
+              in imap {ins = Just (map Origin outsMid)} ([] |++>) gr
     
     let inter : CFG CBlock (Ends $ outsThen ++ outsMid) (Ends ((outsThen ++ outsThen') ++ outsElse))
         inter = rewrite revEq $ concat_assoc outsThen outsThen' outsElse
@@ -301,7 +301,7 @@ mutual
   
   ifology labelIn expr labelThen labelElse = do
     ((lbl ** g), val) <- compileExpr labelIn expr
-    let g' = mapOut {outs = Just [labelThen, labelElse]} (<+| CondBranch val labelThen labelElse) g
+    let g' = omap {outs = Just [labelThen, labelElse]} (<+| CondBranch val labelThen labelElse) g
     
     let inputs = MkInputs [lbl]
     pure ([lbl ~> labelThen] ** [lbl ~> labelElse] ** (g', ALTCons ALTNil, ALTCons ALTNil))

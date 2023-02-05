@@ -113,7 +113,7 @@ initCRUU lbl = CRUUO (lbl ** (initCFG, attach lbl emptyCtx))
 
 export
 initCRUD : (lbl, lbl' : BlockLabel) -> CompileResultUD lbl lbl' Open
-initCRUD lbl lbl' = CRUDO ([lbl] ** (mapOut {outs = Just [lbl']} (<+| Branch lbl') initCFG, [attach lbl emptyCtx]))
+initCRUD lbl lbl' = CRUDO ([lbl] ** (omap {outs = Just [lbl']} (<+| Branch lbl') initCFG, [attach lbl emptyCtx]))
 
 
 
@@ -223,7 +223,7 @@ export
 getContext : {lbl : BlockLabel}
           -> CFG CBlock ins (Undefined lbl)
           -> Attached lbl $ DMap Variable (LLValue . GetLLType)
-getContext {lbl} cfg = attach lbl $ getOut ctx cfg
+getContext {lbl} cfg = attach lbl $ oget ctx cfg
 
 
 
