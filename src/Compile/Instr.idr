@@ -393,12 +393,11 @@ mutual
 
       handleLoopResult {labelIn, nodeIn, nodeOut} ctxNode ctxIn node (CRDDO (loopOuts ** (loop, ctxsLoop))) = do
 
-        phis <- mkPhis (detach ctxNode) (ctxsLoop ++ [ctxIn])
+        phis <- mkPhis (detach ctxNode) (ctxIn :: ctxsLoop)
         
-        let node' = rewrite revEq $ map_append {f = (~> nodeIn)} loopOuts labelIn
-                    in imap {ins = Just $ loopOuts ++ [labelIn]} (phis |++>) node
+        let node' = imap {ins = Just $ labelIn :: loopOuts} (phis |++>) node
         
-        let final = Cycle {vin = nodeIn, ins = loopOuts} node' loop
+        let final = Cycle node' loop
         
         pure final
 
