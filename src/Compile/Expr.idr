@@ -242,69 +242,71 @@ mutual
   
   {-
   Add branch instructions such that when the value of `expr` is `true`, then the
-  execution of the program will end up in `labelThen` and in `labelElse`
-  otherwise.
+  execution of the program will end up in `lblT` and in `lblF` otherwise.
   -}
   export
   ifology : (labelIn : BlockLabel)
          -> (expr : Expr TBool)
-         -> (labelThen : BlockLabel)
-         -> (labelElse : BlockLabel)
-         -> CompM'  ( outsThen ** outsElse **
-                      ( CFG CBlock (Undefined labelIn) (Defined $ outsThen ++ outsElse)
-                      , outsThen `AllLeadTo` labelThen
-                      , outsElse `AllLeadTo` labelElse
-                      )
+         -> (lblT : BlockLabel)
+         -> (lblF : BlockLabel)
+         -> CompM'  ( outsT ** outsF ** CFG CBlock
+                                            (Undefined labelIn)
+                                            (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
                     )
 
-  ifology labelIn (BinOperation And lhs rhs) labelThen labelElse = do
+  
+  ifology labelIn (BinOperation And lhs rhs) lblT lblF = do
 
-    labelMid <- lift freshLabel
-    (outsMid  ** outsElse   ** (gl, prfM, prfE))  <- ifology labelIn  lhs labelMid  labelElse
-    (outsThen ** outsElse'  ** (gr, prfT, prfE')) <- ifology labelMid rhs labelThen labelElse
+    lblM <- lift freshLabel
+    (outsM ** outsF   ** gl) <- ifology labelIn lhs lblM lblF
+    (outsT ** outsF'  ** gr) <- ifology lblM    rhs lblT lblF
 
-
-    let gr' : CFG CBlock (Defined outsMid) (Defined $ outsThen ++ outsElse')
-        gr' = rewrite alt_map prfM
-              in imap {ins = Just (map Origin outsMid)} ([] |++>) gr
+    let gr' = imap {ins = Just outsM} ([] |++>) gr
     
-    let inter : CFG CBlock (Defined $ outsMid ++ outsElse) (Defined (outsThen ++ outsElse' ++ outsElse))
-        inter = rewrite concat_assoc outsThen outsElse' outsElse
+    let inter : CFG CBlock
+                    (Defined $ outsM ~~> lblM ++ outsF ~~> lblF)
+                    (Defined $ outsT ~~> lblT ++ (outsF' ++ outsF) ~~> lblF)
+        inter = rewrite collect_concat lblF outsF' outsF
+                in rewrite concat_assoc (outsT ~~> lblT) (outsF' ~~> lblF) (outsF ~~> lblF)
                 in Parallel gr' Empty
 
     let final = Connect gl inter
     
-    pure (outsThen ** outsElse' ++ outsElse ** (final, prfT, alt_concat prfE' prfE))
+    pure (outsT ** outsF' ++ outsF ** final)
   
-  ifology labelIn (BinOperation Or lhs rhs) labelThen labelElse = do
 
-    labelMid <- lift freshLabel
-    (outsThen   ** outsMid  ** (gl, prfT,   prfM)) <- ifology labelIn   lhs labelThen labelMid
-    (outsThen'  ** outsElse ** (gr, prfT',  prfE)) <- ifology labelMid  rhs labelThen labelElse
+  ifology labelIn (BinOperation Or lhs rhs) lblT lblF = do
 
+    lblM <- lift freshLabel
+    (outsT  ** outsM ** gl) <- ifology labelIn  lhs lblT lblM
+    (outsT' ** outsF ** gr) <- ifology lblM     rhs lblT lblF
 
-    let gr' : CFG CBlock (Defined outsMid) (Defined $ outsThen' ++ outsElse)
-        gr' = rewrite alt_map prfM
-              in imap {ins = Just (map Origin outsMid)} ([] |++>) gr
+    let gr' = imap {ins = Just outsM} ([] |++>) gr
     
-    let inter : CFG CBlock (Defined $ outsThen ++ outsMid) (Defined ((outsThen ++ outsThen') ++ outsElse))
-        inter = rewrite revEq $ concat_assoc outsThen outsThen' outsElse
+    let inter : CFG CBlock
+                    (Defined $ outsT ~~> lblT ++ outsM ~~> lblM)
+                    (Defined ((outsT ++ outsT') ~~> lblT ++ outsF ~~> lblF))
+        inter = rewrite collect_concat lblT outsT outsT'
+                in rewrite revEq $ concat_assoc (outsT ~~> lblT) (outsT' ~~> lblT) (outsF ~~> lblF)
                 in Parallel Empty gr'
-
+    
     let final = Connect gl inter
     
-    pure (outsThen ++ outsThen' ** outsElse ** (final, alt_concat prfT prfT', prfE))
+    pure (outsT ++ outsT' ** outsF ** final)
   
-  ifology labelIn (UnOperation Not expr) labelThen labelElse = do
-    (outsElse ** outsThen ** (g, prfE, prfT)) <- ifology labelIn expr labelElse labelThen
-    pure (outsThen ** outsElse ** (OFlip g, prfT, prfE))
+
+  ifology labelIn (UnOperation Not expr) lblT lblF = do
+    (outsF ** outsT ** g) <- ifology labelIn expr lblF lblT
+    pure (outsT ** outsF ** OFlip g)
   
-  ifology labelIn expr labelThen labelElse = do
+  
+  ifology labelIn expr lblT lblF = do
     ((lbl ** g), val) <- compileExpr labelIn expr
-    let g' = omap {outs = Just [labelThen, labelElse]} (<+| CondBranch val labelThen labelElse) g
+    let g' = omap {outs = Just [lblT, lblF]} (<+| CondBranch val lblT lblF) g
     
     let inputs = MkInputs [lbl]
-    pure ([lbl ~> labelThen] ** [lbl ~> labelElse] ** (g', ALTCons ALTNil, ALTCons ALTNil))
+    pure ([lbl] ** [lbl] ** g')
+    
   
   
 
@@ -320,25 +322,23 @@ mutual
   compileBoolExpr labelIn expr = do
     labelTrue <- lift freshLabel
     labelFalse <- lift freshLabel
-    (outsT ** outsF ** (ifologyG, prfT, prfF)) <- ifology labelIn expr labelTrue labelFalse
+    (outsT ** outsF ** ifologyG) <- ifology labelIn expr labelTrue labelFalse
     
     labelPost <- lift freshLabel
     
     
-    let trueBLK : CBlock labelTrue (Just $ map Origin outsT) (Just [labelPost])
+    let trueBLK : CBlock labelTrue (Just outsT) (Just [labelPost])
         trueBLK = MkBB [] [] (Branch labelPost) DMap.empty
     
-    let trueG : CFG CBlock (Defined outsT) (Defined [labelTrue ~> labelPost])
-        trueG = rewrite alt_map prfT
-                in SingleVertex {vins = Just $ map Origin outsT, vouts = Just [labelPost]} trueBLK
+    let trueG : CFG CBlock (Defined $ outsT ~~> labelTrue) (Defined [labelTrue ~> labelPost])
+        trueG = SingleVertex {vins = Just outsT, vouts = Just [labelPost]} trueBLK
     
     
-    let falseBLK : CBlock labelFalse (Just $ map Origin outsF) (Just [labelPost])
+    let falseBLK : CBlock labelFalse (Just outsF) (Just [labelPost])
         falseBLK = MkBB [] [] (Branch labelPost) DMap.empty
 
-    let falseG : CFG CBlock (Defined outsF) (Defined [labelFalse ~> labelPost])
-        falseG = rewrite alt_map prfF
-                 in SingleVertex {vins = Just $ map Origin outsF, vouts = Just [labelPost]} falseBLK
+    let falseG : CFG CBlock (Defined $ outsF ~~> labelFalse) (Defined [labelFalse ~> labelPost])
+        falseG = SingleVertex {vins = Just outsF, vouts = Just [labelPost]} falseBLK
     
     
     reg <- lift freshRegister

@@ -134,25 +134,6 @@ namespace Graph
 
 
   public export
-  data AllLeadTo : List (Edge a) -> a -> Type where
-    ALTNil : Nil `AllLeadTo` e
-    ALTCons : es `AllLeadTo` to
-           -> ((from ~> to) :: es) `AllLeadTo` to
-
-
-
-  export
-  alt_map : ends `AllLeadTo` lbl -> ends = (map Origin ends) ~~> lbl
-  alt_map ALTNil = Refl
-  alt_map (ALTCons {es, from, to} prf) = rewrite revEq $ alt_map prf in Refl
-
-  export
-  alt_concat : ends `AllLeadTo` lbl -> ends' `AllLeadTo` lbl -> ends ++ ends' `AllLeadTo` lbl
-  alt_concat ALTNil prf' = prf'
-  alt_concat (ALTCons prf) prf' = ALTCons (alt_concat prf prf')
-
-
-  public export
   fromVOut : a -> (e : Neighbors a) -> Edges a
   fromVOut v Nothing      = Undefined v
   fromVOut v (Just outs)  = Defined (v ~>> outs)
