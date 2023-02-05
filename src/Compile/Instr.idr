@@ -88,6 +88,11 @@ mutual
     vertices with already known inputs or outputs.
   -}
 
+
+
+  --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  -- UU -----------------------------------------------------------------------
+  --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   {-
   Returns a control flow graph that executes the instruction `instr`.
   The graph starts in a block labeled `labelIn` with `ctx` describing values of
@@ -172,8 +177,9 @@ mutual
 
 
 
-
-
+  --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  -- UD -----------------------------------------------------------------------
+  --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   compileInstrUD : (labelIn, labelPost : BlockLabel)
                      -> (ctx : Attached labelIn VarCTX)
                      -> (instr : Instr)
@@ -313,6 +319,9 @@ mutual
 
 
 
+  --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  -- DD -----------------------------------------------------------------------
+  --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   compileInstrDD : (labelPre, labelIn, labelPost : BlockLabel)
                 -> (ctx : Attached labelPre VarCTX)
                 -> (instr : Instr)
