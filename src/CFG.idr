@@ -155,9 +155,9 @@ namespace Graph
 
     Empty : CFG vertex (Ends es) (Ends es)
     
-    Cycle : (node : CFG vertex (Ends $ (u ~> vin) :: ins) (Ends $ (vout ~> w) :: outs))
-         -> (loop : CFG vertex (Single vout w) (Single u vin))
-         -> CFG vertex (Ends ins) (Ends outs)
+    Cycle : (node : CFG vertex (Ends $ map (~> vin) ins ++ ins') (Ends $ (vout ~> w) :: outs))
+         -> (loop : CFG vertex (Single vout w) (Ends $ map (~> vin) ins))
+         -> CFG vertex (Ends ins') (Ends outs)
 
     
     Connect : CFG vertex ins (Ends edges)

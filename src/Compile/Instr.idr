@@ -409,7 +409,7 @@ mutual
                   $ omap {outs = Just [nodeIn]}   (<+| Branch nodeIn)
                   $ loop
         
-        let final = Cycle node' loop'
+        let final = Cycle {ins = [loopOut]} node' loop'
         
         pure final
 
