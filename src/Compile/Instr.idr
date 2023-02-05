@@ -443,13 +443,6 @@ mutual
                 
                 
                 
-                phiFromDList : (lbls : List BlockLabel)
-                            -> DList (\lbl => Attached lbl (LLValue tt)) lbls
-                            -> PhiExpr (MkInputs lbls) tt
-
-                phiFromDList Nil Nil = Phi Nil
-                phiFromDList (lbl :: lbls) (val :: vals)
-                  = addInput lbl (detach val) (phiFromDList lbls vals)
 
                 
 
