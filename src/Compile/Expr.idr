@@ -297,7 +297,7 @@ mutual
   
   ifology labelIn (UnOperation Not expr) labelThen labelElse = do
     (outsElse ** outsThen ** (g, prfE, prfT)) <- ifology labelIn expr labelElse labelThen
-    pure (outsThen ** outsElse ** (FlipOut g, prfT, prfE))
+    pure (outsThen ** outsElse ** (OFlip g, prfT, prfE))
   
   ifology labelIn expr labelThen labelElse = do
     ((lbl ** g), val) <- compileExpr labelIn expr

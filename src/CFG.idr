@@ -159,12 +159,6 @@ namespace Graph
          -> (loop : CFG vertex (Single vout w) (Single u vin))
          -> CFG vertex (Ends ins) (Ends outs)
 
-    -- TODO: Consider the following
-    --Cycle : (node : Vertex v (Just $ ins ++ u :: ins') (Just $ outs ++ w :: outs'))
-    --     -> (loop : CFG a (Single v w) (Single u v))
-    --     -> CFG a (fromVIn (Just $ ins ++ ins') v) (fromVOut v (Just $ outs ++ outs'))
-
-
     
     Connect : CFG vertex ins (Ends edges)
            -> CFG vertex (Ends edges) outs
@@ -174,11 +168,11 @@ namespace Graph
             -> CFG vertex (Ends ins') (Ends outs')
             -> CFG vertex (Ends $ ins ++ ins') (Ends $ outs ++ outs')
     
-    FlipIn : CFG vertex (Ends $ ins ++ ins') outs
+    IFlip : CFG vertex (Ends $ ins ++ ins') outs
           -> CFG vertex (Ends $ ins' ++ ins) outs
     
-    FlipOut : CFG vertex ins (Ends $ outs ++ outs')
-           -> CFG vertex ins (Ends $ outs' ++ outs)
+    OFlip : CFG vertex ins (Ends $ outs ++ outs')
+          -> CFG vertex ins (Ends $ outs' ++ outs)
 
   public export
   prepend : {0 vertex : Vertex a}
@@ -229,13 +223,13 @@ namespace Graph
 
   imap f (SingleVertex {vins = Nothing} v)  = SingleVertex (f v)
   imap f (Connect g g')                     = Connect (imap f g) g'
-  imap f (FlipOut g)                        = FlipOut (imap f g)
+  imap f (OFlip g)                          = OFlip (imap f g)
   
   imap f (SingleVertex {vins = Just ins} v) impossible
   imap f Empty                              impossible
   imap f (Cycle node loop)                  impossible
   imap f (Parallel g g')                    impossible
-  imap f (FlipIn g)                         impossible
+  imap f (IFlip g)                          impossible
   
   
   export
@@ -248,13 +242,13 @@ namespace Graph
 
   omap f (SingleVertex {vouts = Nothing} v)   = SingleVertex (f v)
   omap f (Connect g g')                       = Connect g (omap f g')
-  omap f (FlipIn g)                           = FlipIn (omap f g)
+  omap f (IFlip g)                            = IFlip (omap f g)
   
   omap f (SingleVertex {vouts = Just outs} v) impossible
   omap f Empty                                impossible
   omap f (Cycle node loop)                    impossible
   omap f (Parallel g g')                      impossible
-  omap f (FlipOut g)                          impossible
+  omap f (OFlip g)                            impossible
 
   export
   connect : (impl : Connectable vertex)
@@ -264,13 +258,13 @@ namespace Graph
 
   connect (SingleVertex {vouts = Nothing} v)  g   = imap (cnct @{impl} v) g
   connect (Connect g g')                      g'' = Connect g (connect g' g'')
-  connect (FlipIn g)                          g'  = FlipIn (connect g g')
+  connect (IFlip g)                           g'  = IFlip (connect g g')
 
   connect (SingleVertex {vouts = Just outs} v)  g' impossible
   connect Empty                                 g' impossible
   connect (Cycle node loop)                     g' impossible
   connect (Parallel g g')                       g' impossible
-  connect (FlipOut g)                           g' impossible
+  connect (OFlip g)                             g' impossible
   
 
   export
@@ -287,13 +281,13 @@ namespace Graph
        -> b
   iget f (SingleVertex {vins = Nothing} v)  = f v
   iget f (Connect g g')                     = iget f g
-  iget f (FlipOut g)                        = iget f g
+  iget f (OFlip g)                          = iget f g
   
   iget f (SingleVertex {vins = Just ins} v) impossible
   iget f Empty                              impossible
   iget f (Cycle node loop)                  impossible
   iget f (Parallel g g')                    impossible
-  iget f (FlipIn g)                         impossible
+  iget f (IFlip g)                          impossible
 
   export
   oget : {0 vertex : Vertex a}
@@ -303,12 +297,12 @@ namespace Graph
 
   oget f (SingleVertex {vouts = Nothing} v)   = f v
   oget f (Connect g g')                       = oget f g'
-  oget f (FlipIn g)                           = oget f g
+  oget f (IFlip g)                            = oget f g
   
   oget f (SingleVertex {vouts = Just outs} v) impossible
   oget f Empty                                impossible
   oget f (Cycle node loop)                    impossible
   oget f (Parallel g g')                      impossible
-  oget f (FlipOut g)                          impossible
+  oget f (OFlip g)                            impossible
 
 
