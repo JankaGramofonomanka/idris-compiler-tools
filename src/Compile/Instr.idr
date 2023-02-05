@@ -16,6 +16,7 @@ import Compile.Tools.CBlock
 import Compile.Tools.CompileResult
 import Compile.Tools.CompM
 import Compile.Tools.VariableCTX
+import Compile.Tools.Other
 import Compile.Expr
 
 import CFG
@@ -360,14 +361,7 @@ mutual
 
     let nodeG' = omap {outs = Just [labelLoop, labelPost]} (<+| CondBranch val labelLoop labelPost) nodeG
 
-    let ctxLoopIn = reattach labelLoop ctxNode
-
-    {-
-    TODO: Consider using `compileInstrUD` here. This would require 
-    modifying the definition of `Cycle` so that `node` can have multiple inputs
-    from the loop body.
-    -}
-    loopRes <- compileInstrUU labelLoop ctxLoopIn loop
+    loopRes <- compileInstrDD labelNodeOut labelLoop labelNodeIn ctxNodeOut loop
     
     final <- handleLoopResult ctxNode' ctxIn nodeG' loopRes
 
@@ -381,10 +375,10 @@ mutual
                       -> (ctxNode : Attached nodeIn VarCTX')
                       -> (ctxIn : Attached labelIn VarCTX)
                       -> (node : CFG CBlock (Undefined nodeIn) (Ends [nodeOut ~> labelLoop, nodeOut ~> labelPost]))
-                      -> (loopRes : CompileResultUU labelLoop crt)
+                      -> (loopRes : CompileResultDD nodeOut [labelLoop] nodeIn crt)
                       -> CompM $ CFG CBlock (Ends [labelIn ~> nodeIn]) (Ends [nodeOut ~> labelPost])
       
-      handleLoopResult {labelIn, nodeIn, nodeOut} ctxNode ctxIn node (CRUUC loop) = do
+      handleLoopResult {labelIn, nodeIn, nodeOut} ctxNode ctxIn node (CRDDC loop) = do
 
         {-
         TODO: take care of the fact that, new registers were assigned to every
@@ -393,44 +387,68 @@ mutual
         
         -- there is only one input so phi instructions make no sense
         let node' = imap {ins = Just [labelIn]} ([] |++>) node
-        let loop' = imap {ins = Just [nodeOut]} ([] |++>) loop
-        let final = Connect node' (Parallel loop' Empty)
+        let final = Connect node' (Parallel loop Empty)
         
         pure final
 
-      handleLoopResult {labelIn, nodeIn, nodeOut} ctxNode ctxIn node (CRUUO (loopOut ** (loop, ctxLoop))) = do
+      handleLoopResult {labelIn, nodeIn, nodeOut} ctxNode ctxIn node (CRDDO (loopOuts ** (loop, ctxsLoop))) = do
 
-        phis <- mkPhis (detach ctxNode) ctxLoop ctxIn
+        phis <- mkPhis (detach ctxNode) (ctxsLoop ++ [ctxIn])
         
-        let node' = imap {ins = Just [loopOut, labelIn]} (phis |++>) node
+        let node' = rewrite revEq $ map_append {f = (~> nodeIn)} loopOuts labelIn
+                    in imap {ins = Just $ loopOuts ++ [labelIn]} (phis |++>) node
         
-        -- there is only one input so phi instructions make no sense
-        let loop' = imap  {ins  = Just [nodeOut]}  ([] |++>)
-                  $ omap {outs = Just [nodeIn]}   (<+| Branch nodeIn)
-                  $ loop
-        
-        let final = Cycle {ins = [loopOut]} node' loop'
+        let final = Cycle {vin = nodeIn, ins = loopOuts} node' loop
         
         pure final
 
         where
 
           mkPhis : VarCTX'
-                -> {lbl, lbl' : BlockLabel}
-                -> Attached lbl VarCTX
-                -> Attached lbl' VarCTX
-                -> CompM $ List (PhiInstr (MkInputs [lbl, lbl']))
-          mkPhis ctx ctx' ctx'' = traverse mkPhi' (DMap.toList ctx) where
+                -> {lbls : List BlockLabel}
+                -> DList (\lbl => Attached lbl VarCTX) lbls
+                -> CompM $ List (PhiInstr (MkInputs lbls))
+          
+          mkPhis ctx {lbls} ctxs = traverse mkPhi' (DMap.toList ctx) where
             
             mkPhi' : (t ** Item Variable (Reg . GetLLType) t)
-                  -> CompM $ PhiInstr (MkInputs [lbl, lbl'])
+                  -> CompM $ PhiInstr (MkInputs lbls)
 
             mkPhi' (t ** MkItem key reg) = do
-              let Just val'   = lookup key (detach ctx')
-                              | Nothing => throwError $ Impossible "variable non existent in loop body or node context"
-              
-              let Just val''  = lookup key (detach ctx'')
-                              | Nothing => throwError $ Impossible "variable non existent in loop body or node context"
 
-              pure $ AssignPhi reg $ Phi [(lbl, val'), (lbl', val')]
-    
+              vals <- dtraverse (traverse (getVal key)) ctxs
+
+              let vals' = phiFromDList lbls vals
+              
+              pure $ AssignPhi reg $ vals'
+
+              where
+
+
+                getVal : (key : Variable t) -> VarCTX -> CompM $ LLValue (GetLLType t)
+
+                getVal key ctx = do
+                  let Just val  = lookup key ctx
+                                | Nothing => throwError $ Impossible "variable non existent in loop body or node context"
+                  pure val
+                
+                
+                
+                
+                phiFromDList : (lbls : List BlockLabel)
+                            -> DList (\lbl => Attached lbl (LLValue tt)) lbls
+                            -> PhiExpr (MkInputs lbls) tt
+
+                phiFromDList Nil Nil = Phi Nil
+                phiFromDList (lbl :: lbls) (val :: vals)
+                  = addInput lbl (detach val) (phiFromDList lbls vals)
+
+                
+
+
+
+
+
+
+
+

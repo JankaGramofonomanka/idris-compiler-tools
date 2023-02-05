@@ -9,6 +9,7 @@ import LNG
 import LLVM
 import Compile.Tools
 import Compile.Tools.CompM
+import Compile.Tools.Other
 
 
 
@@ -61,13 +62,6 @@ record Segregated' (ins : Inputs) where
 
 
 
-
-addInput : (lbl : BlockLabel)
-        -> LLValue t
-        -> PhiExpr (MkInputs ins) t
-        -> PhiExpr (MkInputs $ lbl :: ins) t
-
-addInput lbl val (Phi kvs) = Phi $ (lbl, val) :: kvs
 
 replicatePhi : (ins : List BlockLabel) -> LLValue t -> PhiExpr (MkInputs ins) t
 replicatePhi Nil val = Phi Nil
