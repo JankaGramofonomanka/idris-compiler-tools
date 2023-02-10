@@ -68,6 +68,15 @@ ifology' labelIn ctx expr lblT lblF = do
 
                   
 
+compileExpr' : (labelIn : BlockLabel)
+            -> (ctx : Attached labelIn VarCTX)
+            -> (expr : Expr t)
+            -> CompM  ( (lbl ** (CFG CBlock (Undefined labelIn) (Undefined lbl), Attached lbl VarCTX))
+                      , LLValue (GetLLType t)
+                      )
+compileExpr' labelIn ctx expr = do
+  ((lbl ** g), val) <- evalStateT (detach ctx) $ compileExpr labelIn expr
+  pure ((lbl ** (g, reattach lbl ctx)), val)
 
 
 
@@ -133,9 +142,9 @@ mutual
   variables at the start of the graph.
   -}
   compileInstrUU : (labelIn : BlockLabel)
-              -> (ctx : Attached labelIn VarCTX)
-              -> (instr : Instr)
-              -> CompM (CompileResultUU labelIn $ InstrCR instr)
+                -> (ctx : Attached labelIn VarCTX)
+                -> (instr : Instr)
+                -> CompM (CompileResultUU labelIn $ InstrCR instr)
 
 
 
@@ -168,12 +177,15 @@ mutual
   compileInstrUU labelIn ctx (Assign var expr) = do
 
     -- TODO: consider having attached context in the state
-    ((lbl ** g), val) <- evalStateT (detach ctx) $ compileExpr labelIn expr
+    ((lbl ** (g, ctx')), val) <- compileExpr' labelIn ctx expr
     
     let g' = omap {outs = Undefined} (assign var val) g
 
-    let ctx' = getContext g'
-    pure $ CRUUO (lbl ** (g', ctx'))
+    {- TODO:
+    Donsider inserting the new value expliciltly and getting rid of `getContext`
+    -}
+    let ctx'' = getContext g'
+    pure $ CRUUO (lbl ** (g', ctx''))
     
     
   -- If -----------------------------------------------------------------------
@@ -191,7 +203,7 @@ mutual
 
   -- Return -------------------------------------------------------------------
   compileInstrUU labelIn ctx (Return expr) = do
-    ((_ ** g), val) <- evalStateT (detach ctx) $ compileExpr labelIn expr
+    ((_ ** (g, _)), val) <- compileExpr' labelIn ctx expr
     
     let g' = omap {outs = Closed} (<+| Ret val) g
     pure (CRUUC g')
@@ -400,10 +412,9 @@ mutual
 
     -- TODO: get rid of unnecessary assignments
     ctxNode' <- attach labelNodeIn <$> newRegForAll (commonKeys ctxsIn)
-    let ctxNode = map (DMap.dmap Var) ctxNode'
+    let ctxNode = map (DMap.dmap LLVM.Var) ctxNode'
 
-    ((labelNodeOut ** nodeG), val) <- evalStateT (detach ctxNode) $ compileExpr labelNodeIn cond
-    let ctxNodeOut = reattach labelNodeOut ctxNode
+    ((labelNodeOut ** (nodeG, ctxNodeOut)), val) <- compileExpr' labelNodeIn ctxNode cond
     labelLoop <- freshLabel
 
     let nodeG' = omap {outs = Just [labelLoop, labelPost]} (<+| CondBranch val labelLoop labelPost) nodeG
