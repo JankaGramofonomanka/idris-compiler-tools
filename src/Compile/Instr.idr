@@ -28,7 +28,9 @@ TODO: Figure out how to reduce the number of attachments and detachments
 
 
 
-
+--* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+-- Utils ----------------------------------------------------------------------
+--* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 jumpTo : (lbl' : BlockLabel) -> CompileResultUU lbl crt -> CompileResultUD lbl lbl' crt
 jumpTo labelPost (CRUUC g) = CRUDC g
 jumpTo labelPost (CRUUO (lbl ** (g, ctx))) = let
@@ -43,7 +45,39 @@ jumpFrom labelPre (CRUDO (lbls ** (g, ctxs))) = let
   in CRDDO (lbls ** (g', ctxs))
 
 
+ifology' : (labelIn : BlockLabel)
+        -> (ctx : Attached labelIn VarCTX)
+        -> (expr : Expr TBool)
+        -> (lblT : BlockLabel)
+        -> (lblF : BlockLabel)
+        -> CompM  ( outsT ** outsF ** ( CFG CBlock
+                                            (Undefined labelIn)
+                                            (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
+                                      , DList (\lbl => Attached lbl VarCTX) outsT
+                                      , DList (\lbl => Attached lbl VarCTX) outsF
+                                      )
+                  )
+ifology' labelIn ctx expr lblT lblF = do
+  
+  (outsT ** outsF ** condG) <- evalStateT (detach ctx) $ ifology labelIn expr lblT lblF
 
+  let ctxsT = replicate outsT (\lbl => reattach lbl ctx)
+  let ctxsF = replicate outsF (\lbl => reattach lbl ctx)
+
+  pure (outsT ** outsF ** (condG, ctxsT, ctxsF))
+
+                  
+
+
+
+
+
+
+
+
+--* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
+-- Compilation ----------------------------------------------------------------
+--* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 mutual
   {-
   TODO: Consider getting rid of `InstrCR` in favor of returning a dependent
@@ -255,26 +289,19 @@ mutual
   -- If -----------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx (If cond instrThen) = do
 
-    -- TODO: use `ifology`
-    ((condLabel ** condG), val) <- evalStateT (detach ctx) $ compileExpr labelIn cond
     labelThen <- freshLabel
+    (outsT ** outsF ** (condG, ctxsT, ctxsF)) <- ifology' labelIn ctx cond labelThen labelPost
 
-    let condG' = omap {outs = Just [labelThen, labelPost]} (<+| CondBranch val labelThen labelPost) condG
-    
-    thenRes <- compileInstrDD [condLabel] labelThen labelPost [reattach condLabel ctx] instrThen
-    let (thenOuts ** (thenG, thenCTXs)) = unwrapCRDD thenRes
+    thenRes <- compileInstrDD outsT labelThen labelPost ctxsT instrThen
+    let (branchOuts ** (thenG, branchCTXs)) = unwrapCRDD thenRes
 
-    let branches : CFG CBlock
-                    (Defined [condLabel ~> labelThen, condLabel ~> labelPost])
-                    (Defined $ (thenOuts ++ [condLabel]) ~~> labelPost)
-
-        branches = rewrite collect_append labelPost thenOuts condLabel
-                  in Parallel thenG Empty
+    let branches = Parallel thenG Empty
     
-    let ctx' = reattach condLabel ctx
-    let final = Connect condG' branches
+    let final : CFG CBlock (Undefined labelIn) (Defined $ (branchOuts ++ outsF) ~~> labelPost)
+        final = rewrite collect_concat labelPost branchOuts outsF
+                in Connect condG branches
     
-    pure $ CRUDO (thenOuts ++ [condLabel] ** (final, thenCTXs ++ [ctx']))
+    pure $ CRUDO (branchOuts ++ outsF ** (final, branchCTXs ++ ctxsF))
     
 
 
@@ -282,20 +309,16 @@ mutual
   -- IfElse -------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx (IfElse cond instrThen instrElse) = do
 
-    -- TODO: use `ifology`
-    ((condLabel ** condG), val) <- evalStateT (detach ctx) $ compileExpr labelIn cond
     labelThen <- freshLabel
     labelElse <- freshLabel
+    (outsT ** outsF ** (condG, ctxsT, ctxsF)) <- ifology' labelIn ctx cond labelThen labelElse
 
-    let condCTX = reattach condLabel ctx
-
-    let condG' = omap {outs = Just [labelThen, labelElse]} (<+| CondBranch val labelThen labelElse) condG
-    thenRes <- compileInstrDD [condLabel] labelThen labelPost [condCTX] instrThen
-    elseRes <- compileInstrDD [condLabel] labelElse labelPost [condCTX] instrElse
+    thenRes <- compileInstrDD outsT labelThen labelPost ctxsT instrThen
+    elseRes <- compileInstrDD outsF labelElse labelPost ctxsF instrElse
 
     let branches = parallelCR thenRes elseRes
 
-    pure $ connectCRDDCRUD condG' branches
+    pure $ connectCRDDCRUD condG branches
 
 
 
@@ -312,10 +335,10 @@ mutual
     connectCRDDCRUD pre <$> compileInstrDD [labelIn] labelNodeIn labelPost [ctxIn] instr
 
 
-    
 
 
-    
+
+
 
 
 

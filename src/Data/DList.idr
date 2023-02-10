@@ -36,3 +36,8 @@ export
 dmap : ({0 x : t} -> a x -> b x) -> DList a xs -> DList b xs
 dmap f Nil = Nil
 dmap f (ax :: axs) = f ax :: dmap f axs
+
+export
+replicate : (xs : List t) -> ((x : t) -> f x) -> DList f xs
+replicate Nil g = Nil
+replicate (x :: xs) g = g x :: replicate xs g
