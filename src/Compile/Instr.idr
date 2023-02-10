@@ -149,7 +149,7 @@ mutual
               -> Attached labelIn VarCTX
               -> (instrs : List Instr)
               -> CompM (CompileResultUU labelIn $ InstrsCR instrs)
-      compile' labelIn ctx [] = pure (initCRUU labelIn)
+      compile' labelIn ctx [] = pure (emptyCRUU labelIn)
       compile' labelIn ctx (instr :: instrs) = do
         res <- compileInstrUU labelIn ctx instr
         handleRes res instrs
@@ -251,7 +251,7 @@ mutual
                 -> Attached labelIn VarCTX
                 -> (instrs : List Instr)
                 -> CompM (CompileResultUD labelIn labelPost $ InstrsCR instrs)
-        compile' labelIn ctx Nil = pure (initCRUD labelIn labelPost)
+        compile' labelIn ctx Nil = pure (emptyCRUD labelIn labelPost)
         
         compile' labelIn ctx (instr :: Nil)
           

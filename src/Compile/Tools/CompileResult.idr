@@ -108,13 +108,19 @@ unwrapCRDD (CRDDO (outs ** (g, ctxs))) = (outs ** (g, ctxs))
 
 
 export
-initCRUU : (lbl : BlockLabel) -> CompileResultUU lbl Open
-initCRUU lbl = CRUUO (lbl ** (initCFG, attach lbl emptyCtx))
+emptyCRUU : (lbl : BlockLabel) -> CompileResultUU lbl Open
+emptyCRUU lbl = CRUUO (lbl ** (initCFG, attach lbl emptyCtx))
 
 export
-initCRUD : (lbl, lbl' : BlockLabel) -> CompileResultUD lbl lbl' Open
-initCRUD lbl lbl' = CRUDO ([lbl] ** (omap {outs = Just [lbl']} (<+| Branch lbl') initCFG, [attach lbl emptyCtx]))
+emptyCRUD : (lbl, lbl' : BlockLabel) -> CompileResultUD lbl lbl' Open
+emptyCRUD lbl lbl' = CRUDO ([lbl] ** (omap {outs = Just [lbl']} (<+| Branch lbl') initCFG, [attach lbl emptyCtx]))
 
+export
+emptyCRDD : (lbls : List BlockLabel)
+         -> (lbl : BlockLabel)
+         -> (ctxs : DList (\lbl => Attached lbl VarCTX) lbls)
+         -> CompileResultDD (lbls ~~> lbl) lbl Open
+emptyCRDD lbls lbl ctxs = CRDDO (lbls ** (Empty, ctxs))
 
 
 
