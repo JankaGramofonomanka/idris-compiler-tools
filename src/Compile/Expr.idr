@@ -63,19 +63,19 @@ integerize {prf} (val, val') = let
 
 
 
+public export
+CompM' : Type -> Type
+CompM' = StateT VarCTX CompM
+
+getValue : Variable t -> CompM' (LLValue (GetLLType t))
+getValue var = do
+  Just val <- gets (lookup var) | Nothing => lift $ throwError (NoSuchVariable var)
+  pure val
+
+
 
 
 mutual
-
-  public export
-  CompM' : Type -> Type
-  CompM' = StateT VarCTX CompM
-
-  getValue : Variable t -> CompM' (LLValue (GetLLType t))
-  getValue var = do
-    Just val <- gets (lookup var) | Nothing => lift $ throwError (NoSuchVariable var)
-    pure val
-
 
   {-
   Returns
