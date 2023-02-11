@@ -263,14 +263,12 @@ mutual
 
     let gr' = imap {ins = Just outsM} ([] |++>) gr
     
-    let inter : CFG CBlock
-                    (Defined $ outsM ~~> lblM ++ outsF ~~> lblF)
+    let final : CFG CBlock
+                    (Undefined labelIn)
                     (Defined $ outsT ~~> lblT ++ (outsF' ++ outsF) ~~> lblF)
-        inter = rewrite collect_concat lblF outsF' outsF
+        final = rewrite collect_concat lblF outsF' outsF
                 in rewrite concat_assoc (outsT ~~> lblT) (outsF' ~~> lblF) (outsF ~~> lblF)
-                in Parallel gr' Empty
-
-    let final = Connect gl inter
+                in Connect1 gl gr'
     
     pure (outsT ** outsF' ++ outsF ** final)
   
@@ -283,16 +281,14 @@ mutual
 
     let gr' = imap {ins = Just outsM} ([] |++>) gr
     
-    let inter : CFG CBlock
-                    (Defined $ outsT ~~> lblT ++ outsM ~~> lblM)
+    let final : CFG CBlock
+                    (Undefined labelIn)
                     (Defined ((outsT ++ outsT') ~~> lblT ++ outsF ~~> lblF))
-        inter = rewrite collect_concat lblT outsT outsT'
+        final = rewrite collect_concat lblT outsT outsT'
                 in rewrite revEq $ concat_assoc (outsT ~~> lblT) (outsT' ~~> lblT) (outsF ~~> lblF)
-                in Parallel Empty gr'
+                in OFlip $ Connect1 (OFlip gl) gr'
     
-    let final = Connect gl inter
-    
-    pure (outsT ++ outsT' ** outsF ** final)
+    pure (outsT ++ outsT' ** outsF ** ?hfinal1)
   
 
   ifology labelIn (UnOperation Not expr) lblT lblF = do

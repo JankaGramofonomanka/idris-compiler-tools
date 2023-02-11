@@ -115,12 +115,6 @@ export
 emptyCRUD : (lbl, lbl' : BlockLabel) -> CompileResultUD lbl lbl' Open
 emptyCRUD lbl lbl' = CRUDO ([lbl] ** (omap {outs = Just [lbl']} (<+| Branch lbl') initCFG, [attach lbl emptyCtx]))
 
-export
-emptyCRDD : (lbls : List BlockLabel)
-         -> (lbl : BlockLabel)
-         -> (ctxs : DList (\lbl => Attached lbl VarCTX) lbls)
-         -> CompileResultDD (lbls ~~> lbl) lbl Open
-emptyCRDD lbls lbl ctxs = CRDDO (lbls ** (Empty, ctxs))
 
 
 

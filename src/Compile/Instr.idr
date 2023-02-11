@@ -307,11 +307,9 @@ mutual
     thenRes <- compileInstrDD outsT labelThen labelPost ctxsT instrThen
     let (branchOuts ** (thenG, branchCTXs)) = unwrapCRDD thenRes
 
-    let branches = Parallel thenG Empty
-    
     let final : CFG CBlock (Undefined labelIn) (Defined $ (branchOuts ++ outsF) ~~> labelPost)
         final = rewrite collect_concat labelPost branchOuts outsF
-                in Connect condG branches
+                in Connect1 condG thenG
     
     pure $ CRUDO (branchOuts ++ outsF ** (final, branchCTXs ++ ctxsF))
     
@@ -473,7 +471,7 @@ mutual
         phis <- mkPhis (detach ctxNode) ctxsIn
         
         let node' = imap {ins = Just pre} (phis |++>) node
-        let final = Connect node' (Parallel loop Empty)
+        let final = Connect1 node' loop
         
         pure final
 
