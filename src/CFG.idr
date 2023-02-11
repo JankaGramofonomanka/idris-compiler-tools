@@ -178,13 +178,13 @@ namespace Graph
            -> CFG vertex (Defined edges) outs
            -> CFG vertex ins outs
     
-    Connect1 : CFG vertex ins (Defined $ edges ++ edges')
-            -> CFG vertex (Defined edges) (Defined outs)
-            -> CFG vertex ins (Defined $ outs ++ edges')
+    ConnectBranch : CFG vertex ins (Defined $ edges ++ edges')
+                 -> CFG vertex (Defined edges) (Defined outs)
+                 -> CFG vertex ins (Defined $ outs ++ edges')
     
-    Connect2 : CFG vertex (Defined ins) (Defined edges)
-            -> CFG vertex (Defined $ edges ++ edges') outs
-            -> CFG vertex (Defined $ ins ++ edges') outs
+    ConnectToBranch : CFG vertex (Defined ins) (Defined edges)
+                   -> CFG vertex (Defined $ edges ++ edges') outs
+                   -> CFG vertex (Defined $ ins ++ edges') outs
     
     Parallel : CFG vertex (Defined ins) (Defined outs)
             -> CFG vertex (Defined ins') (Defined outs')
@@ -245,13 +245,13 @@ namespace Graph
 
   imap f (SingleVertex {vins = Nothing} v)  = SingleVertex (f v)
   imap f (Connect g g')                     = Connect (imap f g) g'
-  imap f (Connect1 g g')                    = Connect1 (imap f g) g'
+  imap f (ConnectBranch g g')               = ConnectBranch (imap f g) g'
   
   imap f (OFlip g)                          = OFlip (imap f g)
   
   imap f (SingleVertex {vins = Just ins} v) impossible
   imap f (Cycle node loop)                  impossible
-  imap f (Connect2 g g')                    impossible
+  imap f (ConnectToBranch g g')             impossible
   imap f (Parallel g g')                    impossible
   imap f (IFlip g)                          impossible
   
@@ -266,12 +266,12 @@ namespace Graph
 
   omap f (SingleVertex {vouts = Nothing} v)   = SingleVertex (f v)
   omap f (Connect g g')                       = Connect g (omap f g')
-  omap f (Connect2 g g')                      = Connect2 g (omap f g')
+  omap f (ConnectToBranch g g')               = ConnectToBranch g (omap f g')
   omap f (IFlip g)                            = IFlip (omap f g)
   
   omap f (SingleVertex {vouts = Just outs} v) impossible
   omap f (Cycle node loop)                    impossible
-  omap f (Connect1 g g')                      impossible
+  omap f (ConnectBranch g g')                 impossible
   omap f (Parallel g g')                      impossible
   omap f (OFlip g)                            impossible
 
@@ -283,12 +283,12 @@ namespace Graph
 
   connect (SingleVertex {vouts = Nothing} v)  g   = imap (cnct @{impl} v) g
   connect (Connect g g')                      g'' = Connect g (connect g' g'')
-  connect (Connect2 g g')                     g'' = Connect2 g (connect g' g'')
+  connect (ConnectToBranch g g')              g'' = ConnectToBranch g (connect g' g'')
   connect (IFlip g)                           g'  = IFlip (connect g g')
 
   connect (SingleVertex {vouts = Just outs} v)  g' impossible
   connect (Cycle node loop)                     g' impossible
-  connect (Connect1 g g')                       g' impossible
+  connect (ConnectBranch g g')                  g' impossible
   connect (Parallel g g')                       g' impossible
   connect (OFlip g)                             g' impossible
   
@@ -307,12 +307,12 @@ namespace Graph
        -> b
   iget f (SingleVertex {vins = Nothing} v)  = f v
   iget f (Connect g g')                     = iget f g
-  iget f (Connect1 g g')                    = iget f g
+  iget f (ConnectBranch g g')               = iget f g
   iget f (OFlip g)                          = iget f g
   
   iget f (SingleVertex {vins = Just ins} v) impossible
   iget f (Cycle node loop)                  impossible
-  iget f (Connect2 g g')                    impossible
+  iget f (ConnectToBranch g g')             impossible
   iget f (Parallel g g')                    impossible
   iget f (IFlip g)                          impossible
 
@@ -324,12 +324,12 @@ namespace Graph
 
   oget f (SingleVertex {vouts = Nothing} v)   = f v
   oget f (Connect g g')                       = oget f g'
-  oget f (Connect2 g g')                      = oget f g'
+  oget f (ConnectToBranch g g')               = oget f g'
   oget f (IFlip g)                            = oget f g
   
   oget f (SingleVertex {vouts = Just outs} v) impossible
   oget f (Cycle node loop)                    impossible
-  oget f (Connect1 g g')                      impossible
+  oget f (ConnectBranch g g')                 impossible
   oget f (Parallel g g')                      impossible
   oget f (OFlip g)                            impossible
 
