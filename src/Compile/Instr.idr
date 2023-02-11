@@ -46,15 +46,15 @@ jumpFrom labelPre (CRUDO (lbls ** (g, ctxs))) = let
 
 
 ifology' : (labelIn : BlockLabel)
-        -> (ctx : Attached labelIn VarCTX)
+        -> (ctx : labelIn :~: VarCTX)
         -> (expr : Expr TBool)
         -> (lblT : BlockLabel)
         -> (lblF : BlockLabel)
         -> CompM  ( outsT ** outsF ** ( CFG CBlock
                                             (Undefined labelIn)
                                             (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
-                                      , DList (\lbl => Attached lbl VarCTX) outsT
-                                      , DList (\lbl => Attached lbl VarCTX) outsF
+                                      , DList (:~: VarCTX) outsT
+                                      , DList (:~: VarCTX) outsF
                                       )
                   )
 ifology' labelIn ctx expr lblT lblF = do
@@ -69,9 +69,9 @@ ifology' labelIn ctx expr lblT lblF = do
                   
 
 compileExpr' : (labelIn : BlockLabel)
-            -> (ctx : Attached labelIn VarCTX)
+            -> (ctx : labelIn :~: VarCTX)
             -> (expr : Expr t)
-            -> CompM  ( (lbl ** (CFG CBlock (Undefined labelIn) (Undefined lbl), Attached lbl VarCTX))
+            -> CompM  ( (lbl ** (CFG CBlock (Undefined labelIn) (Undefined lbl), lbl :~: VarCTX))
                       , LLValue (GetLLType t)
                       )
 compileExpr' labelIn ctx expr = do
@@ -142,7 +142,7 @@ mutual
   variables at the start of the graph.
   -}
   compileInstrUU : (labelIn : BlockLabel)
-                -> (ctx : Attached labelIn VarCTX)
+                -> (ctx : labelIn :~: VarCTX)
                 -> (instr : Instr)
                 -> CompM (CompileResultUU labelIn $ InstrCR instr)
 
@@ -155,7 +155,7 @@ mutual
     mutual
 
       compile' : (labelIn : BlockLabel)
-              -> Attached labelIn VarCTX
+              -> labelIn :~: VarCTX
               -> (instrs : List Instr)
               -> CompM (CompileResultUU labelIn $ InstrsCR instrs)
       compile' labelIn ctx [] = pure (emptyCRUU labelIn)
@@ -227,7 +227,7 @@ mutual
   -- UD -----------------------------------------------------------------------
   --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   compileInstrUD : (labelIn, labelPost : BlockLabel)
-                     -> (ctx : Attached labelIn VarCTX)
+                     -> (ctx : labelIn :~: VarCTX)
                      -> (instr : Instr)
                      -> CompM (CompileResultUD labelIn labelPost $ InstrCR instr)
 
@@ -260,7 +260,7 @@ mutual
           decideInstrCR instr | Open = Right Refl
 
         compile' : (labelIn : BlockLabel)
-                -> Attached labelIn VarCTX
+                -> labelIn :~: VarCTX
                 -> (instrs : List Instr)
                 -> CompM (CompileResultUD labelIn labelPost $ InstrsCR instrs)
         compile' labelIn ctx Nil = pure (emptyCRUD labelIn labelPost)
@@ -359,7 +359,7 @@ mutual
   --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   compileInstrDDViaUD : (pre : List BlockLabel)
                      -> (labelIn, labelPost : BlockLabel)
-                     -> (ctxs : DList (\l => Attached l VarCTX) pre)
+                     -> (ctxs : DList (:~: VarCTX) pre)
                      -> (instr : Instr)
                      -> CompM (CompileResultDD (pre ~~> labelIn) labelPost $ InstrCR instr)
   
@@ -373,7 +373,7 @@ mutual
 
   compileInstrDD : (pre : List BlockLabel)
                 -> (labelIn, labelPost : BlockLabel)
-                -> (ctxs : DList (\l => Attached l VarCTX) pre)
+                -> (ctxs : DList (:~: VarCTX) pre)
                 -> (instr : Instr)
                 -> CompM (CompileResultDD (pre ~~> labelIn) labelPost $ InstrCR instr)
 
@@ -431,7 +431,7 @@ mutual
 
       mkPhis : VarCTX'
             -> {lbls : List BlockLabel}
-            -> DList (\lbl => Attached lbl VarCTX) lbls
+            -> DList (:~: VarCTX) lbls
             -> CompM $ List (PhiInstr (MkInputs lbls))
       
       mkPhis ctx {lbls} ctxs = traverse mkPhi' (DMap.toList ctx) where
@@ -462,8 +462,8 @@ mutual
       
       handleLoopResult : {pre : List BlockLabel}
                       -> {nodeIn, nodeOut : BlockLabel}
-                      -> (ctxNode : Attached nodeIn VarCTX')
-                      -> (ctxsIn : DList (\l => Attached l VarCTX) pre)
+                      -> (ctxNode : nodeIn :~: VarCTX')
+                      -> (ctxsIn : DList (:~: VarCTX) pre)
                       -> (node : CFG CBlock (Undefined nodeIn) (Defined [nodeOut ~> labelLoop, nodeOut ~> labelPost]))
                       -> (loopRes : CompileResultDD [nodeOut ~> labelLoop] nodeIn crt)
                       -> CompM $ CFG CBlock (Defined $ pre ~~> nodeIn) (Defined [nodeOut ~> labelPost])

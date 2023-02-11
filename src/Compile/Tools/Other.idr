@@ -15,7 +15,7 @@ addInput lbl val (Phi kvs) = Phi $ (lbl, val) :: kvs
 
 export
 phiFromDList : (lbls : List BlockLabel)
-            -> DList (\lbl => Attached lbl (LLValue t)) lbls
+            -> DList (:~: (LLValue t)) lbls
             -> PhiExpr (MkInputs lbls) t
 
 phiFromDList Nil Nil = Phi Nil

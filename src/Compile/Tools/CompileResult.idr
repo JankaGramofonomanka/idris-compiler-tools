@@ -58,7 +58,7 @@ public export
 data CompileResultUU : BlockLabel -> CRType -> Type where
   CRUUC : CFG CBlock (Undefined lbl) Closed -> CompileResultUU lbl Closed
   CRUUO : (lbl' **  ( CFG CBlock (Undefined lbl) (Undefined lbl')
-                    , Attached lbl' VarCTX
+                    , lbl' :~: VarCTX
                     ))
        -> CompileResultUU lbl Open
 
@@ -68,7 +68,7 @@ public export
 data CompileResultUD : BlockLabel -> BlockLabel -> CRType -> Type where
   CRUDC : CFG CBlock (Undefined lbl) Closed -> CompileResultUD lbl lbl' Closed
   CRUDO : (lbls ** ( CFG CBlock (Undefined lbl) (Defined $ lbls ~~> lbl')
-                   , DList (\lbl' => Attached lbl' VarCTX) lbls
+                   , DList (:~: VarCTX) lbls
                    ))
        -> CompileResultUD lbl lbl' Open
 
@@ -78,7 +78,7 @@ public export
 data CompileResultDD : List (Edge BlockLabel) -> BlockLabel -> CRType -> Type where
   CRDDC : CFG CBlock (Defined edges) Closed -> CompileResultDD edges lbl Closed
   CRDDO : (lbls ** ( CFG CBlock (Defined edges) (Defined $ lbls ~~> lbl)
-                    , DList (\l => Attached l VarCTX) lbls
+                    , DList (:~: VarCTX) lbls
                     ))
        -> CompileResultDD edges lbl Open
 
@@ -89,7 +89,7 @@ data CompileResultDD : List (Edge BlockLabel) -> BlockLabel -> CRType -> Type wh
 export
 unwrapCRUD : CompileResultUD lbl lbl' crt
           -> (outs ** ( CFG CBlock (Undefined lbl) (Defined $ outs ~~> lbl')
-                      , DList (\l => Attached l VarCTX) outs
+                      , DList (:~: VarCTX) outs
                       ))
 unwrapCRUD (CRUDC g) = ([] ** (g, []))
 unwrapCRUD (CRUDO (outs ** (g, ctxs))) = (outs ** (g, ctxs))
@@ -97,7 +97,7 @@ unwrapCRUD (CRUDO (outs ** (g, ctxs))) = (outs ** (g, ctxs))
 export
 unwrapCRDD : CompileResultDD edges lbl crt
           -> (outs ** ( CFG CBlock (Defined edges) (Defined $ outs ~~> lbl)
-                      , DList (\l => Attached l VarCTX) outs
+                      , DList (:~: VarCTX) outs
                       ))
 unwrapCRDD (CRDDC g) = ([] ** (g, []))
 unwrapCRDD (CRDDO (outs ** (g, ctxs))) = (outs ** (g, ctxs))
@@ -118,7 +118,7 @@ emptyCRUD lbl lbl' = CRUDO ([lbl] ** (omap {outs = Just [lbl']} (<+| Branch lbl'
 export
 emptyCRDD : (lbls : List BlockLabel)
          -> (lbl : BlockLabel)
-         -> (ctxs : DList (\lbl => Attached lbl VarCTX) lbls)
+         -> (ctxs : DList (:~: VarCTX) lbls)
          -> CompileResultDD (lbls ~~> lbl) lbl Open
 emptyCRDD lbls lbl ctxs = CRDDO (lbls ** (Empty, ctxs))
 
@@ -212,7 +212,7 @@ export
 collectInsCR : {lbl' : BlockLabel}
             -> (ins : List BlockLabel)
             -> (phis : List (PhiInstr $ MkInputs ins))
-            -> (ctx : Attached lbl VarCTX)
+            -> (ctx : lbl :~: VarCTX)
             -> CompileResultUD lbl lbl' crt
             -> CompM $ CompileResultDD (ins ~~> lbl) lbl' crt
 collectInsCR ins phis ctxs res = do
@@ -236,7 +236,7 @@ data Compatible : CRType -> List BlockLabel -> Type where
 export
 getContext : {lbl : BlockLabel}
           -> CFG CBlock ins (Undefined lbl)
-          -> Attached lbl $ DMap Variable (LLValue . GetLLType)
+          -> lbl :~: DMap Variable (LLValue . GetLLType)
 getContext {lbl} cfg = attach lbl $ oget ctx cfg
 
 
