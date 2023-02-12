@@ -10,6 +10,7 @@ import LLVM
 import Compile.Tools
 import Compile.Tools.CompM
 import Compile.Tools.Other
+import CFG
 
 
 
@@ -39,26 +40,26 @@ emptyCtx = DMap.empty
 
 
 public export
-record Segregated (ins : Inputs) where
+record Segregated (lbl : BlockLabel) (ins : Inputs) where
   constructor SG
-  ctx : VarCTX
+  ctx : lbl :~: VarCTX
   phis : List (PhiInstr ins)
 
 
 -- TODO: rewrite `PhiExpr` so that it equals to this type or implement `toPhi`
-data Phi' : Inputs -> LLType -> Type where
-  MkPhi' : DList (:~: LLValue t) ins -> Phi' (MkInputs ins) t
+data Phi' : BlockLabel -> Inputs -> LLType -> Type where
+  MkPhi' : DList (:~: LLValue t) (ins ~~> lbl) -> Phi' lbl (MkInputs ins) t
 
 
-toPhi : Phi' ins t -> PhiExpr ins t
+toPhi : Phi' lbl ins t -> PhiExpr ins t
 
 
-ValueOrPhi : Inputs -> LNGType -> Type
-ValueOrPhi ins t = Either (Phi' ins $ GetLLType t) (LLValue $ GetLLType t)
+ValueOrPhi : BlockLabel -> Inputs -> LNGType -> Type
+ValueOrPhi lbl ins t = Either (Phi' lbl ins $ GetLLType t) (LLValue $ GetLLType t)
 
-record Segregated' (ins : Inputs) where
+record Segregated' (lbl : BlockLabel) (ins : Inputs) where
   constructor SG'
-  ctx : DMap Variable (ValueOrPhi ins)
+  ctx : DMap Variable (ValueOrPhi lbl ins)
 
 
 
@@ -70,24 +71,24 @@ replicatePhi (lbl :: lbls) val = addInput lbl val $ replicatePhi lbls val
 
 
 
-addInput' : lbl :~: (LLValue t)
-         -> Phi' (MkInputs ins) t
-         -> Phi' (MkInputs $ lbl :: ins) t
+addInput' : (lbl ~> lbl') :~: (LLValue t)
+         -> Phi' lbl' (MkInputs ins) t
+         -> Phi' lbl' (MkInputs $ lbl :: ins) t
 
 addInput' val (MkPhi' kvs) = MkPhi' $ val :: kvs
 
-replicatePhi' : (ins : List BlockLabel) -> LLValue t -> Phi' (MkInputs ins) t
+replicatePhi' : (ins : List BlockLabel) -> LLValue t -> Phi' lbl' (MkInputs ins) t
 replicatePhi' Nil val = MkPhi' Nil
-replicatePhi' (lbl :: lbls) val = addInput' (attach lbl val) $ replicatePhi' lbls val
+replicatePhi' {lbl'} (lbl :: lbls) val = addInput' (attach (lbl ~> lbl') val) $ replicatePhi' lbls val
 
 
 
 addValueOrPhi : Variable t
-             -> lbl :~: (LLValue (GetLLType t))
+             -> (lbl ~> lbl') :~: (LLValue (GetLLType t))
              -> {ins : List BlockLabel}
-             -> ValueOrPhi (MkInputs ins) t
-             -> Segregated' (MkInputs $ lbl :: ins)
-             -> Segregated' (MkInputs $ lbl :: ins)
+             -> ValueOrPhi lbl' (MkInputs ins) t
+             -> Segregated' lbl' (MkInputs $ lbl :: ins)
+             -> Segregated' lbl' (MkInputs $ lbl :: ins)
 
 addValueOrPhi key val (Right val') (SG' ctx)
 
@@ -109,19 +110,19 @@ addValueOrPhi key val (Left phi) (SG' ctx) = let
 
 
 
-addCTX : lbl :~: VarCTX
+addCTX : (lbl ~> lbl') :~: VarCTX
       -> {ins : List BlockLabel}
-      -> Segregated' (MkInputs ins)
-      -> Segregated' (MkInputs $ lbl :: ins)
+      -> Segregated' lbl' (MkInputs ins)
+      -> Segregated' lbl' (MkInputs $ lbl :: ins)
 
 addCTX ctx {ins} (SG' ctx')
   = foldl handleItem (SG' DMap.empty) (distribute $ map DMap.toList ctx)
   
   where
 
-    handleItem : Segregated' (MkInputs $ lbl :: ins)
-              -> lbl :~: (t : LNGType ** Item Variable (LLValue . GetLLType) t)
-              -> Segregated' (MkInputs $ lbl :: ins)
+    handleItem : Segregated' lbl' (MkInputs $ lbl :: ins)
+              -> (lbl ~> lbl') :~: (t : LNGType ** Item Variable (LLValue . GetLLType) t)
+              -> Segregated' lbl' (MkInputs $ lbl :: ins)
 
     handleItem sg item = let
 
@@ -137,29 +138,29 @@ addCTX ctx {ins} (SG' ctx')
 
 
 
-finalize : Segregated' ins -> CompM (Segregated ins)
-finalize (SG' ctx) = foldlM handleItem (SG emptyCtx Nil) (toList ctx) where
+finalize : Segregated' lbl ins -> CompM (Segregated lbl ins)
+finalize {lbl} (SG' ctx) = foldlM handleItem (SG (attach lbl emptyCtx) Nil) (toList ctx) where
   
-  handleItem : Segregated ins
-   -> (t : LNGType ** Item Variable (ValueOrPhi ins) t)
-   -> CompM (Segregated ins)
+  handleItem : Segregated lbl ins
+   -> (t : LNGType ** Item Variable (ValueOrPhi lbl ins) t)
+   -> CompM (Segregated lbl ins)
   
   handleItem (SG ctx' phis) (x ** MkItem key vp) = case vp of
     
-    Right val => pure $ SG (insert key val ctx') phis
+    Right val => pure $ SG (map (insert key val) ctx') phis
 
     Left phi => do
       reg <- freshReg
       let phi = AssignPhi reg (toPhi phi)
       
-      pure $ SG (insert key (Var reg) ctx') (phi :: phis)
+      pure $ SG (map (insert key (Var reg)) ctx') (phi :: phis)
     
     
-segregate' : {labels : List BlockLabel}
-          -> DList (:~: VarCTX) labels
-          -> Segregated' (MkInputs labels)
-segregate' Nil = SG' DMap.empty
-segregate' (ctx :: ctxs) = addCTX ctx (segregate' ctxs)
+segregate' : {lbls : List BlockLabel}
+          -> DList (:~: VarCTX) (lbls ~~> lbl)
+          -> Segregated' lbl (MkInputs lbls)
+segregate' {lbls = Nil} Nil = SG' DMap.empty
+segregate' {lbls = l :: ls} (ctx :: ctxs) = addCTX ctx (segregate' ctxs)
 
 
 
@@ -169,9 +170,9 @@ Combine contexts from different branches by adding phi instructions in case of
 conflicting values
 -}
 export
-segregate : {labels : List BlockLabel}
-          -> DList (:~: VarCTX) labels
-          -> CompM $ Segregated (MkInputs labels)
+segregate : {lbls : List BlockLabel}
+         -> DList (:~: VarCTX) (lbls ~~> lbl)
+         -> CompM $ Segregated lbl (MkInputs lbls)
 segregate ctxs = finalize (segregate' ctxs)
 
 

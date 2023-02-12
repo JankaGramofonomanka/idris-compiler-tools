@@ -13,14 +13,7 @@ addInput : (lbl : BlockLabel)
 
 addInput lbl val (Phi kvs) = Phi $ (lbl, val) :: kvs
 
-export
-phiFromDList : (lbls : List BlockLabel)
-            -> DList (:~: (LLValue t)) lbls
-            -> PhiExpr (MkInputs lbls) t
 
-phiFromDList Nil Nil = Phi Nil
-phiFromDList (lbl :: lbls) (val :: vals)
-  = addInput lbl (detach val) (phiFromDList lbls vals)
 
 
 

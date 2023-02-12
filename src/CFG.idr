@@ -132,9 +132,6 @@ namespace Graph
   distribute_append : (v : a) -> (vs : List a) -> (w : a) -> v ~>> (vs ++ [w]) = v ~>> vs ++ [v ~> w]
   distribute_append v vs w = distribute_concat v vs [w]
 
-  export
-  dest_distribute : (v : a) -> (vs : List a) -> map Dest (v ~>> vs) = vs
-
   public export
   fromVOut : a -> (e : Neighbors a) -> Edges a
   fromVOut v Nothing      = Undefined v
@@ -343,41 +340,23 @@ namespace Graph
 
   export
   oget' : {0 vertex : Vertex a}
-       -> ({0 v : a} -> {ins : Neighbors a} -> {outs : List a} -> vertex v ins (Just outs) -> DList (:~: b) outs)
+       -> ({0 v : a} -> {ins : Neighbors a} -> {outs : List a} -> vertex v ins (Just outs) -> DList (:~: b) (v ~>> outs))
        -> CFG vertex gins (Defined gouts)
-       -> DList (:~: b) (map Dest gouts)
+       -> DList (:~: b) gouts
 
   oget' f (SingleVertex {vouts = Nothing} v)        impossible
 
-  oget' f (SingleVertex {v, vouts = Just outs} w)   = rewrite dest_distribute v outs in f w
-  oget' f (Cycle node loop)                         = tail (oget' f node)
-  oget' f (Connect g g')                            = oget' f g'
-  oget' f (ConnectToBranch g g')                    = oget' f g'
-  oget' f (Parallel {outs, outs'} g g')             = rewrite map_concat {f = Dest} outs outs'
-                                                      in oget' f g ++ oget' f g'
-  oget' f (IFlip g)                                 = oget' f g
-  
-  oget' f (ConnectBranch {edges, edges', outs} g g')
-    = let
+  oget' f (SingleVertex {v, vouts = Just outs} w) = f w
+  oget' f (Cycle node loop)                       = tail (oget' f node)
+  oget' f (Connect g g')                          = oget' f g'
+  oget' f (ConnectBranch g g')                    = let (lresg, rresg) = split (oget' f g)
+                                                    in oget' f g' ++ rresg
+  oget' f (ConnectToBranch g g')                  = oget' f g'
+  oget' f (Parallel g g')                         = oget' f g ++ oget' f g'
+  oget' f (IFlip g)                               = oget' f g
+  oget' f (OFlip g)                               = let (lres, rres) = split (oget' f g)
+                                                    in rres ++ lres
 
-      resg  = rewrite revEq $ map_concat {f = Dest} edges edges'
-              in oget' f g
-      resg' = oget' f g'
 
-      (lresg, rresg) = split {xs = map Dest edges, xs' = map Dest edges'} resg
-      
-      in rewrite map_concat {f = Dest} outs edges' in resg' ++ rresg
 
-  oget' f (OFlip {outs, outs'} g)
-    = let
-      
-      res = rewrite revEq $ map_concat {f = Dest} outs outs'
-            in (oget' f g)
-
-      (lres, rres) = split res
-      
-      in rewrite map_concat {f = Dest} outs' outs in rres ++ lres
-  
-  
-  
 

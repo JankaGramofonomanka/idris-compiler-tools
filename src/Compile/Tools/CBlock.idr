@@ -1,6 +1,8 @@
 module Compile.Tools.CBlock
 
 import Data.DMap
+import Data.DList
+import Data.Attached
 
 import LLVM
 import LNG
@@ -41,6 +43,19 @@ record CBlock (label : BlockLabel) (ins : Neighbors BlockLabel) (outs : Neighbor
   -- TODO: divide assignments between individual instructions
   ctx : DMap Variable (LLValue . GetLLType)
 
+export
+context : {lbl : BlockLabel} -> CBlock lbl ins Undefined -> lbl :~: DMap Variable (LLValue . GetLLType)
+context {lbl} blk = attach lbl (ctx blk)
+
+export
+contexts : {0 lbl : BlockLabel}
+        -> {outs : List BlockLabel}
+        -> CBlock lbl ins (Just outs)
+        -> DList (:~: DMap Variable (LLValue . GetLLType)) (lbl ~>> outs)
+contexts {lbl, outs} blk = replicate' lblTo outs (\l => attach (lblTo l) (ctx blk)) where
+  0 lblTo : BlockLabel -> Edge BlockLabel
+  lblTo v = lbl ~> v
+  
 export
 initCBlock : CBlock lbl Undefined Undefined
 initCBlock = MkBB () [] () DMap.empty
@@ -104,4 +119,15 @@ implementation Connectable CBlock where
 
 
 
+-- TODO: consider hiding the attachment somewhere, eg. in the `CBlock` itself
+export
+getContext : {lbl : BlockLabel}
+          -> CFG CBlock ins (Undefined lbl)
+          -> lbl :~: DMap Variable (LLValue . GetLLType)
+getContext {lbl} cfg = attach lbl $ oget ctx cfg
+
+export
+getContexts : CFG CBlock ins (Defined outs)
+           -> DList (:~: DMap Variable (LLValue . GetLLType)) outs
+getContexts cfg = oget' contexts cfg
 

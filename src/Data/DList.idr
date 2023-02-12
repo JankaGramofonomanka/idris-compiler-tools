@@ -43,6 +43,11 @@ replicate Nil g = Nil
 replicate (x :: xs) g = g x :: replicate xs g
 
 export
+replicate' : (0 f : a -> b) -> (xs : List a) -> ((x : a) -> g (f x)) -> DList g (map f xs)
+replicate' f Nil g = Nil
+replicate' f (x :: xs) g = g x :: replicate' f xs g
+
+export
 head : DList f (x :: xs) -> f x
 head (fx :: fxs) = fx
 
