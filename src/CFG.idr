@@ -164,8 +164,6 @@ namespace Graph
                 -> {vins, vouts : Neighbors a}
                 -> vertex v vins vouts
                 -> CFG vertex (fromVIn vins v) (fromVOut v vouts)
-
-    --Empty : CFG vertex (Defined es) (Defined es)
     
     Cycle : (node : CFG vertex (Defined $ ins ++ ins' ~~> vin) (Defined $ (vout ~> w) :: outs))
          -> (loop : CFG vertex (Single vout w) (Defined $ ins' ~~> vin))
