@@ -2,7 +2,6 @@ module CFG
 
 
 import Data.DList
-import Data.Attached
 import Utils
 
 {-
@@ -340,11 +339,11 @@ namespace Graph
 
   export
   oget' : {0 vertex : Vertex a}
-       -> ({0 v : a} -> {ins : Neighbors a} -> {outs : List a} -> vertex v ins (Just outs) -> DList (:~: b) (v ~>> outs))
+       -> ({0 v : a} -> {ins : Neighbors a} -> {outs : List a} -> vertex v ins (Just outs) -> DList g (v ~>> outs))
        -> CFG vertex gins (Defined gouts)
-       -> DList (:~: b) gouts
+       -> DList g gouts
 
-  oget' f (SingleVertex {vouts = Nothing} v)        impossible
+  oget' f (SingleVertex {vouts = Nothing} v)      impossible
 
   oget' f (SingleVertex {v, vouts = Just outs} w) = f w
   oget' f (Cycle node loop)                       = tail (oget' f node)
