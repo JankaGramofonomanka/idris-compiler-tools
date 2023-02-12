@@ -41,3 +41,16 @@ export
 replicate : (xs : List t) -> ((x : t) -> f x) -> DList f xs
 replicate Nil g = Nil
 replicate (x :: xs) g = g x :: replicate xs g
+
+export
+head : DList f (x :: xs) -> f x
+head (fx :: fxs) = fx
+
+export
+tail : DList f (x :: xs) -> DList f xs
+tail (fx :: fxs) = fxs
+
+export
+split : {xs, xs' : List a} -> DList f (xs ++ xs') -> (DList f xs, DList f xs')
+split {xs = Nil} dl = (Nil, dl)
+split {xs = x :: xs''} (fx :: fxs''') = let (fxs'', fxs') = split (fxs''') in (fx :: fxs'', fxs')

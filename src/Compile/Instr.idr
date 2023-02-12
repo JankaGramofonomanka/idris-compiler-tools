@@ -459,14 +459,14 @@ mutual
 
       
       handleLoopResult : {pre : List BlockLabel}
-                      -> {nodeIn, nodeOut : BlockLabel}
+                      -> {nodeIn, nodeOut, labelLoop : BlockLabel}
                       -> (ctxNode : nodeIn :~: VarCTX')
                       -> (ctxsIn : DList (:~: VarCTX) pre)
                       -> (node : CFG CBlock (Undefined nodeIn) (Defined [nodeOut ~> labelLoop, nodeOut ~> labelPost]))
                       -> (loopRes : CompileResultDD [nodeOut ~> labelLoop] nodeIn crt)
                       -> CompM $ CFG CBlock (Defined $ pre ~~> nodeIn) (Defined [nodeOut ~> labelPost])
       
-      handleLoopResult {pre, nodeIn, nodeOut} ctxNode ctxsIn node (CRDDC loop) = do
+      handleLoopResult {pre} ctxNode ctxsIn node (CRDDC loop) = do
 
         phis <- mkPhis (detach ctxNode) ctxsIn
         
