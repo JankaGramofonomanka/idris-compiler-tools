@@ -47,7 +47,7 @@ record Segregated (ins : Inputs) where
 
 -- TODO: rewrite `PhiExpr` so that it equals to this type or implement `toPhi`
 data Phi' : Inputs -> LLType -> Type where
-  MkPhi' : DList (\lbl => Attached lbl $ LLValue t) ins -> Phi' (MkInputs ins) t
+  MkPhi' : DList (:~: LLValue t) ins -> Phi' (MkInputs ins) t
 
 
 toPhi : Phi' ins t -> PhiExpr ins t
@@ -70,7 +70,7 @@ replicatePhi (lbl :: lbls) val = addInput lbl val $ replicatePhi lbls val
 
 
 
-addInput' : Attached lbl (LLValue t)
+addInput' : lbl :~: (LLValue t)
          -> Phi' (MkInputs ins) t
          -> Phi' (MkInputs $ lbl :: ins) t
 
@@ -83,7 +83,7 @@ replicatePhi' (lbl :: lbls) val = addInput' (attach lbl val) $ replicatePhi' lbl
 
 
 addValueOrPhi : Variable t
-             -> Attached lbl (LLValue (GetLLType t))
+             -> lbl :~: (LLValue (GetLLType t))
              -> {ins : List BlockLabel}
              -> ValueOrPhi (MkInputs ins) t
              -> Segregated' (MkInputs $ lbl :: ins)
@@ -109,7 +109,7 @@ addValueOrPhi key val (Left phi) (SG' ctx) = let
 
 
 
-addCTX : Attached lbl VarCTX
+addCTX : lbl :~: VarCTX
       -> {ins : List BlockLabel}
       -> Segregated' (MkInputs ins)
       -> Segregated' (MkInputs $ lbl :: ins)
@@ -120,7 +120,7 @@ addCTX ctx {ins} (SG' ctx')
   where
 
     handleItem : Segregated' (MkInputs $ lbl :: ins)
-              -> Attached lbl (t : LNGType ** Item Variable (LLValue . GetLLType) t)
+              -> lbl :~: (t : LNGType ** Item Variable (LLValue . GetLLType) t)
               -> Segregated' (MkInputs $ lbl :: ins)
 
     handleItem sg item = let
@@ -156,7 +156,7 @@ finalize (SG' ctx) = foldlM handleItem (SG emptyCtx Nil) (toList ctx) where
     
     
 segregate' : {labels : List BlockLabel}
-          -> DList (\lbl => Attached lbl VarCTX) labels
+          -> DList (:~: VarCTX) labels
           -> Segregated' (MkInputs labels)
 segregate' Nil = SG' DMap.empty
 segregate' (ctx :: ctxs) = addCTX ctx (segregate' ctxs)
@@ -170,7 +170,7 @@ conflicting values
 -}
 export
 segregate : {labels : List BlockLabel}
-          -> DList (\lbl => Attached lbl VarCTX) labels
+          -> DList (:~: VarCTX) labels
           -> CompM $ Segregated (MkInputs labels)
 segregate ctxs = finalize (segregate' ctxs)
 
@@ -195,5 +195,5 @@ newRegForAll vars = foldlM addNewReg DMap.empty vars
 
 
 export
-commonKeys : DList (\l => Attached l VarCTX) lbls -> List (t ** Variable t)
+commonKeys : DList (:~: VarCTX) lbls -> List (t ** Variable t)
 commonKeys l = ?hck

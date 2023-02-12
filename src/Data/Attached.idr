@@ -7,6 +7,11 @@ export
 data Attached : (x : t) -> Type -> Type where
   Attach : (0 x : t) -> (y : t') -> Attached x t'
 
+infixr 6 :~:
+public export
+(:~:) : (x : t) -> Type -> Type
+(:~:) = Attached
+
 export
 combine : (a -> b -> c) -> Attached x a -> Attached x b -> Attached x c
 combine f (Attach x a) (Attach x b) = Attach x (f a b)
