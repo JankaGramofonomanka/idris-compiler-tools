@@ -445,7 +445,7 @@ mutual
 
           let vals' = phiFromDList lbls vals
           
-          pure $ AssignPhi reg $ vals'
+          pure $ AssignPhi reg vals'
 
           where
 
