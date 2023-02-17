@@ -295,7 +295,7 @@ mutual
 
     let final : CFG CBlock (Undefined labelIn) (Defined $ (branchOuts ++ outsF) ~~> labelPost)
         final = rewrite collect_concat labelPost branchOuts outsF
-                in ConnectBranch condG thenG
+                in LBranch condG thenG
     
     pure $ CRUDO (branchOuts ++ outsF ** final)
     
@@ -469,7 +469,7 @@ mutual
         phis <- mkPhis (detach ctxNode) ctxsIn
         
         let node' = imap {ins = Just pre} (phis |++>) node
-        let final = ConnectBranch node' loop
+        let final = LBranch node' loop
         
         pure final
 

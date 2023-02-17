@@ -170,24 +170,38 @@ namespace Graph
          -> CFG vertex (Defined ins) (Defined outs)
 
     
-    Connect : CFG vertex ins (Defined edges)
-           -> CFG vertex (Defined edges) outs
-           -> CFG vertex ins outs
+    Series : CFG vertex ins (Defined edges)
+          -> CFG vertex (Defined edges) outs
+          -> CFG vertex ins outs
     
-    ConnectBranch : {edges, edges' : List (Edge a)}
-                 -> CFG vertex ins (Defined $ edges ++ edges')
-                 -> CFG vertex (Defined edges) (Defined outs)
-                 -> CFG vertex ins (Defined $ outs ++ edges')
     
-    ConnectToBranch : {edges, edges' : List (Edge a)}
-                   -> CFG vertex (Defined ins) (Defined edges)
-                   -> CFG vertex (Defined $ edges ++ edges') outs
-                   -> CFG vertex (Defined $ ins ++ edges') outs
+    LBranch : {ls, rs : List (Edge a)}
+           -> (node   : CFG vertex ins (Defined $ ls ++ rs))
+           -> (branch : CFG vertex (Defined ls) (Defined ls'))
+           ->           CFG vertex ins (Defined $ ls' ++ rs)
+    
+    RBranch : {ls, rs : List (Edge a)}
+           -> (node   : CFG vertex ins (Defined $ ls ++ rs))
+           -> (branch : CFG vertex (Defined rs) (Defined rs'))
+           ->           CFG vertex ins (Defined $ ls ++ rs')
+
+    
+    LMerge : {ls, rs  : List (Edge a)}
+          -> (branch  : CFG vertex (Defined ls) (Defined ls'))
+          -> (node    : CFG vertex (Defined $ ls' ++ rs) outs)
+          ->            CFG vertex (Defined $ ls ++ rs) outs
+    
+    RMerge : {ls, rs  : List (Edge a)}
+          -> (branch  : CFG vertex (Defined rs) (Defined rs'))
+          -> (node    : CFG vertex (Defined $ ls ++ rs') outs)
+          ->            CFG vertex (Defined $ ls ++ rs) outs
+         
     
     Parallel : CFG vertex (Defined ins) (Defined outs)
             -> CFG vertex (Defined ins') (Defined outs')
             -> CFG vertex (Defined $ ins ++ ins') (Defined $ outs ++ outs')
     
+
     IFlip : {ins, ins' : List (Edge a)}
          -> CFG vertex (Defined $ ins ++ ins') outs
          -> CFG vertex (Defined $ ins' ++ ins) outs
@@ -203,7 +217,7 @@ namespace Graph
          -> vertex v vins (Just vouts)
          -> CFG vertex (Defined $ v ~>> vouts) gouts
          -> CFG vertex (fromVIn vins v) gouts
-  prepend v g = Connect (SingleVertex v) g
+  prepend v g = Series (SingleVertex v) g
 
   public export
   append : {vins : List a}
@@ -212,7 +226,7 @@ namespace Graph
         -> CFG vertex gins (Defined $ vins ~~> v)
         -> vertex v (Just vins) vouts
         -> CFG vertex gins (fromVOut v vouts)
-  append g v = Connect g (SingleVertex v)
+  append g v = Series g (SingleVertex v)
   
   branch : {0 vertex : Vertex a}
         -> {vins : Neighbors a}
@@ -244,17 +258,18 @@ namespace Graph
           -> CFG vertex (fromVIn ins v) gouts
 
   imap f (SingleVertex {vins = Nothing} v)  = SingleVertex (f v)
-  imap f (Connect g g')                     = Connect (imap f g) g'
-  imap f (ConnectBranch g g')               = ConnectBranch (imap f g) g'
+  imap f (Series g g')                      = Series (imap f g) g'
+  imap f (LBranch g g')                     = LBranch (imap f g) g'
+  imap f (RBranch g g')                     = RBranch (imap f g) g'
   
   imap f (OFlip g)                          = OFlip (imap f g)
   
   imap f (SingleVertex {vins = Just ins} v) impossible
   imap f (Cycle node loop)                  impossible
-  imap f (ConnectToBranch g g')             impossible
+  imap f (LMerge g g')                      impossible
+  imap f (RMerge g g')                      impossible
   imap f (Parallel g g')                    impossible
   imap f (IFlip g)                          impossible
-  
   
   export
   omap : {0 vertex : Vertex a}
@@ -265,13 +280,15 @@ namespace Graph
           -> CFG vertex gins (fromVOut v outs)
 
   omap f (SingleVertex {vouts = Nothing} v)   = SingleVertex (f v)
-  omap f (Connect g g')                       = Connect g (omap f g')
-  omap f (ConnectToBranch g g')               = ConnectToBranch g (omap f g')
+  omap f (Series g g')                        = Series g (omap f g')
+  omap f (LMerge g g')                        = LMerge g (omap f g')
+  omap f (RMerge g g')                        = RMerge g (omap f g')
   omap f (IFlip g)                            = IFlip (omap f g)
   
   omap f (SingleVertex {vouts = Just outs} v) impossible
   omap f (Cycle node loop)                    impossible
-  omap f (ConnectBranch g g')                 impossible
+  omap f (LBranch g g')                       impossible
+  omap f (RBranch g g')                       impossible
   omap f (Parallel g g')                      impossible
   omap f (OFlip g)                            impossible
 
@@ -282,13 +299,15 @@ namespace Graph
          -> CFG vertex ins outs
 
   connect (SingleVertex {vouts = Nothing} v)  g   = imap (cnct @{impl} v) g
-  connect (Connect g g')                      g'' = Connect g (connect g' g'')
-  connect (ConnectToBranch g g')              g'' = ConnectToBranch g (connect g' g'')
+  connect (Series g g')                       g'' = Series g (connect g' g'')
+  connect (LMerge g g')                       g'' = LMerge g (connect g' g'')
+  connect (RMerge g g')                       g'' = RMerge g (connect g' g'')
   connect (IFlip g)                           g'  = IFlip (connect g g')
 
   connect (SingleVertex {vouts = Just outs} v)  g' impossible
   connect (Cycle node loop)                     g' impossible
-  connect (ConnectBranch g g')                  g' impossible
+  connect (LBranch g g')                        g' impossible
+  connect (RBranch g g')                        g' impossible
   connect (Parallel g g')                       g' impossible
   connect (OFlip g)                             g' impossible
   
@@ -306,13 +325,15 @@ namespace Graph
       -> CFG vertex (Undefined v) gouts
       -> b
   iget f (SingleVertex {vins = Nothing} v)  = f v
-  iget f (Connect g g')                     = iget f g
-  iget f (ConnectBranch g g')               = iget f g
+  iget f (Series g g')                      = iget f g
+  iget f (LBranch g g')                     = iget f g
+  iget f (RBranch g g')                     = iget f g
   iget f (OFlip g)                          = iget f g
   
   iget f (SingleVertex {vins = Just ins} v) impossible
   iget f (Cycle node loop)                  impossible
-  iget f (ConnectToBranch g g')             impossible
+  iget f (LMerge g g')                      impossible
+  iget f (RMerge g g')                      impossible
   iget f (Parallel g g')                    impossible
   iget f (IFlip g)                          impossible
 
@@ -323,13 +344,15 @@ namespace Graph
       -> b
 
   oget f (SingleVertex {vouts = Nothing} v)   = f v
-  oget f (Connect g g')                       = oget f g'
-  oget f (ConnectToBranch g g')               = oget f g'
+  oget f (Series g g')                        = oget f g'
+  oget f (LMerge g g')                        = oget f g'
+  oget f (RMerge g g')                        = oget f g'
   oget f (IFlip g)                            = oget f g
   
   oget f (SingleVertex {vouts = Just outs} v) impossible
   oget f (Cycle node loop)                    impossible
-  oget f (ConnectBranch g g')                 impossible
+  oget f (LBranch g g')                       impossible
+  oget f (RBranch g g')                       impossible
   oget f (Parallel g g')                      impossible
   oget f (OFlip g)                            impossible
 
@@ -345,12 +368,19 @@ namespace Graph
 
   oget' f (SingleVertex {v, vouts = Just outs} w) = f w
   oget' f (Cycle node loop)                       = tail (oget' f node)
-  oget' f (Connect g g')                          = oget' f g'
-  oget' f (ConnectBranch g g')                    = let (lresg, rresg) = split (oget' f g)
-                                                    in oget' f g' ++ rresg
-  oget' f (ConnectToBranch g g')                  = oget' f g'
+  oget' f (Series g g')                           = oget' f g'
+
+  oget' f (LBranch g g')                          = let (lhs, rhs) = split (oget' f g)
+                                                    in oget' f g' ++ rhs
+  
+  oget' f (RBranch g g')                          = let (lhs, rhs) = split (oget' f g)
+                                                    in lhs ++ oget' f g'
+  
+  oget' f (LMerge g g')                           = oget' f g'
+  oget' f (RMerge g g')                           = oget' f g'
   oget' f (Parallel g g')                         = oget' f g ++ oget' f g'
   oget' f (IFlip g)                               = oget' f g
+  
   oget' f (OFlip g)                               = let (lres, rres) = split (oget' f g)
                                                     in rres ++ lres
 

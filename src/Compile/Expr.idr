@@ -268,7 +268,7 @@ mutual
                     (Defined $ outsT ~~> lblT ++ (outsF' ++ outsF) ~~> lblF)
         final = rewrite collect_concat lblF outsF' outsF
                 in rewrite concat_assoc (outsT ~~> lblT) (outsF' ~~> lblF) (outsF ~~> lblF)
-                in ConnectBranch gl gr'
+                in LBranch gl gr'
     
     pure (outsT ** outsF' ++ outsF ** final)
   
@@ -286,7 +286,7 @@ mutual
                     (Defined ((outsT ++ outsT') ~~> lblT ++ outsF ~~> lblF))
         final = rewrite collect_concat lblT outsT outsT'
                 in rewrite revEq $ concat_assoc (outsT ~~> lblT) (outsT' ~~> lblT) (outsF ~~> lblF)
-                in OFlip $ ConnectBranch (OFlip gl) gr'
+                in RBranch gl gr'
     
     pure (outsT ++ outsT' ** outsF ** ?hfinal1)
   
@@ -354,8 +354,8 @@ mutual
 
 
 
-    let confluence = Connect (Parallel trueG falseG) postG
-    let final = Connect ifologyG confluence
+    let confluence = Series (Parallel trueG falseG) postG
+    let final = Series ifologyG confluence
     
     pure ((labelPost ** final), Var reg)
 

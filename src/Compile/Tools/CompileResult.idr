@@ -131,8 +131,8 @@ connectCRDDCRUD : CFG CBlock (Undefined lbl) (Defined edges)
                -> CompileResultDD edges lbl' crt
                -> CompileResultUD lbl lbl' crt
 
-connectCRDDCRUD pre (CRDDC g) = CRUDC (Connect pre g)
-connectCRDDCRUD pre (CRDDO (lbls ** g)) = let g' = Connect pre g in CRUDO (lbls ** g')
+connectCRDDCRUD pre (CRDDC g) = CRUDC (Series pre g)
+connectCRDDCRUD pre (CRDDO (lbls ** g)) = let g' = Series pre g in CRUDO (lbls ** g')
 
 export
 connectCRUDCRDD : CFG CBlock (Defined edges) (Undefined lbl)
@@ -187,7 +187,7 @@ collectOutsCR {lbl' = labelPost} (CRUDO (lbls ** g)) = do
   let post : CFG CBlock (Defined $ lbls ~~> labelPost) (Undefined labelPost)
       post = SingleVertex {vins = Just lbls} $ phis |++> emptyCBlock (detach ctxPost)
   
-  let final = Connect g post
+  let final = Series g post
 
   pure $ CRUUO (labelPost ** final)
 
