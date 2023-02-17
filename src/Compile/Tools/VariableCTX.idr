@@ -156,6 +156,11 @@ finalize {lbl} (SG' ctx) = foldlM handleItem (SG (attach lbl emptyCtx) Nil) (toL
       pure $ SG (map (insert key (Var reg)) ctx') (phi :: phis)
     
     
+{-
+TODO: add another case, the second parameter being [ctx]
+currently `addCTX` drops values that were not found in the accumulator which is
+empty at the beginning. Thus the entrie context will be empty
+-}
 segregate' : {lbls : List BlockLabel}
           -> DList (:~: VarCTX) (lbls ~~> lbl)
           -> Segregated' lbl (MkInputs lbls)

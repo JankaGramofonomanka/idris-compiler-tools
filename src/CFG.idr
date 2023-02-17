@@ -201,7 +201,8 @@ namespace Graph
             -> CFG vertex (Defined ins') (Defined outs')
             -> CFG vertex (Defined $ ins ++ ins') (Defined $ outs ++ outs')
     
-
+    
+    -- TODO: consider removing these constructors
     IFlip : {ins, ins' : List (Edge a)}
          -> CFG vertex (Defined $ ins ++ ins') outs
          -> CFG vertex (Defined $ ins' ++ ins) outs
