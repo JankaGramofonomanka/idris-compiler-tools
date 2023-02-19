@@ -254,7 +254,8 @@ mutual
          -> CompM'  ( outsT ** outsF ** ( CFG CBlock
                                               (Undefined labelIn)
                                               (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
-                                        , NonEmpty (outsT ++ outsF)
+                                        , NonEmpty outsT
+                                        , NonEmpty outsF
                                         )
                     )
 
@@ -262,8 +263,8 @@ mutual
   ifology labelIn (BinOperation And lhs rhs) lblT lblF = do
 
     lblM <- lift freshLabel
-    (outsM ** outsF   ** (gl, prfl)) <- ifology labelIn lhs lblM lblF
-    (outsT ** outsF'  ** (gr, prfr)) <- ifology lblM    rhs lblT lblF
+    (outsM ** outsF   ** (gl, prfM, prfF))  <- ifology labelIn lhs lblM lblF
+    (outsT ** outsF'  ** (gr, prfT, prfF')) <- ifology lblM    rhs lblT lblF
 
     let gr' = imap {ins = Just outsM} ([] |++>) gr
     
@@ -274,15 +275,14 @@ mutual
                 in rewrite concat_assoc (outsT ~~> lblT) (outsF' ~~> lblF) (outsF ~~> lblF)
                 in LBranch gl gr'
     
-    let prf = rewrite concat_assoc outsT outsF' outsF in nonempty_plusplus prfr
-    pure (outsT ** outsF' ++ outsF ** (final, prf))
+    pure (outsT ** outsF' ++ outsF ** (final, prfT, nonempty_plusplus prfF'))
   
 
   ifology labelIn (BinOperation Or lhs rhs) lblT lblF = do
 
     lblM <- lift freshLabel
-    (outsT  ** outsM ** (gl, prfl)) <- ifology labelIn  lhs lblT lblM
-    (outsT' ** outsF ** (gr, prfr)) <- ifology lblM     rhs lblT lblF
+    (outsT  ** outsM ** (gl, prfT,  prfM)) <- ifology labelIn  lhs lblT lblM
+    (outsT' ** outsF ** (gr, prfT', prfF)) <- ifology lblM     rhs lblT lblF
 
     let gr' = imap {ins = Just outsM} ([] |++>) gr
     
@@ -293,32 +293,19 @@ mutual
                 in rewrite revEq $ concat_assoc (outsT ~~> lblT) (outsT' ~~> lblT) (outsF ~~> lblF)
                 in RBranch gl gr'
     
-    let prf = rewrite revEq $ concat_assoc outsT outsT' outsF in plusplus_nonempty prfr
-    pure (outsT ++ outsT' ** outsF ** (final, prf))
+    pure (outsT ++ outsT' ** outsF ** (final, nonempty_plusplus prfT, prfF))
   
 
   ifology labelIn (UnOperation Not expr) lblT lblF = do
-    (outsF ** outsT ** (g, prf)) <- ifology labelIn expr lblF lblT
-    pure (outsT ** outsF ** (OFlip g, nonempty_flip_concat prf))
+    (outsF ** outsT ** (g, prfF, prfT)) <- ifology labelIn expr lblF lblT
+    pure (outsT ** outsF ** (OFlip g, prfT, prfF))
   
-
-  ifology labelIn (Lit (LitBool True)) lblT lblF = do
-    let g = omap {outs = Just [lblT]} (<+| Branch lblT) initCFG
-    
-    pure ([labelIn] ** [] ** (g, IsNonEmpty))
-
-
-  ifology labelIn (Lit (LitBool False)) lblT lblF = do
-    let g = omap {outs = Just [lblF]} (<+| Branch lblF) initCFG
-    
-    pure ([] ** [labelIn] ** (g, IsNonEmpty))
-
 
   ifology labelIn expr lblT lblF = do
     ((lbl ** g), val) <- compileExpr labelIn expr
     let g' = omap {outs = Just [lblT, lblF]} (<+| CondBranch val lblT lblF) g
     
-    pure ([lbl] ** [lbl] ** (g', IsNonEmpty))
+    pure ([lbl] ** [lbl] ** (g', IsNonEmpty, IsNonEmpty))
     
   
   
@@ -335,7 +322,7 @@ mutual
   compileBoolExpr labelIn expr = do
     labelTrue <- lift freshLabel
     labelFalse <- lift freshLabel
-    (outsT ** outsF ** (ifologyG, prf)) <- ifology labelIn expr labelTrue labelFalse
+    (outsT ** outsF ** (ifologyG, prfT, prfF)) <- ifology labelIn expr labelTrue labelFalse
     
     labelPost <- lift freshLabel
     
@@ -371,7 +358,7 @@ mutual
 
 
     let confluence = Series (Parallel trueG falseG) postG
-    let final = Series {prf = nonempty_cmap_cmap prf} ifologyG confluence
+    let final = Series {prf = nonempty_cmap_cmap $ nonempty_plusplus prfT} ifologyG confluence
     
     pure ((labelPost ** final), Var reg)
 

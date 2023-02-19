@@ -55,7 +55,8 @@ ifology' : (labelIn : BlockLabel)
         -> CompM  ( outsT ** outsF ** ( CFG CBlock
                                             (Undefined labelIn)
                                             (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
-                                      , NonEmpty (outsT ++ outsF)
+                                      , NonEmpty outsT
+                                      , NonEmpty outsF
                                       )
                   )
 ifology' labelIn ctx expr lblT lblF = evalStateT (detach ctx) $ ifology labelIn expr lblT lblF
@@ -291,7 +292,7 @@ mutual
   compileInstrUD labelIn labelPost ctx (If cond instrThen) = do
 
     labelThen <- freshLabel
-    (outsT ** outsF ** (condG, prfCond)) <- ifology' labelIn ctx cond labelThen labelPost
+    (outsT ** outsF ** (condG, prfT, prfF)) <- ifology' labelIn ctx cond labelThen labelPost
     let (ctxsT, ctxsF) = split (getContexts condG)
     
     thenRes <- compileInstrDD outsT labelThen labelPost ctxsT instrThen
@@ -305,7 +306,7 @@ mutual
     TODO: change the signature of `ifology` to return `NonEmpty outsT` and 
     `NonEmpty outsF`
     -}
-    pure $ CRUDO (branchOuts ++ outsF ** (final, ?hprf0))
+    pure $ CRUDO (branchOuts ++ outsF ** (final, plusplus_nonempty prfF))
     
 
 
@@ -315,7 +316,7 @@ mutual
 
     labelThen <- freshLabel
     labelElse <- freshLabel
-    (outsT ** outsF ** (condG, prfCond)) <- ifology' labelIn ctx cond labelThen labelElse
+    (outsT ** outsF ** (condG, prfT, prfF)) <- ifology' labelIn ctx cond labelThen labelElse
     let (ctxsT, ctxsF) = split (getContexts condG)
 
     thenRes <- compileInstrDD outsT labelThen labelPost ctxsT instrThen
@@ -323,7 +324,7 @@ mutual
 
     let branches = parallelCR thenRes elseRes
 
-    pure $ connectCRDDCRUD {prf = nonempty_cmap_cmap prfCond} condG branches
+    pure $ connectCRDDCRUD {prf = nonempty_cmap_cmap $ nonempty_plusplus prfT} condG branches
 
 
 
