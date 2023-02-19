@@ -20,7 +20,7 @@ import Compile.Tools.CompM
 import Compile.Tools.VariableCTX
 import CFG
 
-import Utils
+import Theory
 
 
 -- TODO: move it somewhere

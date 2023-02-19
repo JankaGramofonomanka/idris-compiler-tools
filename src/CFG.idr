@@ -3,7 +3,7 @@ module CFG
 import Data.List
 
 import Data.DList
-import Utils
+import Theory
 
 {-
 TODO:
