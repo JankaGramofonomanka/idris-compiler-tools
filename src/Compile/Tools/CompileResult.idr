@@ -32,23 +32,31 @@ public export
 data CRType = Open | Closed
 
 public export
-OpenOr : CRType -> Lazy CRType -> CRType
-OpenOr Open rt = Open
-OpenOr Closed rt = rt
+CRParallel : CRType -> Lazy CRType -> CRType
+CRParallel Open rt = Open
+CRParallel Closed rt = rt
 
 
 public export
-ClosedOr : CRType -> Lazy CRType -> CRType
-ClosedOr Closed rt = Closed
-ClosedOr Open rt = rt
+CRSeries : CRType -> Lazy CRType -> CRType
+CRSeries Closed rt = Closed
+CRSeries Open rt = rt
 
 total
 export
-closed_or_commut : (x, y : CRType) -> ClosedOr x y = ClosedOr y x
-closed_or_commut Closed Closed = Refl
-closed_or_commut Closed Open = Refl
-closed_or_commut Open Closed = Refl
-closed_or_commut Open Open = Refl
+cr_series_commut : (x, y : CRType) -> CRSeries x y = CRSeries y x
+cr_series_commut Closed Closed = Refl
+cr_series_commut Closed Open = Refl
+cr_series_commut Open Closed = Refl
+cr_series_commut Open Open = Refl
+
+total
+export
+cr_parallel_commut : (x, y : CRType) -> CRParallel x y = CRParallel y x
+cr_parallel_commut Closed Closed = Refl
+cr_parallel_commut Closed Open = Refl
+cr_parallel_commut Open Closed = Refl
+cr_parallel_commut Open Open = Refl
 
 public export
 toCRType : Maybe BlockLabel -> CRType
@@ -151,7 +159,7 @@ parallelCR : {lbl : BlockLabel}
           -> (lres : CompileResultDD ledges lbl lcrt)
           -> (rres : CompileResultDD redges lbl rcrt)
           
-          -> CompileResultDD (ledges ++ redges) lbl (OpenOr lcrt rcrt)
+          -> CompileResultDD (ledges ++ redges) lbl (CRParallel lcrt rcrt)
 
 parallelCR {lbl} (CRDDC lg) (CRDDC rg) = CRDDC $ Parallel lg rg
 

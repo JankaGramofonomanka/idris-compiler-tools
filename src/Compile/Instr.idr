@@ -93,7 +93,7 @@ mutual
 
   InstrCR (Assign v e)    = Open
   InstrCR (If c t)        = Open
-  InstrCR (IfElse c t e)  = OpenOr (InstrCR t) (InstrCR e)
+  InstrCR (IfElse c t e)  = CRParallel (InstrCR t) (InstrCR e)
   InstrCR (While c l)     = Open
 
   InstrCR (Return e)      = Closed
@@ -103,7 +103,7 @@ mutual
 
   InstrsCR : List Instr -> CRType
   InstrsCR [] = Open
-  InstrsCR (instr :: instrs) = ClosedOr (InstrCR instr) (InstrsCR instrs)
+  InstrsCR (instr :: instrs) = CRSeries (InstrCR instr) (InstrsCR instrs)
 
 
 
@@ -159,7 +159,7 @@ mutual
       handleRes : {0 labelIn : BlockLabel}
               -> CompileResultUU labelIn crt
               -> (instrs : List Instr)
-              -> CompM (CompileResultUU labelIn $ ClosedOr crt (InstrsCR instrs))
+              -> CompM (CompileResultUU labelIn $ CRSeries crt (InstrsCR instrs))
       handleRes (CRUUC g) instrs = pure (CRUUC g)
       handleRes (CRUUO (lbl ** g)) instrs = do
         res <- compile' lbl (getContext g) instrs
@@ -257,7 +257,7 @@ mutual
         
         compile' labelIn ctx (instr :: Nil)
           
-          = rewrite closed_or_commut (InstrCR instr) (InstrsCR Nil)
+          = rewrite cr_series_commut (InstrCR instr) (InstrsCR Nil)
             in compileInstrUD labelIn labelPost ctx instr
           
         compile' labelIn ctx (instr :: instrs) with (decideInstrCR instr)
@@ -266,7 +266,7 @@ mutual
           compile' labelIn ctx (instr :: instrs) | Left crc = do
             res <- compileInstrUD labelIn labelPost ctx instr
 
-            let thm : (InstrCR instr = ClosedOr (InstrCR instr) (InstrsCR instrs))
+            let thm : (InstrCR instr = CRSeries (InstrCR instr) (InstrsCR instrs))
                 thm = rewrite crc in Refl
                 
             pure $ rewrite revEq thm in res
@@ -280,7 +280,7 @@ mutual
             
             res' <- compile' lbl (getContext g) instrs
             
-            let thm : (InstrsCR instrs = ClosedOr (InstrCR instr) (InstrsCR instrs))
+            let thm : (InstrsCR instrs = CRSeries (InstrCR instr) (InstrsCR instrs))
                 thm = rewrite cro in Refl
             
             pure $ rewrite revEq thm in connectCRUD g res'
