@@ -15,7 +15,7 @@ import LLVM
 
 import Compile.Tools
 import Compile.Tools.CBlock
---import Compile.Tools.CompileResult
+import Compile.Tools.CompileResult
 import Compile.Tools.CompM
 import Compile.Tools.VariableCTX
 import CFG
@@ -23,10 +23,6 @@ import CFG
 import Theory
 
 
--- TODO: move it somewhere
-export
-initCFG : CFG CBlock (Undefined lbl) (Undefined lbl)
-initCFG = initGraph initCBlock
 
 
 
