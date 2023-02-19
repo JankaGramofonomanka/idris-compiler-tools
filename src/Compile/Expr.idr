@@ -1,5 +1,7 @@
 module Compile.Expr
 
+import Data.List
+
 import Control.Monad.State
 import Control.Monad.Either
 
@@ -13,7 +15,7 @@ import LLVM
 
 import Compile.Tools
 import Compile.Tools.CBlock
-import Compile.Tools.CompileResult
+--import Compile.Tools.CompileResult
 import Compile.Tools.CompM
 import Compile.Tools.VariableCTX
 import CFG
@@ -21,6 +23,10 @@ import CFG
 import Utils
 
 
+-- TODO: move it somewhere
+export
+initCFG : CFG CBlock (Undefined lbl) (Undefined lbl)
+initCFG = initGraph initCBlock
 
 
 
@@ -249,17 +255,19 @@ mutual
          -> (expr : Expr TBool)
          -> (lblT : BlockLabel)
          -> (lblF : BlockLabel)
-         -> CompM'  ( outsT ** outsF ** CFG CBlock
-                                            (Undefined labelIn)
-                                            (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
+         -> CompM'  ( outsT ** outsF ** ( CFG CBlock
+                                              (Undefined labelIn)
+                                              (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
+                                        , NonEmpty (outsT ++ outsF)
+                                        )
                     )
 
   
   ifology labelIn (BinOperation And lhs rhs) lblT lblF = do
 
     lblM <- lift freshLabel
-    (outsM ** outsF   ** gl) <- ifology labelIn lhs lblM lblF
-    (outsT ** outsF'  ** gr) <- ifology lblM    rhs lblT lblF
+    (outsM ** outsF   ** (gl, prfl)) <- ifology labelIn lhs lblM lblF
+    (outsT ** outsF'  ** (gr, prfr)) <- ifology lblM    rhs lblT lblF
 
     let gr' = imap {ins = Just outsM} ([] |++>) gr
     
@@ -270,14 +278,15 @@ mutual
                 in rewrite concat_assoc (outsT ~~> lblT) (outsF' ~~> lblF) (outsF ~~> lblF)
                 in LBranch gl gr'
     
-    pure (outsT ** outsF' ++ outsF ** final)
+    let prf = rewrite concat_assoc outsT outsF' outsF in nonempty_plusplus prfr
+    pure (outsT ** outsF' ++ outsF ** (final, prf))
   
 
   ifology labelIn (BinOperation Or lhs rhs) lblT lblF = do
 
     lblM <- lift freshLabel
-    (outsT  ** outsM ** gl) <- ifology labelIn  lhs lblT lblM
-    (outsT' ** outsF ** gr) <- ifology lblM     rhs lblT lblF
+    (outsT  ** outsM ** (gl, prfl)) <- ifology labelIn  lhs lblT lblM
+    (outsT' ** outsF ** (gr, prfr)) <- ifology lblM     rhs lblT lblF
 
     let gr' = imap {ins = Just outsM} ([] |++>) gr
     
@@ -288,20 +297,32 @@ mutual
                 in rewrite revEq $ concat_assoc (outsT ~~> lblT) (outsT' ~~> lblT) (outsF ~~> lblF)
                 in RBranch gl gr'
     
-    pure (outsT ++ outsT' ** outsF ** ?hfinal1)
+    let prf = rewrite revEq $ concat_assoc outsT outsT' outsF in plusplus_nonempty prfr
+    pure (outsT ++ outsT' ** outsF ** (final, prf))
   
 
   ifology labelIn (UnOperation Not expr) lblT lblF = do
-    (outsF ** outsT ** g) <- ifology labelIn expr lblF lblT
-    pure (outsT ** outsF ** OFlip g)
+    (outsF ** outsT ** (g, prf)) <- ifology labelIn expr lblF lblT
+    pure (outsT ** outsF ** (OFlip g, nonempty_flip_concat prf))
   
-  
+
+  ifology labelIn (Lit (LitBool True)) lblT lblF = do
+    let g = omap {outs = Just [lblT]} (<+| Branch lblT) initCFG
+    
+    pure ([labelIn] ** [] ** (g, IsNonEmpty))
+
+
+  ifology labelIn (Lit (LitBool False)) lblT lblF = do
+    let g = omap {outs = Just [lblF]} (<+| Branch lblF) initCFG
+    
+    pure ([] ** [labelIn] ** (g, IsNonEmpty))
+
+
   ifology labelIn expr lblT lblF = do
     ((lbl ** g), val) <- compileExpr labelIn expr
     let g' = omap {outs = Just [lblT, lblF]} (<+| CondBranch val lblT lblF) g
     
-    let inputs = MkInputs [lbl]
-    pure ([lbl] ** [lbl] ** g')
+    pure ([lbl] ** [lbl] ** (g', IsNonEmpty))
     
   
   
@@ -318,7 +339,7 @@ mutual
   compileBoolExpr labelIn expr = do
     labelTrue <- lift freshLabel
     labelFalse <- lift freshLabel
-    (outsT ** outsF ** ifologyG) <- ifology labelIn expr labelTrue labelFalse
+    (outsT ** outsF ** (ifologyG, prf)) <- ifology labelIn expr labelTrue labelFalse
     
     labelPost <- lift freshLabel
     
@@ -353,9 +374,8 @@ mutual
         postG = SingleVertex {vins = Just [labelTrue, labelFalse], vouts = Undefined} postBLK
 
 
-
     let confluence = Series (Parallel trueG falseG) postG
-    let final = Series ifologyG confluence
+    let final = Series {prf = nonempty_cmap_cmap prf} ifologyG confluence
     
     pure ((labelPost ** final), Var reg)
 
