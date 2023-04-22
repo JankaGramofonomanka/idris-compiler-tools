@@ -387,4 +387,48 @@ namespace Graph
 
 
 
+  export
+  vmap : {0 a : Type}
+      -> {0 vertex, vertex' : Vertex a}
+      -> {0 ins, outs : Edges a}
+      -> ( {0 v : a}
+        -> {vins, vouts : Neighbors a}
+        -> vertex v vins vouts
+        -> vertex' v vins vouts
+         )
+      -> CFG vertex ins outs
+      -> CFG vertex' ins outs
 
+  vmap f (SingleVertex v)   = SingleVertex (f v)
+  vmap f (Cycle node loop)  = Cycle (vmap f node) (vmap f loop)
+  vmap f (Series g g')      = Series (vmap f g) (vmap f g')
+  vmap f (LBranch g g')     = LBranch (vmap f g) (vmap f g')
+  vmap f (RBranch g g')     = RBranch (vmap f g) (vmap f g')
+  vmap f (LMerge g g')      = LMerge (vmap f g) (vmap f g')
+  vmap f (RMerge g g')      = RMerge (vmap f g) (vmap f g')
+  vmap f (Parallel g g')    = Parallel (vmap f g) (vmap f g')
+  vmap f (IFlip g)          = IFlip (vmap f g)
+  vmap f (OFlip g)          = OFlip (vmap f g)
+
+  export
+  vmap' : {0 a : Type}
+      -> {0 vertex, vertex' : Vertex a}
+      -> {0 ins, outs : List (Edge a)}
+      -> ( {0 v : a}
+        -> {vins, vouts : List a}
+        -> vertex v (Just vins) (Just vouts)
+        -> vertex' v (Just vins) (Just vouts)
+         )
+      -> CFG vertex (Defined ins) (Defined outs)
+      -> CFG vertex' (Defined ins) (Defined outs)
+
+  vmap' f (SingleVertex {vins = Just ins, vouts = Just outs} v)  = SingleVertex (f v)
+  vmap' f (Cycle node loop) = Cycle (vmap' f node) (vmap' f loop)
+  vmap' f (Series g g')     = Series (vmap' f g) (vmap' f g')
+  vmap' f (LBranch g g')    = LBranch (vmap' f g) (vmap' f g')
+  vmap' f (RBranch g g')    = RBranch (vmap' f g) (vmap' f g')
+  vmap' f (LMerge g g')     = LMerge (vmap' f g) (vmap' f g')
+  vmap' f (RMerge g g')     = RMerge (vmap' f g) (vmap' f g')
+  vmap' f (Parallel g g')   = Parallel (vmap' f g) (vmap' f g')
+  vmap' f (IFlip g)         = IFlip (vmap' f g)
+  vmap' f (OFlip g)         = OFlip (vmap' f g)

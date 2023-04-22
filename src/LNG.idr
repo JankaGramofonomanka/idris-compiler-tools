@@ -69,7 +69,7 @@ public export
 record FunDecl (retType : LNGType) (paramTypes : List LNGType) (funId : FunId retType paramTypes) where
   constructor MkFunDecl
   params : DList Variable paramTypes
-  body : List Instr
+  body : Instr
 
 public export
 record Program where

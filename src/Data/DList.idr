@@ -30,7 +30,16 @@ dtraverse f (ax :: axs) = do
   
   pure (bx :: bxs)
 
+-- TODO what about dependent accumulator?
+export
+dfoldr : ({0 x : t} -> elem x -> acc -> acc) -> acc -> DList elem ts -> acc
+dfoldr f acc Nil = acc
+dfoldr f acc (x :: xs) = f x $ dfoldr f acc xs
 
+export
+dfoldl : ({0 x : t} -> acc -> elem x -> acc) -> acc -> DList elem ts -> acc
+dfoldl f acc Nil = acc
+dfoldl f acc (x :: xs) = dfoldl f (f acc x) xs
 
 export
 dmap : ({0 x : t} -> a x -> b x) -> DList a xs -> DList b xs

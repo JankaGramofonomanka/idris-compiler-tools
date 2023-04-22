@@ -129,6 +129,7 @@ mutual
   The graph starts in a block labeled `labelIn` with `ctx` describing values of
   variables at the start of the graph.
   -}
+  export
   compileInstrUU : (labelIn : BlockLabel)
                 -> (ctx : labelIn :~: VarCTX)
                 -> (instr : Instr)
@@ -211,10 +212,11 @@ mutual
   --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   -- UD -----------------------------------------------------------------------
   --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+  export
   compileInstrUD : (labelIn, labelPost : BlockLabel)
-                     -> (ctx : labelIn :~: VarCTX)
-                     -> (instr : Instr)
-                     -> CompM (CompileResultUD labelIn labelPost $ InstrCR instr)
+                -> (ctx : labelIn :~: VarCTX)
+                -> (instr : Instr)
+                -> CompM (CompileResultUD labelIn labelPost $ InstrCR instr)
 
   -- Assign -------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx instr@(Assign var expr)
@@ -355,6 +357,7 @@ mutual
     collectInsCR pre phis ctx res
 
 
+  export
   compileInstrDD : (pre : List BlockLabel)
                 -> (labelIn, labelPost : BlockLabel)
                 -> (ctxs : DList (:~: VarCTX) (pre ~~> labelIn))
@@ -491,13 +494,10 @@ mutual
         
         pure final
 
-      
-                
-                
-                
-                
 
-                
+
+
+
 
 
 
