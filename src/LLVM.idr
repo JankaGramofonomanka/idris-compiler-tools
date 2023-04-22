@@ -204,3 +204,8 @@ record FunDecl (retType : LLType) (paramTypes : List LLType) where
   -- TODO: enforce correct return types
   body : CFG BlockVertex (Defined []) (Defined [])
 
+public export
+record Program where
+  constructor MkProgram
+  funcs : List (retType ** paramTypes ** FunDecl retType paramTypes)
+

@@ -75,6 +75,6 @@ public export
 record Program where
   constructor MkProgram
   main : FunDecl TVoid [] (MkFunId "main")
-  funcs : (t ** ts ** fun ** FunDecl t ts fun)
+  funcs : List (t ** ts ** fun ** FunDecl t ts fun)
 
 
