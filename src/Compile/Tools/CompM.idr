@@ -23,9 +23,14 @@ FunVal (t, ts) = LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))
 public export
 record CompState where
   constructor MkCompST
+  -- TODO: move this type to a separate module, as with `VarCTX`
   funcs : DMap FunKey FunVal
   regCount : Int
   lblCount : Int
+
+export
+emptyState : CompState
+emptyState = MkCompST { funcs = DMap.empty, regCount = 0, lblCount = 0 }
 
 public export
 data Error : Type where

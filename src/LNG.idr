@@ -43,7 +43,8 @@ export
 data Variable : LNGType -> Type where
   MkVar : String -> Variable t
 
-export
+-- TODO: should this be public?
+public export
 data FunId : LNGType -> List LNGType -> Type where
   MkFunId : String -> FunId t ts
 

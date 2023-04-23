@@ -34,7 +34,7 @@ compileBody labelIn ctx instr = do
     handleRes (CRUDC g) = pure $ imap {ins = Just []} ([] |++>) g
     handleRes (CRUDO _) = throwError UnexpectedOpenGraph
 
-
+export
 compileFunDecl : FunDecl retType paramTypes funId
               -> CompM $ FunDecl (GetLLType retType) (map GetLLType paramTypes)
 compileFunDecl func {paramTypes} = do
