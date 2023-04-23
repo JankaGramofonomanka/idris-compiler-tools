@@ -13,8 +13,19 @@ import Compile.Tools.CBlock
 import CFG
 
 public export
+FunKey : (LNGType, List LNGType) -> Type
+FunKey (t, ts) = FunId t ts
+
+public export
+FunVal : (LNGType, List LNGType) -> Type
+FunVal (t, ts) = LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))
+
+public export
 record CompState where
   constructor MkCompST
+  funcs : DMap FunKey FunVal
+  regCount : Int
+  lblCount : Int
 
 public export
 data Error : Type where
@@ -34,22 +45,28 @@ assign : Variable t -> LLValue (GetLLType t) -> CBlock lbl ins Undefined -> CBlo
 assign var reg (MkBB phis body term ctx) = MkBB phis body term $ insert var reg ctx
 
 export
-freshReg : CompM (Reg t)
+freshRegister : CompM (Reg t)
+freshRegister = do
+  n <- gets regCount
+  modify { regCount := n + 1 }
+  pure $ MkReg ("r" ++ show n)
 
 export
 freshLabel : CompM BlockLabel
+freshLabel = do
+  n <- gets lblCount
+  modify { lblCount := n + 1 }
+  pure $ MkBlockLabel ("L" ++ show n)
 
 export
-addBlock : CBlock lbl (Just inputs) (Just cfk) -> CompM ()
+getFunPtr : FunKey (t, ts) -> CompM $ LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))
+getFunPtr {t, ts} funId = do
+  funcs <- gets funcs
+  let Just ptr = DMap.lookup {t = (t, ts)} funId funcs
+    | Nothing => throwError (NoSuchFunction funId)
+  
+  pure ptr
 
-export
-getValue : Variable t -> CompM (LLValue (GetLLType t))
-
-export
-getFunPtr : FunId t ts -> CompM $ LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))
-
-export
-freshRegister : CompM (Reg t)
 
 
 

@@ -150,7 +150,7 @@ finalize {lbl} (SG' ctx) = foldlM handleItem (SG (attach lbl emptyCtx) Nil) (toL
     Right val => pure $ SG (map (insert key val) ctx') phis
 
     Left phi => do
-      reg <- freshReg
+      reg <- freshRegister
       let phi = AssignPhi reg (toPhi phi)
       
       pure $ SG (map (insert key (Var reg)) ctx') (phi :: phis)
@@ -197,7 +197,7 @@ newRegForAll vars = foldlM addNewReg DMap.empty vars
              -> (t ** Variable t)
              -> CompM VarCTX'
     
-    addNewReg ctx (t ** var) = pure (insert var !freshReg ctx)
+    addNewReg ctx (t ** var) = pure (insert var !freshRegister ctx)
 
 
 export

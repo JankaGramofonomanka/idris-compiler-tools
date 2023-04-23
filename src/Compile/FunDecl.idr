@@ -57,7 +57,7 @@ compileFunDecl func {paramTypes} = do
 
     getReg : Variable t -> CompM (VRPair t)
     getReg var = do
-      reg <- freshReg
+      reg <- freshRegister
       pure (var, reg)
 
     contextify : DList VRPair ts -> VarCTX
