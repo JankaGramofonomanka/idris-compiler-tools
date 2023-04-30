@@ -5,9 +5,54 @@
 module LNG
 
 import Data.DList
+import Data.GCompare
+import Data.GEq
 
 public export
 data LNGType = TInt | TBool | TVoid
+
+export
+implementation Eq LNGType where
+  TInt  == TInt   = True
+  TBool == TBool  = True
+  TVoid == TVoid  = True
+  _     == _      = False
+
+export
+implementation Ord LNGType where
+  compare TInt TInt = EQ
+  compare TInt TBool = LT
+  compare TInt TVoid = LT
+
+  compare TBool TInt = GT
+  compare TBool TBool = EQ
+  compare TBool TVoid = LT
+  
+  compare TVoid TInt = GT
+  compare TVoid TBool = GT
+  compare TVoid TVoid = EQ
+
+export
+lngeq : (t1 : LNGType) -> (t2 : LNGType) -> Maybe (t1 = t2)
+TInt  `lngeq` TInt  = Just Refl
+TBool `lngeq` TBool = Just Refl
+TVoid `lngeq` TVoid = Just Refl
+_     `lngeq` _     = Nothing
+
+export
+lngcompare : (t1 : LNGType) -> (t2 : LNGType) -> GOrdering t1 t2
+
+lngcompare TInt  TInt  = GEQ
+lngcompare TInt  TBool = GLT
+lngcompare TInt  TVoid = GLT
+
+lngcompare TBool TInt  = GGT
+lngcompare TBool TBool = GEQ
+lngcompare TBool TVoid = GLT
+
+lngcompare TVoid TInt  = GGT
+lngcompare TVoid TBool = GGT
+lngcompare TVoid TVoid = GEQ
 
 public export
 data EqComparable : LNGType -> Type where
@@ -41,7 +86,20 @@ data Literal : LNGType -> Type where
 
 export
 data Variable : LNGType -> Type where
-  MkVar : String -> Variable t
+  MkVar : (t : LNGType) -> String -> Variable t
+
+export
+implementation GEq Variable where
+  MkVar t1 id1 `geq` MkVar t2 id2 = case t1 `lngeq` t2 of
+    Just prf => if id1 == id2 then Just prf else Nothing
+    Nothing => Nothing
+
+export
+implementation GCompare Variable where
+  gcompare (MkVar t1 id1) (MkVar t2 id2) = case compare id1 id2 of
+    LT => GLT
+    EQ => lngcompare t1 t2
+    GT => GGT
 
 -- TODO: should this be public?
 public export
