@@ -85,26 +85,63 @@ data Literal : LNGType -> Type where
   LitInt : Integer -> Literal TInt
 
 export
+data VarId : LNGType -> Type where
+  MkVarId : String -> VarId t
+
+export
 data Variable : LNGType -> Type where
-  MkVar : (t : LNGType) -> String -> Variable t
+  MkVar : (t : LNGType) -> VarId t -> Variable t
 
 export
 implementation GEq Variable where
-  MkVar t1 id1 `geq` MkVar t2 id2 = case t1 `lngeq` t2 of
+  MkVar t1 (MkVarId id1) `geq` MkVar t2 (MkVarId id2) = case t1 `lngeq` t2 of
     Just prf => if id1 == id2 then Just prf else Nothing
     Nothing => Nothing
 
 export
 implementation GCompare Variable where
-  gcompare (MkVar t1 id1) (MkVar t2 id2) = case compare id1 id2 of
+  gcompare (MkVar t1 (MkVarId id1)) (MkVar t2 (MkVarId id2)) = case compare id1 id2 of
     LT => GLT
     EQ => lngcompare t1 t2
     GT => GGT
 
--- TODO: should this be public?
 public export
 data FunId : LNGType -> List LNGType -> Type where
   MkFunId : String -> FunId t ts
+
+-- TODO: should this be public?
+public export
+data Fun : LNGType -> List LNGType -> Type where
+  MkFun : (t : LNGType) -> (ts : List LNGType) -> FunId t ts -> Fun t ts
+
+export
+getFunId : Fun t ts -> FunId t ts
+getFunId (MkFun _ _ id) = id
+
+export
+funeq : (id1 : Fun t1 ts1) -> (id2 : Fun t2 ts2) -> Maybe ((t1, ts1) = (t2, ts2))
+funeq (MkFun t1 ts1 id1) (MkFun t2 ts2 id2) = case lngeq t1 t2 of
+    Nothing   => Nothing
+    Just tprf => case lngeq' ts1 ts2 of
+      Nothing     => Nothing
+      Just tsprf  => rewrite tprf
+                  in rewrite tsprf
+                  in Just Refl
+    
+    where
+      lngeq' : (xs : List LNGType) -> (ys : List LNGType) -> Maybe (xs = ys)
+      lngeq' Nil Nil = Just Refl
+      lngeq' (x :: xs) (y :: ys) = case lngeq x y of
+        Nothing => Nothing
+        Just prf => case lngeq' xs ys of
+          Nothing => Nothing
+          Just prf' => rewrite prf
+                    in rewrite prf'
+                    in Just Refl
+      lngeq' _ _ = Nothing
+
+export
+funcompare : (id1 : Fun t1 ts1) -> (id2 : Fun t2 ts2) -> GOrdering (t1, ts1) (t2, ts2)
 
 public export
 data Expr : LNGType -> Type where
@@ -112,7 +149,7 @@ data Expr : LNGType -> Type where
   Var : Variable t -> Expr t
   BinOperation : BinOperator t1 t2 -> Expr t1 -> Expr t1 -> Expr t2
   UnOperation : UnOperator t1 t2 -> Expr t1 -> Expr t2
-  Call : FunId t ts -> DList Expr ts -> Expr t
+  Call : Fun t ts -> DList Expr ts -> Expr t
 
 public export
 data Instr : Type where

@@ -7,6 +7,7 @@ import Data.Some
 import Data.Attached
 import Data.DList
 import Data.DMap
+import Data.DSum
 
 import LNG
 import LLVM
@@ -399,7 +400,7 @@ mutual
 
     -- TODO: get rid of unnecessary assignments
     ctxNode' <- attach labelNodeIn <$> newRegForAll (commonKeys ctxsIn)
-    let ctxNode = map (DMap.dmap LLVM.Var) ctxNode'
+    let ctxNode = map (DMap.map LLVM.Var) ctxNode'
 
     ((labelNodeOut ** nodeG), val) <- compileExpr' labelNodeIn ctxNode cond
     labelLoop <- freshLabel
@@ -435,10 +436,10 @@ mutual
       
       mkPhis ctx {lbls} ctxs = traverse mkPhi' (DMap.toList ctx) where
         
-        mkPhi' : (t ** Item Variable (Reg . GetLLType) t)
+        mkPhi' : (DSum Variable (Reg . GetLLType))
               -> CompM $ PhiInstr (MkInputs lbls)
 
-        mkPhi' (t ** MkItem key reg) = do
+        mkPhi' (key :=> reg) = do
 
           vals <- dtraverse (traverse (getVal key)) ctxs
 

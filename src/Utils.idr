@@ -43,3 +43,8 @@ map_append : {f : a -> b}
           -> map f (l ++ [x]) = map f l ++ [f x]
 map_append l x = map_concat l [x]
 
+total
+export
+tuple_destruct : (t : (a, b)) -> t = (fst t, snd t)
+tuple_destruct (x, y) = Refl
+

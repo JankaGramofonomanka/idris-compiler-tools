@@ -4,6 +4,8 @@ import Control.Monad.State
 import Control.Monad.Either
 
 import Data.DMap
+import Data.GCompare
+import Data.GEq
 
 import LLVM
 import LNG
@@ -12,9 +14,27 @@ import Compile.Tools
 import Compile.Tools.CBlock
 import CFG
 
+import Utils
+
 public export
 FunKey : (LNGType, List LNGType) -> Type
-FunKey (t, ts) = FunId t ts
+FunKey (t, ts) = Fun t ts
+
+thm : (t : (LNGType, List LNGType)) -> Fun (fst t) (snd t) = FunKey t
+thm (t, ts) = Refl
+
+export
+implementation GEq FunKey where
+  geq {a, b} k1 k2 = rewrite tuple_destruct a
+                  in rewrite tuple_destruct b
+                  in funeq (rewrite thm a in k1) (rewrite thm b in k2)
+
+export
+implementation GCompare FunKey where
+  gcompare {a, b} k1 k2 = rewrite tuple_destruct a
+                       in rewrite tuple_destruct b
+                       in funcompare (rewrite thm a in k1) (rewrite thm b in k2)
+                       
 
 public export
 FunVal : (LNGType, List LNGType) -> Type
@@ -67,11 +87,10 @@ export
 getFunPtr : FunKey (t, ts) -> CompM $ LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))
 getFunPtr {t, ts} funId = do
   funcs <- gets funcs
-  let Just ptr = DMap.lookup {t = (t, ts)} funId funcs
-    | Nothing => throwError (NoSuchFunction funId)
+  let Just ptr = DMap.lookup {v = (t, ts)} funId funcs
+    | Nothing => throwError (NoSuchFunction (getFunId funId))
   
   pure ptr
-
 
 
 

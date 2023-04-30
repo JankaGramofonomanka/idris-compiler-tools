@@ -1,8 +1,9 @@
 module Compile.Tools.CBlock
 
+import Data.Attached
 import Data.DMap
 import Data.DList
-import Data.Attached
+import Data.GCompare
 
 import LLVM
 import LNG
@@ -74,7 +75,8 @@ infixr 5 +|, ++|
 
 export
 (++) : CBlock lbl ins Undefined -> CBlock lbl Undefined outs -> CBlock lbl ins outs
-MkBB phis body () m ++ MkBB () body' term' m' = MkBB phis (body ++ body') term' (DMap.merge m m')
+MkBB phis body () m ++ MkBB () body' term' m'
+  = MkBB phis (body ++ body') term' (m' `DMap.union` m {- `m'` takes precedence -})
 
 export
 (<++) : CBlock lbl ins Undefined -> List STInstr -> CBlock lbl ins Undefined

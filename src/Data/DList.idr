@@ -15,8 +15,8 @@ Nil         ++ fys = fys
 -- TODO: rewrite in termos of `Applicative`
 export
 dtraverse : Monad f
-        => {t : Type}
-        -> {a, b : t -> Type}
+        => {0 t : Type}
+        -> {0 a, b : t -> Type}
         -> {0 xs : List t}
         
         -> ({0 x : t} -> a x -> f (b x))

@@ -2,9 +2,12 @@ module Compile.Tools.VariableCTX
 
 import Control.Monad.State
 
+import Data.Attached
 import Data.DMap
 import Data.DList
-import Data.Attached
+import Data.DSum
+import Data.GCompare
+import Data.Some
 import LNG
 import LLVM
 import Compile.Tools
@@ -21,7 +24,6 @@ flow graph
 public export
 VarCTX : Type
 VarCTX = DMap Variable (LLValue . GetLLType)
-
 
 
 export
@@ -121,16 +123,16 @@ addCTX ctx {ins} (SG' ctx')
   where
 
     handleItem : Segregated' lbl' (MkInputs $ lbl :: ins)
-              -> (lbl ~> lbl') :~: (t : LNGType ** Item Variable (LLValue . GetLLType) t)
+              -> (lbl ~> lbl') :~: DSum Variable (LLValue . GetLLType)
               -> Segregated' lbl' (MkInputs $ lbl :: ins)
 
     handleItem sg item = let
 
-      item' = snd $ detachParam item
+      MkSome item' = inSome $ map toSome item
       
-      key = detach $ map (.key) item'
-      val = map (.val) item'
-      
+      key = detach $ map fst item'
+      val = map snd item'
+            
       in case DMap.lookup key ctx' of
         Nothing => sg
       
@@ -142,18 +144,18 @@ finalize : Segregated' lbl ins -> CompM (Segregated lbl ins)
 finalize {lbl} (SG' ctx) = foldlM handleItem (SG (attach lbl emptyCtx) Nil) (toList ctx) where
   
   handleItem : Segregated lbl ins
-   -> (t : LNGType ** Item Variable (ValueOrPhi lbl ins) t)
+   -> DSum Variable (ValueOrPhi lbl ins)
    -> CompM (Segregated lbl ins)
   
-  handleItem (SG ctx' phis) (x ** MkItem key vp) = case vp of
+  handleItem (SG ctx' phis) (key :=> vp) = case vp of
     
-    Right val => pure $ SG (map (insert key val) ctx') phis
+    Right val => pure $ SG (map (DMap.insert key val) ctx') phis
 
     Left phi => do
       reg <- freshRegister
       let phi = AssignPhi reg (toPhi phi)
       
-      pure $ SG (map (insert key (Var reg)) ctx') (phi :: phis)
+      pure $ SG (map (DMap.insert key (Var reg)) ctx') (phi :: phis)
     
     
 {-
@@ -203,3 +205,4 @@ newRegForAll vars = foldlM addNewReg DMap.empty vars
 export
 commonKeys : DList (:~: VarCTX) lbls -> List (t ** Variable t)
 commonKeys l = ?hck
+

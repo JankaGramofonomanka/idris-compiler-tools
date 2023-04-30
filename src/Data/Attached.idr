@@ -1,6 +1,6 @@
 module Data.Attached
 
-
+import Data.Some
 
 
 export
@@ -50,3 +50,10 @@ export
 detachParam : {f : a -> Type} -> Attached x (y ** f y) -> (y ** Attached x (f y))
 detachParam (Attach x (y ** fy)) = (y ** Attach x fy)
 
+export
+inSome : Attached x (Some f) -> Some (Attached x . f)
+inSome (Attach x (MkSome y)) = MkSome (Attach x y)
+
+export
+outOfSome : Some (Attached x . f) -> Attached x (Some f)
+outOfSome (MkSome (Attach x y)) = Attach x (MkSome y)

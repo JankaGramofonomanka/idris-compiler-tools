@@ -1,10 +1,10 @@
 module Compile.Program
 
 import Control.Monad.State
---import Control.Monad.Either
 
 import Data.DList
 import Data.DMap
+import Data.GCompare
 import LNG
 import LLVM
 import Compile.FunDecl
@@ -22,7 +22,7 @@ mkFunMap l = foldr insertFun DMap.empty l where
   insertFun : (t ** ts ** fun ** FunDecl t ts fun)
            -> DMap FunKey FunVal
            -> DMap FunKey FunVal
-  insertFun (t ** ts ** funId ** _) = DMap.insert {t = (t, ts)} funId (mkFunPtr funId)
+  insertFun (t ** ts ** funId ** _) = DMap.insert {v = (t, ts)} (MkFun t ts funId) (mkFunPtr funId)
 
   
 

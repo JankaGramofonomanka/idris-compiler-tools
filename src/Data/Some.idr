@@ -26,3 +26,7 @@ implementation [viaGCompare] (impl : GCompare f) => Ord (Some f) using viaGEq wh
 export
 withSome : Some f -> ({0 x : a} -> f x -> b) -> b
 withSome (MkSome thing) some = some thing
+
+export
+map : ({0 a : t} -> f a -> g a) -> Some f -> Some g
+map f (MkSome x) = MkSome (f x)

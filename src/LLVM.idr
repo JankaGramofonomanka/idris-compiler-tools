@@ -3,7 +3,6 @@ module LLVM
 import Data.List
 
 import Data.DList
-import Data.DMap
 import Data.Some
 import Utils
 import CFG
