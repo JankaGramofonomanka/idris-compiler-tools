@@ -32,6 +32,9 @@ compileBody labelIn ctx instr = do
     handleRes : CompileResultUD lbl lbl' cr
              -> CompM (CFG CBlock Closed Closed)
     handleRes (CRUDC g) = pure $ imap {ins = Just []} ([] |++>) g
+    -- TODO: Get rid of this error. It is against the whole idea behind this
+    -- project. This might require significant modification of the `LNG`
+    -- structure.
     handleRes (CRUDO _) = throwError UnexpectedOpenGraph
 
 export
