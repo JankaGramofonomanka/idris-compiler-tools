@@ -111,15 +111,15 @@ implementation Typed Const where
 -- LLLiteral ------------------------------------------------------------------
 public export
 data LLLiteral : LLType -> Type where
-  ILit : (n : Nat) -> Integer -> LLLiteral (I n)
+  ILit : {n : Nat} -> Integer -> LLLiteral (I n)
 
 export
 implementation Eq (LLLiteral t) where
-  ILit _ i == ILit _ i' = i == i'
+  ILit i == ILit i' = i == i'
 
 export
 implementation Typed LLLiteral where
-  typeOf (ILit n _) = MkThe (I n)
+  typeOf (ILit {n} _) = MkThe (I n)
 
 -- LLValue --------------------------------------------------------------------
 public export
@@ -131,7 +131,7 @@ data LLValue : LLType -> Type where
 
 public export
 ILitV : {n : Nat} -> Integer -> LLValue (I n)
-ILitV {n} i = Lit (ILit n i)
+ILitV i = Lit (ILit i)
 
 export
 implementation Eq (LLValue t) where
@@ -151,16 +151,22 @@ implementation Typed LLValue where
 -- BinOperator, CMPKind, BlockLabel, Inputs -----------------------------------
 public export
 data BinOperator : LLType -> LLType -> LLType -> Type where
-  ADD   : BinOperator (I n) (I n) (I n)
-  SUB   : BinOperator (I n) (I n) (I n)
-  MUL   : BinOperator (I n) (I n) (I n)
-  SDIV  : BinOperator (I n) (I n) (I n)
-  UDIV  : BinOperator (I n) (I n) (I n)
-  SREM  : BinOperator (I n) (I n) (I n)
-  UREM  : BinOperator (I n) (I n) (I n)
+  ADD   : {n : Nat} -> BinOperator (I n) (I n) (I n)
+  SUB   : {n : Nat} -> BinOperator (I n) (I n) (I n)
+  MUL   : {n : Nat} -> BinOperator (I n) (I n) (I n)
+  SDIV  : {n : Nat} -> BinOperator (I n) (I n) (I n)
+  UDIV  : {n : Nat} -> BinOperator (I n) (I n) (I n)
+  SREM  : {n : Nat} -> BinOperator (I n) (I n) (I n)
+  UREM  : {n : Nat} -> BinOperator (I n) (I n) (I n)
 
 resType : BinOperator t1 t2 t3 -> The t3
-resType op = ?hresType
+resType (ADD  {n}) = MkThe (I n)
+resType (SUB  {n}) = MkThe (I n)
+resType (MUL  {n}) = MkThe (I n)
+resType (SDIV {n}) = MkThe (I n)
+resType (UDIV {n}) = MkThe (I n)
+resType (SREM {n}) = MkThe (I n)
+resType (UREM {n}) = MkThe (I n)
 
 -- TODO: parametrise this?
 -- what types can be compared?
