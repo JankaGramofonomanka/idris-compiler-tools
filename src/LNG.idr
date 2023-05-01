@@ -9,6 +9,8 @@ import Data.GCompare
 import Data.GEq
 import Data.Typed
 
+import Utils
+
 public export
 data LNGType = TInt | TBool | TVoid
 
@@ -33,15 +35,13 @@ implementation Ord LNGType where
   compare TVoid TBool = GT
   compare TVoid TVoid = EQ
 
-export
 lngeq : (t1 : LNGType) -> (t2 : LNGType) -> Maybe (t1 = t2)
 TInt  `lngeq` TInt  = Just Refl
 TBool `lngeq` TBool = Just Refl
 TVoid `lngeq` TVoid = Just Refl
 _     `lngeq` _     = Nothing
 
-export
-lngcompare : (t1 : LNGType) -> (t2 : LNGType) -> GOrdering t1 t2
+lngcompare : (t, t' : LNGType) -> GOrdering t t'
 
 lngcompare TInt  TInt  = GEQ
 lngcompare TInt  TBool = GLT
@@ -54,6 +54,18 @@ lngcompare TBool TVoid = GLT
 lngcompare TVoid TInt  = GGT
 lngcompare TVoid TBool = GGT
 lngcompare TVoid TVoid = GEQ
+
+lngcompare' : (ts, ts' : List LNGType) -> GOrdering ts ts'
+lngcompare' Nil Nil = GEQ
+lngcompare' (t :: ts) (t' :: ts') = case lngcompare t t' of
+  GLT => GLT
+  GGT => GGT
+  GEQ => case lngcompare' ts ts' of
+    GLT => GLT
+    GGT => GGT
+    GEQ => GEQ
+lngcompare' Nil (t' :: ts') = GLT
+lngcompare' (t :: ts) Nil = GGT
 
 public export
 data EqComparable : LNGType -> Type where
@@ -147,17 +159,15 @@ export
 getFunId : Fun t ts -> FunId t ts
 getFunId (MkFun _ _ id) = id
 
-export
 retTypeOf : Fun t ts -> The t
 retTypeOf (MkFun t ts id) = MkThe t
 
-export
 argTypesOf : Fun t ts -> The ts
 argTypesOf (MkFun t ts id) = MkThe ts
 
--- TODO: define Fun' : (LNGType, List LNGType) -> Type
+typeOfFun : Fun t ts -> The (t, ts)
+typeOfFun (MkFun t ts id) = MkThe (t, ts)
 
-export
 funeq : (id1 : Fun t1 ts1) -> (id2 : Fun t2 ts2) -> Maybe ((t1, ts1) = (t2, ts2))
 funeq (MkFun t1 ts1 id1) (MkFun t2 ts2 id2) = case lngeq t1 t2 of
     Nothing   => Nothing
@@ -179,8 +189,43 @@ funeq (MkFun t1 ts1 id1) (MkFun t2 ts2 id2) = case lngeq t1 t2 of
                     in Just Refl
       lngeq' _ _ = Nothing
 
-export
 funcompare : (id1 : Fun t1 ts1) -> (id2 : Fun t2 ts2) -> GOrdering (t1, ts1) (t2, ts2)
+funcompare (MkFun t ts (MkFunId id)) (MkFun t' ts' (MkFunId id')) = case compare id id' of
+  LT => GLT
+  GT => GGT
+  EQ => case lngcompare t t' of
+    GLT => GLT
+    GGT => GGT
+    GEQ => case lngcompare' ts ts' of
+      GLT => GLT
+      GEQ => GEQ
+      GGT => GGT
+    
+  
+
+-- TODO: define Fun' : (LNGType, List LNGType) -> Type
+public export
+Fun' : (LNGType, List LNGType) -> Type
+Fun' (t, ts) = Fun t ts
+
+thm : (t : (LNGType, List LNGType)) -> Fun (fst t) (snd t) = Fun' t
+thm (t, ts) = Refl
+
+export
+implementation GEq Fun' where
+  geq {a, b} k1 k2 = rewrite tuple_destruct a
+                  in rewrite tuple_destruct b
+                  in funeq (rewrite thm a in k1) (rewrite thm b in k2)
+
+export
+implementation GCompare Fun' where
+  gcompare {a, b} k1 k2 = rewrite tuple_destruct a
+                       in rewrite tuple_destruct b
+                       in funcompare (rewrite thm a in k1) (rewrite thm b in k2)
+
+implementation Typed Fun' where
+  typeOf {x} fun = rewrite tuple_destruct x
+                in typeOfFun (rewrite thm x in fun)
 
 public export
 data Expr : LNGType -> Type where

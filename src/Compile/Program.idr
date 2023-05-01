@@ -12,7 +12,7 @@ import Compile.Tools
 import Compile.Tools.CompM
 
 
-mkFunMap : List (t ** ts ** fun ** FunDecl t ts fun) -> DMap FunKey FunVal
+mkFunMap : List (t ** ts ** fun ** FunDecl t ts fun) -> DMap Fun' FunVal
 mkFunMap l = foldr insertFun DMap.empty l where
 
   mkFunPtr : Fun t ts -> LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))
@@ -20,8 +20,8 @@ mkFunMap l = foldr insertFun DMap.empty l where
   mkFunPtr (MkFun t ts (MkFunId funId)) = ConstPtr (MkConst (FunType (GetLLType t) (map GetLLType ts)) (MkConstId funId))
 
   insertFun : (t ** ts ** fun ** FunDecl t ts fun)
-           -> DMap FunKey FunVal
-           -> DMap FunKey FunVal
+           -> DMap Fun' FunVal
+           -> DMap Fun' FunVal
   insertFun (t ** ts ** funId ** _) = DMap.insert {v = (t, ts)} (MkFun t ts funId) (mkFunPtr (MkFun t ts funId))
 
   

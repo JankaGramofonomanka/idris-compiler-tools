@@ -18,26 +18,6 @@ import CFG
 import Utils
 
 public export
-FunKey : (LNGType, List LNGType) -> Type
-FunKey (t, ts) = Fun t ts
-
-thm : (t : (LNGType, List LNGType)) -> Fun (fst t) (snd t) = FunKey t
-thm (t, ts) = Refl
-
-export
-implementation GEq FunKey where
-  geq {a, b} k1 k2 = rewrite tuple_destruct a
-                  in rewrite tuple_destruct b
-                  in funeq (rewrite thm a in k1) (rewrite thm b in k2)
-
-export
-implementation GCompare FunKey where
-  gcompare {a, b} k1 k2 = rewrite tuple_destruct a
-                       in rewrite tuple_destruct b
-                       in funcompare (rewrite thm a in k1) (rewrite thm b in k2)
-                       
-
-public export
 FunVal : (LNGType, List LNGType) -> Type
 FunVal (t, ts) = LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))
 
@@ -45,7 +25,7 @@ public export
 record CompState where
   constructor MkCompST
   -- TODO: move this type to a separate module, as with `VarCTX`
-  funcs : DMap FunKey FunVal
+  funcs : DMap Fun' FunVal
   regCount : Int
   lblCount : Int
 
@@ -89,7 +69,7 @@ freshLabel = do
   pure $ MkBlockLabel ("L" ++ show n)
 
 export
-getFunPtr : FunKey (t, ts) -> CompM $ LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))
+getFunPtr : Fun' (t, ts) -> CompM $ LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))
 getFunPtr {t, ts} funId = do
   funcs <- gets funcs
   let Just ptr = DMap.lookup {v = (t, ts)} funId funcs
