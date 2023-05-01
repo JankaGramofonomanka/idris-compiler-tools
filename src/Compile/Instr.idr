@@ -8,6 +8,7 @@ import Data.Attached
 import Data.DList
 import Data.DMap
 import Data.DSum
+import Data.Typed
 
 import LNG
 import LLVM
@@ -418,13 +419,14 @@ mutual
     
     where
 
-      phiFromDList : (lbls : List BlockLabel)
+      phiFromDList : The t
+                  -> (lbls : List BlockLabel)
                   -> DList (:~: (LLValue t)) (lbls ~~> lbl)
                   -> PhiExpr (MkInputs lbls) t
 
-      phiFromDList Nil Nil = Phi Nil
-      phiFromDList (lbl :: lbls) (val :: vals)
-        = addInput lbl (detach val) (phiFromDList lbls vals)
+      phiFromDList (MkThe t) Nil Nil = Phi t Nil
+      phiFromDList theT (lbl :: lbls) (val :: vals)
+        = addInput lbl (detach val) (phiFromDList theT lbls vals)
 
 
 
@@ -443,7 +445,7 @@ mutual
 
           vals <- dtraverse (traverse (getVal key)) ctxs
 
-          let vals' = phiFromDList lbls vals
+          let vals' = phiFromDList (map GetLLType $ typeOf key) lbls vals
           
           pure $ AssignPhi reg vals'
 
@@ -453,7 +455,7 @@ mutual
             getVal : (key : Variable t) -> VarCTX -> CompM $ LLValue (GetLLType t)
 
             getVal key ctx = do
-              let Just val  = lookup key ctx
+              let Just val  = VariableCTX.lookup key ctx
                             | Nothing => throwError $ Impossible "variable non existent in loop body or node context"
               pure val
       

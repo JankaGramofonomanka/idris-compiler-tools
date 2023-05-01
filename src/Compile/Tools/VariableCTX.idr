@@ -8,6 +8,7 @@ import Data.DList
 import Data.DSum
 import Data.GCompare
 import Data.Some
+import Data.Typed
 import LNG
 import LLVM
 import Compile.Tools
@@ -50,8 +51,10 @@ record Segregated (lbl : BlockLabel) (ins : Inputs) where
 
 -- TODO: rewrite `PhiExpr` so that it equals to this type or implement `toPhi`
 data Phi' : BlockLabel -> Inputs -> LLType -> Type where
-  MkPhi' : DList (:~: LLValue t) (ins ~~> lbl) -> Phi' lbl (MkInputs ins) t
+  MkPhi' : (t : LLType) -> DList (:~: LLValue t) (ins ~~> lbl) -> Phi' lbl (MkInputs ins) t
 
+implementation Typed (Phi' lbl ins) where
+  typeOf (MkPhi' t _) = MkThe t
 
 toPhi : Phi' lbl ins t -> PhiExpr ins t
 
@@ -67,9 +70,8 @@ record Segregated' (lbl : BlockLabel) (ins : Inputs) where
 
 
 replicatePhi : (ins : List BlockLabel) -> LLValue t -> PhiExpr (MkInputs ins) t
-replicatePhi Nil val = Phi Nil
+replicatePhi {t} Nil val = case the (The t) (typeOf val) of { MkThe t' => Phi t' Nil }
 replicatePhi (lbl :: lbls) val = addInput lbl val $ replicatePhi lbls val
-
 
 
 
@@ -77,10 +79,10 @@ addInput' : (lbl ~> lbl') :~: (LLValue t)
          -> Phi' lbl' (MkInputs ins) t
          -> Phi' lbl' (MkInputs $ lbl :: ins) t
 
-addInput' val (MkPhi' kvs) = MkPhi' $ val :: kvs
+addInput' val (MkPhi' t kvs) = MkPhi' t $ val :: kvs
 
 replicatePhi' : (ins : List BlockLabel) -> LLValue t -> Phi' lbl' (MkInputs ins) t
-replicatePhi' Nil val = MkPhi' Nil
+replicatePhi' {t} Nil val = case the (The t) (typeOf val) of { MkThe t' => MkPhi' t' Nil }
 replicatePhi' {lbl'} (lbl :: lbls) val = addInput' (attach (lbl ~> lbl') val) $ replicatePhi' lbls val
 
 
@@ -152,7 +154,7 @@ finalize {lbl} (SG' ctx) = foldlM handleItem (SG (attach lbl emptyCtx) Nil) (toL
     Right val => pure $ SG (map (DMap.insert key val) ctx') phis
 
     Left phi => do
-      reg <- freshRegister
+      reg <- freshRegister' (typeOf phi) 
       let phi = AssignPhi reg (toPhi phi)
       
       pure $ SG (map (DMap.insert key (Var reg)) ctx') (phi :: phis)
@@ -199,7 +201,7 @@ newRegForAll vars = foldlM addNewReg DMap.empty vars
              -> (t ** Variable t)
              -> CompM VarCTX'
     
-    addNewReg ctx (t ** var) = pure (insert var !freshRegister ctx)
+    addNewReg ctx (t ** var) = pure (insert var !(freshRegister $ GetLLType t) ctx)
 
 
 export

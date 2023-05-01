@@ -4,6 +4,7 @@ import Data.List
 
 import Data.DList
 import Data.Some
+import Data.Typed
 import Utils
 import CFG
 
@@ -63,35 +64,91 @@ public export
 I256  : LLType
 I256  = I 256
 
+-- Reg, RegId -----------------------------------------------------------------
+public export
+data RegId : LLType -> Type where
+  MkRegId : String -> RegId t
+
+export
+implementation Eq (RegId t) where
+  MkRegId s == MkRegId s' = s == s'
+
 public export
 data Reg : LLType -> Type where
-  MkReg : String -> Reg t
+  MkReg : (t : LLType) -> RegId t -> Reg t
 
+-- TODO: is this needed?
+export
 implementation Eq (Reg t) where
-  MkReg s == MkReg s' = s == s'
+  MkReg _ id == MkReg _ id' = id == id'
+
+export
+implementation Typed Reg where
+  typeOf (MkReg t id) = MkThe t
+
+-- Const, ConstId -------------------------------------------------------------
+public export
+data ConstId : LLType -> Type where
+  MkConstId : String -> ConstId t
+
+public export
+implementation Eq (ConstId t) where
+  MkConstId s == MkConstId s' = s == s'
 
 public export
 data Const : LLType -> Type where
-  MkConst : String -> Const t
+  MkConst : (t : LLType) -> ConstId t -> Const t
 
+-- TODO: is this needed?
+export
 implementation Eq (Const t) where
-  MkConst s == MkConst s' = s == s'
+  MkConst _ id == MkConst _ id' = id == id'
 
+export
+implementation Typed Const where
+  typeOf (MkConst t id) = MkThe t
+
+-- LLLiteral ------------------------------------------------------------------
+public export
+data LLLiteral : LLType -> Type where
+  ILit : (n : Nat) -> Integer -> LLLiteral (I n)
+
+export
+implementation Eq (LLLiteral t) where
+  ILit _ i == ILit _ i' = i == i'
+
+export
+implementation Typed LLLiteral where
+  typeOf (ILit n _) = MkThe (I n)
+
+-- LLValue --------------------------------------------------------------------
 public export
 data LLValue : LLType -> Type where
   Var : Reg t -> LLValue t
-  ILit : Integer -> LLValue (I n)
+  Lit : LLLiteral t -> LLValue t
   ConstPtr : Const t -> LLValue (Ptr t)
-  Null : LLValue (Ptr t)
+  Null : (t : LLType) -> LLValue (Ptr t)
+
+public export
+ILitV : {n : Nat} -> Integer -> LLValue (I n)
+ILitV {n} i = Lit (ILit n i)
 
 export
 implementation Eq (LLValue t) where
   Var reg       == Var reg'       = reg   == reg'
-  ILit i        == ILit i'        = i     == i'
+  Lit i         == Lit i'         = i     == i'
   ConstPtr cnst == ConstPtr cnst' = cnst  == cnst'
-  Null          == Null           = True
+  Null _        == Null _         = True
   _             == _              = False
 
+export
+implementation Typed LLValue where
+  typeOf (Var reg) = typeOf reg
+  typeOf (Lit lit) = typeOf lit
+  typeOf (ConstPtr cst) = Typed.map Ptr (typeOf cst)
+  typeOf (Null t) = MkThe (Ptr t)
+
+-- BinOperator, CMPKind, BlockLabel, Inputs -----------------------------------
 public export
 data BinOperator : LLType -> LLType -> LLType -> Type where
   ADD   : BinOperator (I n) (I n) (I n)
@@ -101,6 +158,9 @@ data BinOperator : LLType -> LLType -> LLType -> Type where
   UDIV  : BinOperator (I n) (I n) (I n)
   SREM  : BinOperator (I n) (I n) (I n)
   UREM  : BinOperator (I n) (I n) (I n)
+
+resType : BinOperator t1 t2 t3 -> The t3
+resType op = ?hresType
 
 -- TODO: parametrise this?
 -- what types can be compared?
@@ -118,7 +178,7 @@ public export
 data CFKind = Return | Jump (List BlockLabel)
 
 
-
+-- TODO: shouldn' this be just an alias for `List BlockLabel`?
 public export
 data Inputs = MkInputs (List BlockLabel)
 
@@ -126,7 +186,7 @@ public export
 (++) : Inputs -> Inputs -> Inputs
 MkInputs labels ++ MkInputs labels' = MkInputs (labels ++ labels')
 
-
+-- Expr -----------------------------------------------------------------------
 public export
 data LLExpr : LLType -> Type where
   BinOperation : BinOperator tl tr t -> LLValue tl -> LLValue tr -> LLExpr t
@@ -142,12 +202,32 @@ data LLExpr : LLType -> Type where
 
   BitCast : LLValue t1 -> (t2 : LLType) -> LLExpr t2
 
+export
+unPtr : The (LLVM.Ptr t) -> The t
+unPtr (MkThe (Ptr t)) = MkThe t
+
+export
+unFun : The (FunType t ts) -> The t
+unFun (MkThe (FunType t ts)) = MkThe t
+
+export
+implementation Typed LLExpr where
+  typeOf (BinOperation op lhs rhs) = resType op
+  typeOf (Call fun args) = (unFun . unPtr) (typeOf fun) where
+  typeOf (ICMP cmp lhs rhs) = MkThe I1
+  typeOf (Load ptr) = unPtr (typeOf ptr)
+  typeOf (BitCast val t) = MkThe t
+
 public export
 data PhiExpr : Inputs -> LLType -> Type where
-  Phi : (l : List (BlockLabel, LLValue t)) -> PhiExpr (MkInputs $ map (\t => fst t) l) t
+  -- TODO: the `t` is here in case the list is empty but I think an empty list is invalid
+  Phi : (t : LLType) -> (l : List (BlockLabel, LLValue t)) -> PhiExpr (MkInputs $ map (\t => fst t) l) t
 
+export
+implementation Typed (PhiExpr inputs) where
+  typeOf (Phi t l) = MkThe t
 
-
+-- Isntr ----------------------------------------------------------------------
 public export
 data STInstr : Type where
   Assign : Reg t -> LLExpr t -> STInstr
@@ -168,7 +248,7 @@ data PhiInstr : Inputs -> Type where
   AssignPhi : Reg t -> PhiExpr inputs t -> PhiInstr inputs
 
 
-
+-- SimpleBlock ----------------------------------------------------------------
 public export
 record SimpleBlock
   (label : BlockLabel)
@@ -190,7 +270,7 @@ BlockVertex lbl (Just ins) (Just []) = SimpleBlock lbl (MkInputs ins) Return
 BlockVertex lbl (Just ins) (Just (out :: outs))
   = SimpleBlock lbl (MkInputs ins) (Jump $ out :: outs)
 
-
+-- FunDecl --------------------------------------------------------------------
 public export
 record FunDecl (retType : LLType) (paramTypes : List LLType) where
 
@@ -201,6 +281,7 @@ record FunDecl (retType : LLType) (paramTypes : List LLType) where
   -- TODO: enforce correct return types
   body : CFG BlockVertex (Defined []) (Defined [])
 
+-- Program --------------------------------------------------------------------
 public export
 record Program where
   constructor MkProgram

@@ -6,6 +6,7 @@ import Control.Monad.Either
 import Data.DMap
 import Data.GCompare
 import Data.GEq
+import Data.Typed
 
 import LLVM
 import LNG
@@ -70,11 +71,15 @@ assign : Variable t -> LLValue (GetLLType t) -> CBlock lbl ins Undefined -> CBlo
 assign var reg (MkBB phis body term ctx) = MkBB phis body term $ insert var reg ctx
 
 export
-freshRegister : CompM (Reg t)
-freshRegister = do
+freshRegister : (t : LLType) -> CompM (Reg t)
+freshRegister t = do
   n <- gets regCount
   modify { regCount := n + 1 }
-  pure $ MkReg ("r" ++ show n)
+  pure $ MkReg t (MkRegId $ "r" ++ show n)
+
+export
+freshRegister' : The t -> CompM (Reg t)
+freshRegister' (MkThe t) = freshRegister t
 
 export
 freshLabel : CompM BlockLabel

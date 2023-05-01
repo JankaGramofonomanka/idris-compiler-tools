@@ -7,6 +7,7 @@ module LNG
 import Data.DList
 import Data.GCompare
 import Data.GEq
+import Data.Typed
 
 public export
 data LNGType = TInt | TBool | TVoid
@@ -74,10 +75,29 @@ data BinOperator : LNGType -> LNGType -> Type where
   GE  : BinOperator TInt TBool
   GT  : BinOperator TInt TBool
 
+binRetTypeOf : BinOperator t1 t2 -> The t2
+
+binRetTypeOf Add = MkThe TInt
+binRetTypeOf Sub = MkThe TInt
+binRetTypeOf Mul = MkThe TInt
+binRetTypeOf Div = MkThe TInt
+binRetTypeOf And = MkThe TBool
+binRetTypeOf Or  = MkThe TBool
+
+binRetTypeOf EQ  = MkThe TBool
+binRetTypeOf LE  = MkThe TBool
+binRetTypeOf LT  = MkThe TBool
+binRetTypeOf GE  = MkThe TBool
+binRetTypeOf GT  = MkThe TBool
+
 public export
 data UnOperator : LNGType -> LNGType -> Type where
   Neg : UnOperator TInt TInt
   Not : UnOperator TBool TBool
+
+unRetTypeOf : UnOperator t1 t2 -> The t2
+unRetTypeOf Neg = MkThe TInt
+unRetTypeOf Not = MkThe TBool
 
 public export
 data Literal : LNGType -> Type where
@@ -85,10 +105,15 @@ data Literal : LNGType -> Type where
   LitInt : Integer -> Literal TInt
 
 export
+implementation Typed Literal where
+  typeOf (LitBool b) = MkThe TBool
+  typeOf (LitInt i) = MkThe TInt
+
+export
 data VarId : LNGType -> Type where
   MkVarId : String -> VarId t
 
-export
+public export
 data Variable : LNGType -> Type where
   MkVar : (t : LNGType) -> VarId t -> Variable t
 
@@ -105,6 +130,10 @@ implementation GCompare Variable where
     EQ => lngcompare t1 t2
     GT => GGT
 
+export
+implementation Typed Variable where
+  typeOf (MkVar t id) = MkThe t
+
 public export
 data FunId : LNGType -> List LNGType -> Type where
   MkFunId : String -> FunId t ts
@@ -117,6 +146,16 @@ data Fun : LNGType -> List LNGType -> Type where
 export
 getFunId : Fun t ts -> FunId t ts
 getFunId (MkFun _ _ id) = id
+
+export
+retTypeOf : Fun t ts -> The t
+retTypeOf (MkFun t ts id) = MkThe t
+
+export
+argTypesOf : Fun t ts -> The ts
+argTypesOf (MkFun t ts id) = MkThe ts
+
+-- TODO: define Fun' : (LNGType, List LNGType) -> Type
 
 export
 funeq : (id1 : Fun t1 ts1) -> (id2 : Fun t2 ts2) -> Maybe ((t1, ts1) = (t2, ts2))
@@ -150,6 +189,13 @@ data Expr : LNGType -> Type where
   BinOperation : BinOperator t1 t2 -> Expr t1 -> Expr t1 -> Expr t2
   UnOperation : UnOperator t1 t2 -> Expr t1 -> Expr t2
   Call : Fun t ts -> DList Expr ts -> Expr t
+
+implementation Typed Expr where
+  typeOf (Lit l) = typeOf l
+  typeOf (Var v) = typeOf v
+  typeOf (BinOperation op lhs rhs) = binRetTypeOf op
+  typeOf (UnOperation op expr) = unRetTypeOf op
+  typeOf (Call fun args) = retTypeOf fun
 
 public export
 data Instr : Type where

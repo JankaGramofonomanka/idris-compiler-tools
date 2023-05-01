@@ -7,6 +7,7 @@ import Data.Some
 import Data.DMap
 import Data.DList
 import Data.Attached
+import Data.Typed
 
 import LNG
 import LLVM
@@ -25,8 +26,8 @@ import Utils
 
 
 fromLNGLit : Literal t -> LLValue (GetLLType t)
-fromLNGLit (LitBool b) = ILit (if b then 1 else 0)
-fromLNGLit (LitInt i) = ILit i
+fromLNGLit (LitBool b) = ILitV (if b then 1 else 0)
+fromLNGLit (LitInt i) = ILitV i
 
 
 comparableInts : EqComparable t -> (n ** GetLLType t = I n)
@@ -131,10 +132,10 @@ mutual
     Neg => do
 
       ((lbl ** g), val) <- compileExpr labelIn expr
-      reg <- lift freshRegister
+      reg <- lift (freshRegister I32)
 
       -- TODO: Is this OK or is it a hack?
-      let g' = omap {outs = Undefined} (<+ Assign reg (BinOperation SUB (ILit 0) val)) g
+      let g' = omap {outs = Undefined} (<+ Assign reg (BinOperation SUB (ILitV 0) val)) g
       
       pure ((lbl ** g'), Var reg)
 
@@ -146,7 +147,7 @@ mutual
 
     ((lbl ** g), args') <- compileExprs labelIn args
 
-    reg <- lift freshRegister
+    reg <- lift (freshRegister' $ (unFun . unPtr) (typeOf funPtr))
     let g' = omap {outs = Undefined} (<+ Assign reg (Call funPtr args')) g
 
     pure ((lbl ** g'), Var reg)
@@ -202,7 +203,7 @@ mutual
   compileAritmOp labelIn op lhs rhs = do
     ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
     
-    reg <- lift freshRegister
+    reg <- lift (freshRegister I32)
     let g' = omap {outs = Undefined} (<+ Assign reg (BinOperation op lhs' rhs')) g
 
     pure ((lbl ** g'), Var reg)
@@ -230,8 +231,8 @@ mutual
          -> LLValue (I k)
          -> LLValue (I k)
          -> CompM' (CFG CBlock ins (Undefined labelOut), LLValue I1)
-  addICMP cmpKind g lhs rhs = do
-    reg <- lift freshRegister
+  addICMP {k} cmpKind g lhs rhs = do
+    reg <- lift (freshRegister I1)
     let g' = omap {outs = Undefined} (<+ Assign reg (ICMP cmpKind lhs rhs)) g
     
     pure (g', Var reg)
@@ -288,7 +289,7 @@ mutual
                 in rewrite revEq $ concat_assoc (outsT ~~> lblT) (outsT' ~~> lblT) (outsF ~~> lblF)
                 in RBranch gl gr'
     
-    pure (outsT ++ outsT' ** outsF ** ?hfinal1)
+    pure (outsT ++ outsT' ** outsF ** final)
   
 
   ifology labelIn (UnOperation Not expr) lblT lblF = do
@@ -337,10 +338,10 @@ mutual
         falseG = SingleVertex {vins = Just outsF, vouts = Just [labelPost]} falseBLK
     
     
-    reg <- lift freshRegister
+    reg <- lift (freshRegister I1)
 
     let phi : PhiExpr (MkInputs [labelTrue, labelFalse]) I1
-        phi = Phi [(labelTrue, ILit 1), (labelFalse, ILit 0)]
+        phi = Phi I1 [(labelTrue, ILitV 1), (labelFalse, ILitV 0)]
     
     let phiAssignment = AssignPhi reg phi
     

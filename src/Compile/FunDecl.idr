@@ -5,6 +5,7 @@ import Control.Monad.Either
 
 import Data.Attached
 import Data.DList
+import Data.Typed
 
 import LLVM
 import LNG
@@ -59,8 +60,8 @@ compileFunDecl func {paramTypes} = do
     VRPair t = (Variable t, Reg (GetLLType t))
 
     getReg : Variable t -> CompM (VRPair t)
-    getReg var = do
-      reg <- freshRegister
+    getReg {t} var = do
+      reg <- freshRegister' (Typed.map GetLLType $ typeOf var)
       pure (var, reg)
 
     contextify : DList VRPair ts -> VarCTX

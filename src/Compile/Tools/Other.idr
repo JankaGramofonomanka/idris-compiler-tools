@@ -11,7 +11,7 @@ addInput : (lbl : BlockLabel)
         -> PhiExpr (MkInputs ins) t
         -> PhiExpr (MkInputs $ lbl :: ins) t
 
-addInput lbl val (Phi kvs) = Phi $ (lbl, val) :: kvs
+addInput lbl val (Phi t kvs) = Phi t $ (lbl, val) :: kvs
 
 
 

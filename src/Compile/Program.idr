@@ -15,14 +15,14 @@ import Compile.Tools.CompM
 mkFunMap : List (t ** ts ** fun ** FunDecl t ts fun) -> DMap FunKey FunVal
 mkFunMap l = foldr insertFun DMap.empty l where
 
-  mkFunPtr : FunId t ts -> LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))
+  mkFunPtr : Fun t ts -> LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))
   -- TODO: was there any requirement about how to name functions in LLVM?
-  mkFunPtr (MkFunId funId) = ConstPtr (MkConst funId)
+  mkFunPtr (MkFun t ts (MkFunId funId)) = ConstPtr (MkConst (FunType (GetLLType t) (map GetLLType ts)) (MkConstId funId))
 
   insertFun : (t ** ts ** fun ** FunDecl t ts fun)
            -> DMap FunKey FunVal
            -> DMap FunKey FunVal
-  insertFun (t ** ts ** funId ** _) = DMap.insert {v = (t, ts)} (MkFun t ts funId) (mkFunPtr funId)
+  insertFun (t ** ts ** funId ** _) = DMap.insert {v = (t, ts)} (MkFun t ts funId) (mkFunPtr (MkFun t ts funId))
 
   
 
