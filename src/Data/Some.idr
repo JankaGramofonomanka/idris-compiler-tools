@@ -1,16 +1,11 @@
 module Data.Some
 
-import FEq
 import Data.GEq
 import Data.GCompare
 
 public export
 data Some : (t -> Type) -> Type where
   MkSome : {0 a : t} -> f a -> Some f
-
-export
-implementation (impl : FEq f) => Eq (Some f) where
-  MkSome l == MkSome r = (l == r) @{impl}
 
 export
 implementation [viaGEq] (impl : GEq f) => Eq (Some f) where

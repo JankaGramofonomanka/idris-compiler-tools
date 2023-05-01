@@ -7,8 +7,6 @@ import Data.Some
 import Utils
 import CFG
 
-import FEq
-
 {-
 TODO: define a "pseudo LLVM" type that would generalize over `LLValue`, that is
 an LLVM parametrized by the type of values that can be put in expressions.
