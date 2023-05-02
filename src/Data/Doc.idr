@@ -1,6 +1,7 @@
 module Data.Doc
 
 import Data.List
+import Data.String
 
 public export
 record Line where
@@ -45,4 +46,27 @@ public export
 interface DocItem a where
   prt : a -> String
 
+
+export
+render : (tabLength : Nat) -> (margin : Nat) -> Doc -> String
+render tabLength margin doc = unlines (render' 0 doc) where
+
+  prtComment : Nat -> Maybe String -> String
+  prtComment spacesTaken Nothing = ""
+  prtComment spacesTaken (Just cmt) = replicate (margin `minus` spacesTaken) ' ' ++ ";" ++ cmt
+
+  mutual
+    render' : Nat -> Doc -> List String
+    render' numTabs doc' = foldl (\lns => \ln => lns ++ renderLine numTabs ln) [] doc'.lines
+
+    renderLine : Nat -> Either Doc Line -> List String
+    
+    renderLine numTabs (Right line) = let
+        indentLength = numTabs * tabLength
+      in singleton . concat $ [ replicate indentLength ' '
+                              , line.content
+                              , prtComment (indentLength + length line.content) line.comment
+                              ]
+    
+    renderLine numTabs (Left doc') = render' (numTabs + 1) doc'
 
