@@ -4,6 +4,7 @@ import Data.Attached
 import Data.DMap
 import Data.DList
 import Data.GCompare
+import Data.The
 
 import LLVM
 import LNG
@@ -37,6 +38,8 @@ MbTerm (Just outs) = CFInstr (toCFK outs)
 public export
 record CBlock (label : BlockLabel) (ins : Neighbors BlockLabel) (outs : Neighbors BlockLabel) where
   constructor MkBB
+  theLabel : The label
+
   phis : MbPhis ins
   body : List STInstr
   term : MbTerm outs
@@ -58,12 +61,12 @@ contexts {lbl, outs} blk = replicate' lblTo outs (\l => attach (lblTo l) (ctx bl
   lblTo v = lbl ~> v
   
 export
-initCBlock : CBlock lbl Undefined Undefined
-initCBlock = MkBB () [] () DMap.empty
+initCBlock : {lbl : BlockLabel} -> CBlock lbl Undefined Undefined
+initCBlock {lbl} = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = (), ctx = DMap.empty}
 
 export
-emptyCBlock : DMap Variable (LLValue . GetLLType) -> CBlock lbl Undefined Undefined
-emptyCBlock ctx = MkBB () [] () ctx
+emptyCBlock : {lbl : BlockLabel} -> DMap Variable (LLValue . GetLLType) -> CBlock lbl Undefined Undefined
+emptyCBlock {lbl} ctx = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = (), ctx}
 
 
 
@@ -75,12 +78,35 @@ infixr 5 +|, ++|
 
 export
 (++) : CBlock lbl ins Undefined -> CBlock lbl Undefined outs -> CBlock lbl ins outs
-MkBB phis body () m ++ MkBB () body' term' m'
-  = MkBB phis (body ++ body') term' (m' `DMap.union` m {- `m'` takes precedence -})
+(++) 
+  ( MkBB
+    { theLabel
+    , phis
+    , body
+    , term = ()
+    , ctx
+    }
+  )
+  ( MkBB
+    { theLabel = theLabel'
+    , phis = ()
+    , body = body'
+    , term = term'
+    , ctx = ctx'
+    }
+  )
+  = MkBB
+    { theLabel
+    , phis
+    , body = (body ++ body')
+    , term = term'
+    , ctx = (ctx' `DMap.union` ctx {- `ctx'` takes precedence -})
+    }
 
 export
 (<++) : CBlock lbl ins Undefined -> List STInstr -> CBlock lbl ins Undefined
-MkBB phis body () m <++ instrs = MkBB phis (body ++ instrs) () m
+(MkBB { theLabel, phis , body , term = (), ctx }) <++ instrs
+  = MkBB { theLabel, phis, body = (body ++ instrs), term = (), ctx}
 
 export
 (<+) : CBlock lbl ins Undefined -> STInstr -> CBlock lbl ins Undefined
@@ -88,13 +114,13 @@ blk <+ instr = blk <++ [instr]
 
 export
 (<+|) : CBlock lbl ins Undefined -> CFInstr (toCFK outs) -> CBlock lbl ins (Just outs)
-MkBB phis body () m <+| instr = MkBB phis body instr m
+MkBB { theLabel, phis, body, term = (), ctx } <+| term = MkBB { theLabel, phis, body, term, ctx }
 
 export
 (|++>) : List (PhiInstr (MkInputs inputs))
       -> CBlock lbl Undefined outs
       -> CBlock lbl (Just inputs) outs
-phis |++> MkBB () body term m = MkBB phis body term m
+phis |++> MkBB { theLabel, phis = (), body, term, ctx } = MkBB { theLabel, phis, body, term, ctx }
 
 export
 (|+>) : PhiInstr (MkInputs inputs)
@@ -106,7 +132,7 @@ export
 (+|) : PhiInstr (MkInputs inputs)
     -> CBlock lbl (Just inputs) outs
     -> CBlock lbl (Just inputs) outs
-instr +| MkBB phis body term m = MkBB (instr :: phis) body term m
+instr +| MkBB { theLabel, phis, body, term, ctx } = MkBB { theLabel, phis = (instr :: phis), body, term, ctx }
 
 export
 (++|) : List (PhiInstr (MkInputs inputs))

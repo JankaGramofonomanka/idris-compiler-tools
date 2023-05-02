@@ -6,6 +6,7 @@ import Control.Monad.Either
 import Data.DMap
 import Data.GCompare
 import Data.GEq
+import Data.The
 import Data.Typed
 
 import LLVM
@@ -48,7 +49,8 @@ CompM = StateT CompState (Either Error)
 
 export
 assign : Variable t -> LLValue (GetLLType t) -> CBlock lbl ins Undefined -> CBlock lbl ins Undefined
-assign var reg (MkBB phis body term ctx) = MkBB phis body term $ insert var reg ctx
+assign var reg (MkBB { theLabel, phis, body, term, ctx })
+  = MkBB { theLabel, phis, body, term, ctx = insert var reg ctx }
 
 export
 freshRegister : (t : LLType) -> CompM (Reg t)

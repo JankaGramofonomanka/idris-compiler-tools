@@ -4,6 +4,7 @@ import Data.List
 
 import Data.DList
 import Data.Some
+import Data.The
 import Data.Typed
 import Utils
 import CFG
@@ -145,7 +146,7 @@ export
 implementation Typed LLValue where
   typeOf (Var reg) = typeOf reg
   typeOf (Lit lit) = typeOf lit
-  typeOf (ConstPtr cst) = Typed.map Ptr (typeOf cst)
+  typeOf (ConstPtr cst) = The.map Ptr (typeOf cst)
   typeOf (Null t) = MkThe (Ptr t)
 
 -- BinOperator, CMPKind, BlockLabel, Inputs -----------------------------------
@@ -159,6 +160,7 @@ data BinOperator : LLType -> LLType -> LLType -> Type where
   SREM  : {n : Nat} -> BinOperator (I n) (I n) (I n)
   UREM  : {n : Nat} -> BinOperator (I n) (I n) (I n)
 
+export
 resType : BinOperator t1 t2 t3 -> The t3
 resType (ADD  {n}) = MkThe (I n)
 resType (SUB  {n}) = MkThe (I n)
@@ -217,9 +219,13 @@ unFun : The (FunType t ts) -> The t
 unFun (MkThe (FunType t ts)) = MkThe t
 
 export
+retTypeOf : LLValue (Ptr (FunType t ts)) -> The t
+retTypeOf = unFun . unPtr . typeOf
+
+export
 implementation Typed LLExpr where
   typeOf (BinOperation op lhs rhs) = resType op
-  typeOf (Call fun args) = (unFun . unPtr) (typeOf fun) where
+  typeOf (Call fun args) = retTypeOf fun where
   typeOf (ICMP cmp lhs rhs) = MkThe I1
   typeOf (Load ptr) = unPtr (typeOf ptr)
   typeOf (BitCast val t) = MkThe t
@@ -262,9 +268,10 @@ record SimpleBlock
   (cfkind : CFKind)
 where
   constructor MkSimpleBlock
-  phis : List (PhiInstr inputs)
-  body : List STInstr
-  term : CFInstr cfkind
+  theLabel  : The label
+  phis      : List (PhiInstr inputs)
+  body      : List STInstr
+  term      : CFInstr cfkind
 
 
 
@@ -278,10 +285,14 @@ BlockVertex lbl (Just ins) (Just (out :: outs))
 
 -- FunDecl --------------------------------------------------------------------
 public export
-record FunDecl (retType : LLType) (paramTypes : List LLType) where
+record FunDecl (retT : LLType) (paramTs : List LLType) where
 
   constructor MkFunDecl
-  params : DList Reg paramTypes
+  -- TODO: consider making this parametrised by `retT` and `retTs`, like in `LNG`
+  name : String
+  
+  theRetType : The retT
+  params : DList Reg paramTs
 
   -- TODO: enforce the existence of an entry block
   -- TODO: enforce correct return types

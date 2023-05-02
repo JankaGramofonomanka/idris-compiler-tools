@@ -19,7 +19,7 @@ import Utils
 
 
 export
-initCFG : CFG CBlock (Undefined lbl) (Undefined lbl)
+initCFG : {lbl : BlockLabel} -> CFG CBlock (Undefined lbl) (Undefined lbl)
 initCFG = initGraph initCBlock
 
 
@@ -193,7 +193,7 @@ collectOutsCR {lbl' = labelPost} (CRUDO (lbls ** g)) = do
 
 
 export
-collectInsCR : {lbl' : BlockLabel}
+collectInsCR : {lbl, lbl' : BlockLabel}
             -> (ins : List BlockLabel)
             -> (phis : List (PhiInstr $ MkInputs ins))
             -> (ctx : lbl :~: VarCTX)

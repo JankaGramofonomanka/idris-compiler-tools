@@ -7,6 +7,7 @@ import Data.Some
 import Data.DMap
 import Data.DList
 import Data.Attached
+import Data.The
 import Data.Typed
 
 import LNG
@@ -325,14 +326,14 @@ mutual
     
     
     let trueBLK : CBlock labelTrue (Just outsT) (Just [labelPost])
-        trueBLK = MkBB [] [] (Branch labelPost) DMap.empty
+        trueBLK = MkBB { theLabel = MkThe labelTrue, phis = [], body = [], term = Branch labelPost, ctx = DMap.empty}
     
     let trueG : CFG CBlock (Defined $ outsT ~~> labelTrue) (Defined [labelTrue ~> labelPost])
         trueG = SingleVertex {vins = Just outsT, vouts = Just [labelPost]} trueBLK
     
     
     let falseBLK : CBlock labelFalse (Just outsF) (Just [labelPost])
-        falseBLK = MkBB [] [] (Branch labelPost) DMap.empty
+        falseBLK = MkBB { theLabel = MkThe labelFalse, phis = [], body =  [], term = Branch labelPost, ctx = DMap.empty}
 
     let falseG : CFG CBlock (Defined $ outsF ~~> labelFalse) (Defined [labelFalse ~> labelPost])
         falseG = SingleVertex {vins = Just outsF, vouts = Just [labelPost]} falseBLK

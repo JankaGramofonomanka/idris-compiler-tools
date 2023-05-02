@@ -5,6 +5,7 @@ import Control.Monad.Either
 
 import Data.Attached
 import Data.DList
+import Data.The
 import Data.Typed
 
 import LLVM
@@ -52,7 +53,8 @@ compileFunDecl func {paramTypes} = do
   cfg <- compileBody entryLabel ctx func.body
   let cfg' = vmap' toLLVM cfg
   
-  pure (LLVM.MkFunDecl regs' cfg')
+  let MkFunId name = unThe func.theId
+  pure $ LLVM.MkFunDecl { name, theRetType = The.map GetLLType func.theRetType, params = regs', body = cfg' }
 
   where
 
@@ -61,7 +63,7 @@ compileFunDecl func {paramTypes} = do
 
     getReg : Variable t -> CompM (VRPair t)
     getReg {t} var = do
-      reg <- freshRegister' (Typed.map GetLLType $ typeOf var)
+      reg <- freshRegister' (The.map GetLLType $ typeOf var)
       pure (var, reg)
 
     contextify : DList VRPair ts -> VarCTX
@@ -69,13 +71,23 @@ compileFunDecl func {paramTypes} = do
       insert' : VRPair t' -> VarCTX -> VarCTX
       insert' (k, v) = insert k (Var v)
     
-    toLLVM : {ins, outs : List BlockLabel} -> CBlock lbl (Just ins) (Just outs) -> BlockVertex lbl (Just ins) (Just outs)
-    toLLVM {outs = []}      (MkBB phis body (Ret val) _)          = MkSimpleBlock phis body (Ret val)
-    toLLVM {outs = []}      (MkBB phis body RetVoid _)            = MkSimpleBlock phis body RetVoid
-    toLLVM {outs = [l]}     (MkBB phis body (Branch l) _)         = MkSimpleBlock phis body (Branch l)
-    toLLVM {outs = [t, e]}  (MkBB phis body (CondBranch c t e) _) = MkSimpleBlock phis body (CondBranch c t e)
+    toLLVM : {ins, outs : List BlockLabel}
+          -> CBlock lbl (Just ins) (Just outs)
+          -> BlockVertex lbl (Just ins) (Just outs)
     
-    toLLVM {outs = (l :: l' :: l'' :: ls)} (MkBB phis body term _) impossible  
+    toLLVM {outs = []} (MkBB { theLabel, phis, body, term = Ret val, ctx })
+      = MkSimpleBlock { theLabel, phis, body, term = Ret val }
+    
+    toLLVM {outs = []} (MkBB { theLabel, phis, body, term = RetVoid, ctx })
+      = MkSimpleBlock { theLabel, phis, body, term = RetVoid }
+    
+    toLLVM {outs = [l]} (MkBB { theLabel, phis, body, term = Branch l, ctx })
+      = MkSimpleBlock { theLabel, phis, body, term = Branch l }
+    
+    toLLVM {outs = [t, e]} (MkBB { theLabel, phis, body, term = CondBranch c t e, ctx })
+      = MkSimpleBlock { theLabel, phis, body, term = CondBranch c t e }
+      
+    toLLVM {outs = (l :: l' :: l'' :: ls)} (MkBB { theLabel, phis, body, term, ctx}) impossible  
   
     decompose : DList (f . g) ts -> DList f (map g ts)
     -- TODO is there a bettter way?

@@ -7,6 +7,7 @@ module LNG
 import Data.DList
 import Data.GCompare
 import Data.GEq
+import Data.The
 import Data.Typed
 
 import Utils
@@ -255,6 +256,8 @@ data Instr : Type where
 public export
 record FunDecl (retType : LNGType) (paramTypes : List LNGType) (funId : FunId retType paramTypes) where
   constructor MkFunDecl
+  theId : The funId
+  theRetType : The retType
   params : DList Variable paramTypes
   body : Instr
 

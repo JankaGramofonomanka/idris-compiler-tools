@@ -8,6 +8,7 @@ import Data.DList
 import Data.DSum
 import Data.GCompare
 import Data.Some
+import Data.The
 import Data.Typed
 import LNG
 import LLVM
