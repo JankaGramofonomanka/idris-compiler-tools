@@ -78,33 +78,19 @@ compileExpr' labelIn ctx expr = evalStateT (detach ctx) $ compileExpr labelIn ex
 --* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 -- Compilation ----------------------------------------------------------------
 --* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-mutual
-  {-
-  TODO: Consider getting rid of `InstrCR` in favor of returning a dependent
-  pair (lbls ** CFG _ ins (Defined $ lbls ~~> lbl))
-  or (maybeLBL ** CFG _ ins (fromMaybe Closed $ map Undefined maybeLBL))
-  -}
+public export
+GetCRT : InstrKind t -> CRType
+GetCRT Simple = Open
+GetCRT (Returning t) = Closed
 
-  
-  InstrCR : Instr -> CRType
-  InstrCR (Block is)      = InstrsCR is
+thmGetCRT : (k, k' : InstrKind t) -> GetCRT (BrKind k k') = OpenOr (GetCRT k) (GetCRT k')
+thmGetCRT Simple        Simple          = Refl
+thmGetCRT Simple        (Returning t')  = Refl
+thmGetCRT (Returning t) Simple          = Refl
+thmGetCRT (Returning t) (Returning t)   = Refl
 
-  InstrCR (Assign v e)    = Open
-  InstrCR (If c t)        = Open
-  InstrCR (IfElse c t e)  = OpenOr (InstrCR t) (InstrCR e)
-  InstrCR (While c l)     = Open
-
-  InstrCR (Return e)      = Closed
-  InstrCR RetVoid         = Closed
-
-
-
-  InstrsCR : List Instr -> CRType
-  InstrsCR [] = Open
-  InstrsCR (instr :: instrs) = ClosedOr (InstrCR instr) (InstrsCR instrs)
-
-
-
+thmGetCRT' : {k, k' : InstrKind t} -> GetCRT (BrKind k k') = OpenOr (GetCRT k) (GetCRT k')
+thmGetCRT' {k, k'} = thmGetCRT k k'
 
 
 mutual
@@ -135,35 +121,26 @@ mutual
   export
   compileInstrUU : (labelIn : BlockLabel)
                 -> (ctx : labelIn :~: VarCTX)
-                -> (instr : Instr)
-                -> CompM (CompileResultUU labelIn $ InstrCR instr)
+                -> (instr : Instr kind)
+                -> CompM (CompileResultUU labelIn $ GetCRT kind)
 
 
 
 
   -- Block --------------------------------------------------------------------
-  compileInstrUU labelIn ctx (Block instrs) = compile' labelIn ctx instrs where
+  compileInstrUU labelIn ctx (Block instrs) = compile labelIn ctx instrs where
 
-    mutual
+    compile : (labelIn : BlockLabel)
+            -> (ctx : labelIn :~: VarCTX)
+            -> (instrs : Instrs k)
+            -> CompM (CompileResultUU labelIn (GetCRT k))
+    compile labelIn ctx Nil = pure (emptyCRUU labelIn)
+    compile labelIn ctx (TermSingleton instr) = compileInstrUU labelIn ctx instr
+    compile labelIn ctx (instr :: instrs) = do
+      CRUUO (lbl ** g) <- compileInstrUU labelIn ctx instr
+      res <- compile lbl (getContext g) instrs
+      pure $ connectCRUU g res
 
-      compile' : (labelIn : BlockLabel)
-              -> labelIn :~: VarCTX
-              -> (instrs : List Instr)
-              -> CompM (CompileResultUU labelIn $ InstrsCR instrs)
-      compile' labelIn ctx [] = pure (emptyCRUU labelIn)
-      compile' labelIn ctx (instr :: instrs) = do
-        res <- compileInstrUU labelIn ctx instr
-        handleRes res instrs
-        
-      handleRes : {0 labelIn : BlockLabel}
-              -> CompileResultUU labelIn crt
-              -> (instrs : List Instr)
-              -> CompM (CompileResultUU labelIn $ ClosedOr crt (InstrsCR instrs))
-      handleRes (CRUUC g) instrs = pure (CRUUC g)
-      handleRes (CRUUO (lbl ** g)) instrs = do
-        res <- compile' lbl (getContext g) instrs
-        pure $ connectCRUU g res
-      
 
   -- Assign -------------------------------------------------------------------
   compileInstrUU labelIn ctx (Assign var expr) = do
@@ -218,8 +195,8 @@ mutual
   export
   compileInstrUD : (labelIn, labelPost : BlockLabel)
                 -> (ctx : labelIn :~: VarCTX)
-                -> (instr : Instr)
-                -> CompM (CompileResultUD labelIn labelPost $ InstrCR instr)
+                -> (instr : Instr kind)
+                -> CompM (CompileResultUD labelIn labelPost $ GetCRT kind)
 
   -- Assign -------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx instr@(Assign var expr)
@@ -238,54 +215,20 @@ mutual
 
   -- Block --------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx (Block instrs)
-    = compile' labelIn ctx instrs
+    = compile labelIn ctx instrs
     
     where
 
-      mutual
-
-        decideInstrCR : (instr : Instr) -> Either (InstrCR instr = Closed) (InstrCR instr = Open)
-        decideInstrCR instr with (InstrCR instr)
-          decideInstrCR instr | Closed = Left Refl
-          decideInstrCR instr | Open = Right Refl
-
-        compile' : (labelIn : BlockLabel)
-                -> labelIn :~: VarCTX
-                -> (instrs : List Instr)
-                -> CompM (CompileResultUD labelIn labelPost $ InstrsCR instrs)
-        compile' labelIn ctx Nil = pure (emptyCRUD labelIn labelPost)
-        
-        compile' labelIn ctx (instr :: Nil)
-          
-          = rewrite closed_or_commut (InstrCR instr) (InstrsCR Nil)
-            in compileInstrUD labelIn labelPost ctx instr
-          
-        compile' labelIn ctx (instr :: instrs) with (decideInstrCR instr)
-
-          
-          compile' labelIn ctx (instr :: instrs) | Left crc = do
-            res <- compileInstrUD labelIn labelPost ctx instr
-
-            let thm : (InstrCR instr = ClosedOr (InstrCR instr) (InstrsCR instrs))
-                thm = rewrite crc in Refl
-                
-            pure $ rewrite revEq thm in res
-          
-
-          compile' labelIn ctx (instr :: instrs) | Right cro = do
-            
-            res <- compileInstrUU labelIn ctx instr
-            
-            let CRUUO (lbl ** g) = the (CompileResultUU labelIn Open) $ rewrite revEq cro in res
-            
-            res' <- compile' lbl (getContext g) instrs
-            
-            let thm : (InstrsCR instrs = ClosedOr (InstrCR instr) (InstrsCR instrs))
-                thm = rewrite cro in Refl
-            
-            pure $ rewrite revEq thm in connectCRUD g res'
-
-
+      compile : (labelIn : BlockLabel)
+             -> (ctx : labelIn :~: VarCTX)
+             -> (instrs : Instrs k)
+             -> CompM (CompileResultUD labelIn labelPost $ GetCRT k)
+      compile labelIn ctx Nil = pure (emptyCRUD labelIn labelPost)
+      compile labelIn ctx (TermSingleton instr) = compileInstrUD labelIn labelPost ctx instr
+      compile labelIn ctx (instr :: instrs) = do
+        CRUUO (lbl ** g) <- compileInstrUU labelIn ctx instr
+        res <- compile lbl (getContext g) instrs
+        pure $ connectCRUD g res
 
 
   -- If -----------------------------------------------------------------------
@@ -308,7 +251,7 @@ mutual
 
 
   -- IfElse -------------------------------------------------------------------
-  compileInstrUD labelIn labelPost ctx (IfElse cond instrThen instrElse) = do
+  compileInstrUD labelIn labelPost ctx (IfElse {k, k'} cond instrThen instrElse) = do
 
     labelThen <- freshLabel
     labelElse <- freshLabel
@@ -318,7 +261,8 @@ mutual
     thenRes <- compileInstrDD outsT labelThen labelPost ctxsT instrThen
     elseRes <- compileInstrDD outsF labelElse labelPost ctxsF instrElse
 
-    let branches = parallelCR thenRes elseRes
+    let branches = rewrite thmGetCRT k k'
+                   in parallelCR thenRes elseRes
 
     pure $ connectCRDDCRUD condG branches
 
@@ -350,8 +294,8 @@ mutual
   compileInstrDDViaUD : (pre : List BlockLabel)
                      -> (labelIn, labelPost : BlockLabel)
                      -> (ctxs : DList (:~: VarCTX) (pre ~~> labelIn))
-                     -> (instr : Instr)
-                     -> CompM (CompileResultDD (pre ~~> labelIn) labelPost $ InstrCR instr)
+                     -> (instr : Instr kind)
+                     -> CompM (CompileResultDD (pre ~~> labelIn) labelPost $ GetCRT kind)
   
   compileInstrDDViaUD pre labelIn labelPost ctxs instr = do
     SG ctx phis <- segregate ctxs
@@ -364,8 +308,8 @@ mutual
   compileInstrDD : (pre : List BlockLabel)
                 -> (labelIn, labelPost : BlockLabel)
                 -> (ctxs : DList (:~: VarCTX) (pre ~~> labelIn))
-                -> (instr : Instr)
-                -> CompM (CompileResultDD (pre ~~> labelIn) labelPost $ InstrCR instr)
+                -> (instr : Instr kind)
+                -> CompM (CompileResultDD (pre ~~> labelIn) labelPost $ GetCRT kind)
 
 
 
@@ -414,8 +358,6 @@ mutual
     
     final <- handleLoopResult ctxNode' ctxsIn nodeG' loopRes
 
-    
-    
     pure $ CRDDO ([labelNodeOut] ** final)
     
     where

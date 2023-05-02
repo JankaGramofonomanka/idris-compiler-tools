@@ -244,14 +244,34 @@ implementation Typed Expr where
   typeOf (Call fun args) = retTypeOf fun
 
 public export
-data Instr : Type where
-  Block : List Instr -> Instr
-  Assign : Variable t -> Expr t -> Instr
-  If : Expr TBool -> Instr -> Instr
-  IfElse : Expr TBool -> Instr -> Instr -> Instr
-  While : Expr TBool -> Instr -> Instr
-  Return : Expr TBool -> Instr
-  RetVoid : Instr
+data InstrKind : LNGType -> Type where
+  Simple : InstrKind t
+  Returning : (t : LNGType) -> InstrKind t
+
+public export
+BrKind : InstrKind t -> InstrKind t -> InstrKind t
+BrKind Simple         Simple          = Simple
+BrKind Simple         (Returning t')  = Simple
+BrKind (Returning t)  Simple          = Simple
+BrKind (Returning t)  (Returning t)   = Returning t
+
+mutual
+  public export
+  data Instr : InstrKind t -> Type where
+    Block : Instrs k -> Instr k
+    Assign : Variable t -> Expr t -> Instr Simple
+    If : Expr TBool -> Instr k -> Instr Simple
+    IfElse : Expr TBool -> Instr k -> Instr k' -> Instr (BrKind k k')
+    While : Expr TBool -> Instr k -> Instr Simple
+    Return : Expr t -> Instr (Returning t)
+    RetVoid : Instr (Returning TVoid)
+    -- TODO: Add `WhileTrue`
+
+  public export
+  data Instrs : InstrKind t -> Type where
+    Nil : Instrs Simple
+    TermSingleton : Instr (Returning t) -> Instrs (Returning t)
+    (::) : Instr Simple -> Instrs k -> Instrs k
 
 public export
 record FunDecl (retType : LNGType) (paramTypes : List LNGType) (funId : FunId retType paramTypes) where
@@ -259,7 +279,7 @@ record FunDecl (retType : LNGType) (paramTypes : List LNGType) (funId : FunId re
   theId : The funId
   theRetType : The retType
   params : DList Variable paramTypes
-  body : Instr
+  body : Instr (Returning retType)
 
 public export
 record Program where

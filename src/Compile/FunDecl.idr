@@ -21,23 +21,14 @@ import Compile.Tools.VariableCTX
 
 compileBody : (labelIn : BlockLabel)
            -> (ctx : labelIn :~: VarCTX)
-           -> (instr : Instr)
+           -> (instr : Instr (Returning t))
            -> CompM (CFG CBlock Closed Closed)
 
 compileBody labelIn ctx instr = do
   -- TODO get rid of this "" hack
   -- TODO consider using `compileInstrDD`
-  res <- compileInstrUD labelIn (MkBlockLabel "") ctx instr
-  handleRes res
-
-  where
-    handleRes : CompileResultUD lbl lbl' cr
-             -> CompM (CFG CBlock Closed Closed)
-    handleRes (CRUDC g) = pure $ imap {ins = Just []} ([] |++>) g
-    -- TODO: Get rid of this error. It is against the whole idea behind this
-    -- project. This might require significant modification of the `LNG`
-    -- structure.
-    handleRes (CRUDO _) = throwError UnexpectedOpenGraph
+  CRUDC g <- compileInstrUD labelIn (MkBlockLabel "") ctx instr
+  pure $ imap {ins = Just []} ([] |++>) g
 
 export
 compileFunDecl : FunDecl retType paramTypes funId
