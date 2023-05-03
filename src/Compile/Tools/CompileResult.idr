@@ -1,5 +1,7 @@
 module Compile.Tools.CompileResult
 
+import Data.List
+
 import Control.Monad.State
 
 import Data.DMap
@@ -15,7 +17,7 @@ import Compile.Tools.VariableCTX
 import Compile.Tools.CompM
 import CFG
 
-import Utils
+import Theory
 
 
 export
@@ -30,23 +32,31 @@ public export
 data CRType = Open | Closed
 
 public export
-OpenOr : CRType -> Lazy CRType -> CRType
-OpenOr Open rt = Open
-OpenOr Closed rt = rt
+CRParallel : CRType -> Lazy CRType -> CRType
+CRParallel Open rt = Open
+CRParallel Closed rt = rt
 
 
 public export
-ClosedOr : CRType -> Lazy CRType -> CRType
-ClosedOr Closed rt = Closed
-ClosedOr Open rt = rt
+CRSeries : CRType -> Lazy CRType -> CRType
+CRSeries Closed rt = Closed
+CRSeries Open rt = rt
 
 total
 export
-closed_or_commut : (x, y : CRType) -> ClosedOr x y = ClosedOr y x
-closed_or_commut Closed Closed = Refl
-closed_or_commut Closed Open = Refl
-closed_or_commut Open Closed = Refl
-closed_or_commut Open Open = Refl
+cr_series_commut : (x, y : CRType) -> CRSeries x y = CRSeries y x
+cr_series_commut Closed Closed = Refl
+cr_series_commut Closed Open = Refl
+cr_series_commut Open Closed = Refl
+cr_series_commut Open Open = Refl
+
+total
+export
+cr_parallel_commut : (x, y : CRType) -> CRParallel x y = CRParallel y x
+cr_parallel_commut Closed Closed = Refl
+cr_parallel_commut Closed Open = Refl
+cr_parallel_commut Open Closed = Refl
+cr_parallel_commut Open Open = Refl
 
 public export
 toCRType : Maybe BlockLabel -> CRType
@@ -65,7 +75,7 @@ data CompileResultUU : BlockLabel -> CRType -> Type where
 public export
 data CompileResultUD : BlockLabel -> BlockLabel -> CRType -> Type where
   CRUDC : CFG CBlock (Undefined lbl) Closed -> CompileResultUD lbl lbl' Closed
-  CRUDO : (lbls ** CFG CBlock (Undefined lbl) (Defined $ lbls ~~> lbl'))
+  CRUDO : (lbls ** (CFG CBlock (Undefined lbl) (Defined $ lbls ~~> lbl'), NonEmpty lbls))
        -> CompileResultUD lbl lbl' Open
 
 
@@ -73,9 +83,8 @@ data CompileResultUD : BlockLabel -> BlockLabel -> CRType -> Type where
 public export
 data CompileResultDD : List (Edge BlockLabel) -> BlockLabel -> CRType -> Type where
   CRDDC : CFG CBlock (Defined edges) Closed -> CompileResultDD edges lbl Closed
-  CRDDO : (lbls ** CFG CBlock (Defined edges) (Defined $ lbls ~~> lbl))
+  CRDDO : (lbls ** (CFG CBlock (Defined edges) (Defined $ lbls ~~> lbl), NonEmpty lbls))
        -> CompileResultDD edges lbl Open
-
 
 
 
@@ -84,13 +93,13 @@ export
 unwrapCRUD : CompileResultUD lbl lbl' crt
           -> (outs ** CFG CBlock (Undefined lbl) (Defined $ outs ~~> lbl'))
 unwrapCRUD (CRUDC g) = ([] ** g)
-unwrapCRUD (CRUDO (outs ** g)) = (outs ** g)
+unwrapCRUD (CRUDO (outs ** (g, prf))) = (outs ** g)
 
 export
 unwrapCRDD : CompileResultDD edges lbl crt
           -> (outs ** CFG CBlock (Defined edges) (Defined $ outs ~~> lbl))
 unwrapCRDD (CRDDC g) = ([] ** (g))
-unwrapCRDD (CRDDO (outs ** g)) = (outs ** g)
+unwrapCRDD (CRDDO (outs ** (g, prf))) = (outs ** g)
 
 
 
@@ -103,7 +112,7 @@ emptyCRUU lbl = CRUUO (lbl ** initCFG)
 
 export
 emptyCRUD : (lbl, lbl' : BlockLabel) -> CompileResultUD lbl lbl' Open
-emptyCRUD lbl lbl' = CRUDO ([lbl] ** omap {outs = Just [lbl']} (<+| Branch lbl') initCFG)
+emptyCRUD lbl lbl' = CRUDO ([lbl] ** (omap {outs = Just [lbl']} (<+| Branch lbl') initCFG, IsNonEmpty))
 
 
 
@@ -123,23 +132,24 @@ connectCRUD : CFG CBlock (Undefined lbl) (Undefined lbl')
            -> CompileResultUD lbl' lbl'' os
            -> CompileResultUD lbl lbl'' os
 connectCRUD g (CRUDC g') = CRUDC $ connect g g'
-connectCRUD g (CRUDO (lbls ** g')) = CRUDO $ (lbls ** connect g g')
+connectCRUD g (CRUDO (lbls ** (g', prf))) = CRUDO $ (lbls ** (connect g g', prf))
 
 
 export
-connectCRDDCRUD : CFG CBlock (Undefined lbl) (Defined edges)
+connectCRDDCRUD : {auto 0 prf : NonEmpty edges}
+               -> CFG CBlock (Undefined lbl) (Defined edges)
                -> CompileResultDD edges lbl' crt
                -> CompileResultUD lbl lbl' crt
 
 connectCRDDCRUD pre (CRDDC g) = CRUDC (Series pre g)
-connectCRDDCRUD pre (CRDDO (lbls ** g)) = let g' = Series pre g in CRUDO (lbls ** g')
+connectCRDDCRUD pre (CRDDO (lbls ** (g, prf))) = let g' = Series pre g in CRUDO (lbls ** (g', prf))
 
 export
 connectCRUDCRDD : CFG CBlock (Defined edges) (Undefined lbl)
                -> CompileResultUD lbl lbl' crt
                -> CompileResultDD edges lbl' crt
 connectCRUDCRDD pre (CRUDC g) = CRDDC (connect pre g)
-connectCRUDCRDD pre (CRUDO (lbls ** g)) = let g' = connect pre g in CRDDO (lbls ** g')
+connectCRUDCRDD pre (CRUDO (lbls ** (g, prf))) = let g' = connect pre g in CRDDO (lbls ** (g', prf))
 
 
 
@@ -149,25 +159,25 @@ parallelCR : {lbl : BlockLabel}
           -> (lres : CompileResultDD ledges lbl lcrt)
           -> (rres : CompileResultDD redges lbl rcrt)
           
-          -> CompileResultDD (ledges ++ redges) lbl (OpenOr lcrt rcrt)
+          -> CompileResultDD (ledges ++ redges) lbl (CRParallel lcrt rcrt)
 
 parallelCR {lbl} (CRDDC lg) (CRDDC rg) = CRDDC $ Parallel lg rg
 
-parallelCR {lbl} (CRDDC lg) (CRDDO (routs ** rg)) = CRDDO (routs ** Parallel lg rg)
+parallelCR {lbl} (CRDDC lg) (CRDDO (routs ** (rg, rprf))) = CRDDO (routs ** (Parallel lg rg, rprf))
 
-parallelCR {lbl} (CRDDO (louts ** lg)) (CRDDC rg) = let
+parallelCR {lbl} (CRDDO (louts ** (lg, lprf))) (CRDDC rg) = let
 
   g = rewrite revEq $ concat_nil (louts ~~> lbl)
       in Parallel lg rg
 
-  in CRDDO (louts ** g)
+  in CRDDO (louts ** (g, lprf))
 
-parallelCR {lbl} (CRDDO (louts ** lg)) (CRDDO (routs ** rg)) = let
+parallelCR {lbl} (CRDDO (louts ** (lg, lprf))) (CRDDO (routs ** (rg, rprf))) = let
 
   g = rewrite collect_concat lbl louts routs
       in Parallel lg rg
 
-  in CRDDO (louts ++ routs ** g)
+  in CRDDO (louts ++ routs ** (g, nonempty_plusplus lprf))
 
 
 
@@ -179,7 +189,7 @@ parallelCR {lbl} (CRDDO (louts ** lg)) (CRDDO (routs ** rg)) = let
 export
 collectOutsCR : {lbl' : BlockLabel} -> CompileResultUD lbl lbl' crt -> CompM $ CompileResultUU lbl crt
 collectOutsCR {lbl' = labelPost} (CRUDC g) = pure $ CRUUC g
-collectOutsCR {lbl' = labelPost} (CRUDO (lbls ** g)) = do
+collectOutsCR {lbl' = labelPost} (CRUDO (lbls ** (g, prf))) = do
   SG ctx phis <- segregate (getContexts g)
 
   let ctxPost = ctx
@@ -187,7 +197,7 @@ collectOutsCR {lbl' = labelPost} (CRUDO (lbls ** g)) = do
   let post : CFG CBlock (Defined $ lbls ~~> labelPost) (Undefined labelPost)
       post = SingleVertex {vins = Just lbls} $ phis |++> emptyCBlock (detach ctxPost)
   
-  let final = Series g post
+  let final = Series {prf = nonempty_map prf} g post
 
   pure $ CRUUO (labelPost ** final)
 
@@ -204,16 +214,6 @@ collectInsCR ins phis ctxs res = do
         
   let res' = connectCRUDCRDD pre res
   pure res'
-  
-
-
-
-
-
-public export
-data Compatible : CRType -> List BlockLabel -> Type where
-  CompatClosed  : Compatible Closed []
-  CompatOpen    : Compatible Open [lbl]
 
 
 

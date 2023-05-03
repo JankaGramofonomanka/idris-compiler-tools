@@ -10,7 +10,7 @@ import Data.GEq
 import Data.The
 import Data.Typed
 
-import Utils
+import Theory
 
 public export
 data LNGType = TInt | TBool | TVoid

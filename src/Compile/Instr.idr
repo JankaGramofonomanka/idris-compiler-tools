@@ -1,5 +1,7 @@
 module Compile.Instr
 
+import Data.List
+
 import Control.Monad.State
 import Control.Monad.Either
 
@@ -23,7 +25,7 @@ import Compile.Tools.Other
 import Compile.Expr
 
 import CFG
-import Utils
+import Theory
 
 {-
 TODO: Figure out how to reduce the number of attachments and detachments
@@ -38,14 +40,14 @@ jumpTo : (lbl' : BlockLabel) -> CompileResultUU lbl crt -> CompileResultUD lbl l
 jumpTo labelPost (CRUUC g) = CRUDC g
 jumpTo labelPost (CRUUO (lbl ** g)) = let
   g' = omap {outs = Just [labelPost]} (<+| Branch labelPost) g
-  in CRUDO ([lbl] ** g')
+  in CRUDO ([lbl] ** (g', IsNonEmpty))
 
 
 jumpFrom : (lbl : BlockLabel) -> CompileResultUD lbl' lbl'' crt -> CompileResultDD [lbl ~> lbl'] lbl'' crt
 jumpFrom labelPre (CRUDC g) = CRDDC $ imap {ins = Just [labelPre]} ([] |++>) g
-jumpFrom labelPre (CRUDO (lbls ** g)) = let
+jumpFrom labelPre (CRUDO (lbls ** (g, prf))) = let
   g' = imap {ins = Just [labelPre]} ([] |++>) g
-  in CRDDO (lbls ** g')
+  in CRDDO (lbls ** (g', prf))
 
 
 ifology' : (labelIn : BlockLabel)
@@ -53,9 +55,12 @@ ifology' : (labelIn : BlockLabel)
         -> (expr : Expr TBool)
         -> (lblT : BlockLabel)
         -> (lblF : BlockLabel)
-        -> CompM  ( outsT ** outsF ** CFG CBlock
-                                          (Undefined labelIn)
-                                          (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
+        -> CompM  ( outsT ** outsF ** ( CFG CBlock
+                                            (Undefined labelIn)
+                                            (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
+                                      , NonEmpty outsT
+                                      , NonEmpty outsF
+                                      )
                   )
 ifology' labelIn ctx expr lblT lblF = evalStateT (detach ctx) $ ifology labelIn expr lblT lblF
 
@@ -91,7 +96,7 @@ mutual
 
   InstrCR (Assign v e)    = Open
   InstrCR (If c t)        = Open
-  InstrCR (IfElse c t e)  = OpenOr (InstrCR t) (InstrCR e)
+  InstrCR (IfElse c t e)  = CRParallel (InstrCR t) (InstrCR e)
   InstrCR (While c l)     = Open
 
   InstrCR (Return e)      = Closed
@@ -101,7 +106,7 @@ mutual
 
   InstrsCR : List Instr -> CRType
   InstrsCR [] = Open
-  InstrsCR (instr :: instrs) = ClosedOr (InstrCR instr) (InstrsCR instrs)
+  InstrsCR (instr :: instrs) = CRSeries (InstrCR instr) (InstrsCR instrs)
 
 
 
@@ -158,7 +163,7 @@ mutual
       handleRes : {0 labelIn : BlockLabel}
               -> CompileResultUU labelIn crt
               -> (instrs : List Instr)
-              -> CompM (CompileResultUU labelIn $ ClosedOr crt (InstrsCR instrs))
+              -> CompM (CompileResultUU labelIn $ CRSeries crt (InstrsCR instrs))
       handleRes (CRUUC g) instrs = pure (CRUUC g)
       handleRes (CRUUO (lbl ** g)) instrs = do
         res <- compile' lbl (getContext g) instrs
@@ -257,7 +262,7 @@ mutual
         
         compile' labelIn ctx (instr :: Nil)
           
-          = rewrite closed_or_commut (InstrCR instr) (InstrsCR Nil)
+          = rewrite cr_series_commut (InstrCR instr) (InstrsCR Nil)
             in compileInstrUD labelIn labelPost ctx instr
           
         compile' labelIn ctx (instr :: instrs) with (decideInstrCR instr)
@@ -266,7 +271,7 @@ mutual
           compile' labelIn ctx (instr :: instrs) | Left crc = do
             res <- compileInstrUD labelIn labelPost ctx instr
 
-            let thm : (InstrCR instr = ClosedOr (InstrCR instr) (InstrsCR instrs))
+            let thm : (InstrCR instr = CRSeries (InstrCR instr) (InstrsCR instrs))
                 thm = rewrite crc in Refl
                 
             pure $ rewrite revEq thm in res
@@ -280,7 +285,7 @@ mutual
             
             res' <- compile' lbl (getContext g) instrs
             
-            let thm : (InstrsCR instrs = ClosedOr (InstrCR instr) (InstrsCR instrs))
+            let thm : (InstrsCR instrs = CRSeries (InstrCR instr) (InstrsCR instrs))
                 thm = rewrite cro in Refl
             
             pure $ rewrite revEq thm in connectCRUD g res'
@@ -292,7 +297,7 @@ mutual
   compileInstrUD labelIn labelPost ctx (If cond instrThen) = do
 
     labelThen <- freshLabel
-    (outsT ** outsF ** condG) <- ifology' labelIn ctx cond labelThen labelPost
+    (outsT ** outsF ** (condG, prfT, prfF)) <- ifology' labelIn ctx cond labelThen labelPost
     let (ctxsT, ctxsF) = split (getContexts condG)
     
     thenRes <- compileInstrDD outsT labelThen labelPost ctxsT instrThen
@@ -302,7 +307,11 @@ mutual
         final = rewrite collect_concat labelPost branchOuts outsF
                 in LBranch condG thenG
     
-    pure $ CRUDO (branchOuts ++ outsF ** final)
+    {-
+    TODO: change the signature of `ifology` to return `NonEmpty outsT` and 
+    `NonEmpty outsF`
+    -}
+    pure $ CRUDO (branchOuts ++ outsF ** (final, plusplus_nonempty prfF))
     
 
 
@@ -312,7 +321,7 @@ mutual
 
     labelThen <- freshLabel
     labelElse <- freshLabel
-    (outsT ** outsF ** condG) <- ifology' labelIn ctx cond labelThen labelElse
+    (outsT ** outsF ** (condG, prfT, prfF)) <- ifology' labelIn ctx cond labelThen labelElse
     let (ctxsT, ctxsF) = split (getContexts condG)
 
     thenRes <- compileInstrDD outsT labelThen labelPost ctxsT instrThen
@@ -320,7 +329,7 @@ mutual
 
     let branches = parallelCR thenRes elseRes
 
-    pure $ connectCRDDCRUD condG branches
+    pure $ connectCRDDCRUD {prf = nonempty_cmap_cmap $ nonempty_plusplus prfT} condG branches
 
 
 
@@ -416,7 +425,7 @@ mutual
 
     
     
-    pure $ CRDDO ([labelNodeOut] ** final)
+    pure $ CRDDO ([labelNodeOut] ** (final, IsNonEmpty))
     
     where
 
@@ -480,7 +489,7 @@ mutual
         
         pure final
 
-      handleLoopResult {pre, nodeIn, nodeOut} ctxNode ctxsIn node (CRDDO (loopOuts ** loop)) = do
+      handleLoopResult {pre, nodeIn, nodeOut} ctxNode ctxsIn node (CRDDO (loopOuts ** (loop, prfLoop))) = do
 
         let ctxsLoopOut = getContexts loop
         
