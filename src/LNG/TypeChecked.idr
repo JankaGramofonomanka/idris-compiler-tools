@@ -74,21 +74,21 @@ data EqComparable : LNGType -> Type where
   EqCMPBool : EqComparable TBool
 
 public export
-data BinOperator : LNGType -> LNGType -> Type where
-  Add : BinOperator TInt TInt
-  Sub : BinOperator TInt TInt
-  Mul : BinOperator TInt TInt
-  Div : BinOperator TInt TInt
-  And : BinOperator TBool TBool
-  Or  : BinOperator TBool TBool
+data BinOperator : LNGType -> LNGType -> LNGType -> Type where
+  Add : BinOperator TInt TInt TInt
+  Sub : BinOperator TInt TInt TInt
+  Mul : BinOperator TInt TInt TInt
+  Div : BinOperator TInt TInt TInt
+  And : BinOperator TBool TBool TBool
+  Or  : BinOperator TBool TBool TBool
   
-  EQ  : {auto 0 prf : EqComparable t} -> BinOperator t TBool
-  LE  : BinOperator TInt TBool
-  LT  : BinOperator TInt TBool
-  GE  : BinOperator TInt TBool
-  GT  : BinOperator TInt TBool
+  EQ  : {auto 0 prf : EqComparable t} -> BinOperator t t TBool
+  LE  : BinOperator TInt TInt TBool
+  LT  : BinOperator TInt TInt TBool
+  GE  : BinOperator TInt TInt TBool
+  GT  : BinOperator TInt TInt TBool
 
-binRetTypeOf : BinOperator t1 t2 -> The t2
+binRetTypeOf : BinOperator t1 t2 t3 -> The t3
 
 binRetTypeOf Add = MkThe TInt
 binRetTypeOf Sub = MkThe TInt
@@ -122,7 +122,7 @@ implementation Typed Literal where
   typeOf (LitBool b) = MkThe TBool
   typeOf (LitInt i) = MkThe TInt
 
-export
+public export
 data VarId : LNGType -> Type where
   MkVarId : String -> VarId t
 
@@ -232,7 +232,7 @@ public export
 data Expr : LNGType -> Type where
   Lit : Literal t -> Expr t
   Var : Variable t -> Expr t
-  BinOperation : BinOperator t1 t2 -> Expr t1 -> Expr t1 -> Expr t2
+  BinOperation : BinOperator t1 t2 t3 -> Expr t1 -> Expr t2 -> Expr t3
   UnOperation : UnOperator t1 t2 -> Expr t1 -> Expr t2
   Call : Fun t ts -> DList Expr ts -> Expr t
 

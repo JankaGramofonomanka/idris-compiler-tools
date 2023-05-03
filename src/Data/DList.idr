@@ -30,6 +30,24 @@ dtraverse f (ax :: axs) = do
   
   pure (bx :: bxs)
 
+-- TODO: rewrite in termos of `Applicative`
+export
+dtraverse' : Monad f
+        => {0 a : Type}
+        -> {0 g : a -> Type}
+        
+        -> ((x : a) -> f (g x))
+        -> (xs : List a)
+        -> f (DList g xs)
+
+dtraverse' f Nil = pure Nil
+dtraverse' f (ax :: axs) = do
+  bx <- f ax
+  bxs <- dtraverse' f axs
+  
+  pure (bx :: bxs)
+
+
 -- TODO what about dependent accumulator?
 export
 dfoldr : ({0 x : t} -> elem x -> acc -> acc) -> acc -> DList elem ts -> acc
@@ -73,3 +91,11 @@ export
 split : {xs, xs' : List a} -> DList f (xs ++ xs') -> (DList f xs, DList f xs')
 split {xs = Nil} dl = (Nil, dl)
 split {xs = x :: xs''} (fx :: fxs''') = let (fxs'', fxs') = split (fxs''') in (fx :: fxs'', fxs')
+
+export
+fromDPairs : List (x : t ** f x) -> (xs ** DList f xs)
+fromDPairs Nil = (Nil ** Nil)
+fromDPairs ((x ** fx) :: dpairs) = let
+    (xs ** fxs) = fromDPairs dpairs
+  in (x :: xs ** fx :: fxs)
+

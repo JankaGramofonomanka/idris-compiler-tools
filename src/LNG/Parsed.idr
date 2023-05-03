@@ -27,6 +27,10 @@ data Literal = LitBool Bool | LitInt Integer
 public export
 data Ident = MkId String
 
+export
+unIdent : Ident -> String
+unIdent (MkId s) = s
+
 public export
 data Expr
   = Lit Literal
