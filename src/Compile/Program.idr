@@ -5,7 +5,7 @@ import Control.Monad.State
 import Data.DList
 import Data.DMap
 import Data.GCompare
-import LNG
+import LNG.TypeChecked as LNG
 import LLVM
 import Compile.FunDecl
 import Compile.Tools

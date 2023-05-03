@@ -9,7 +9,7 @@ import Data.The
 import Data.Typed
 
 import LLVM
-import LNG
+import LNG.TypeChecked
 import CFG
 import Compile.Instr
 import Compile.Tools

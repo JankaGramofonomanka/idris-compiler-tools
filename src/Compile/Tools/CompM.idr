@@ -10,7 +10,7 @@ import Data.The
 import Data.Typed
 
 import LLVM
-import LNG
+import LNG.TypeChecked
 
 import Compile.Tools
 import Compile.Tools.CBlock

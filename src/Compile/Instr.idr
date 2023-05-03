@@ -13,7 +13,7 @@ import Data.DSum
 import Data.The
 import Data.Typed
 
-import LNG
+import LNG.TypeChecked
 import LLVM
 
 import Compile.Tools

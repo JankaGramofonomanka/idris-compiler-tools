@@ -2,7 +2,7 @@
   A simple programming language, for testing the usefulness and demonstration
   of compiler frameworks defined in this project.
 -}
-module LNG
+module LNG.TypeChecked
 
 import Data.DList
 import Data.GCompare

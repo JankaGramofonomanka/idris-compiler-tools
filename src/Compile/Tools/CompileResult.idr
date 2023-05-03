@@ -9,7 +9,7 @@ import Data.DList
 import Data.Attached
 
 import LLVM
-import LNG
+import LNG.TypeChecked
 
 import Compile.Tools
 import Compile.Tools.CBlock

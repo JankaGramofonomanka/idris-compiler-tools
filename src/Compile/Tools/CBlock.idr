@@ -7,7 +7,7 @@ import Data.GCompare
 import Data.The
 
 import LLVM
-import LNG
+import LNG.TypeChecked
 
 import Compile.Tools
 import CFG

@@ -1,6 +1,6 @@
 module Compile.Tools
 
-import LNG
+import LNG.TypeChecked
 import LLVM
 
 public export
