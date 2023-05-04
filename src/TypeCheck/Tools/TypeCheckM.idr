@@ -20,6 +20,7 @@ data Error
   | TypeError
   | NumParamsMismatch
   | ReturnPrecedingInstructions
+  | MissingReturnInstr
 
 -- TODO: remove the `public` keyword
 public export

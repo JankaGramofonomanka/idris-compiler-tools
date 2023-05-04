@@ -99,3 +99,27 @@ fromDPairs ((x ** fx) :: dpairs) = let
     (xs ** fxs) = fromDPairs dpairs
   in (x :: xs ** fx :: fxs)
 
+export
+dunzipWith : {0 f : b -> Type} -> (a -> (y ** f y)) -> List a -> (ys ** DList f ys)
+dunzipWith g Nil = (Nil ** Nil)
+dunzipWith g (x :: xs) = let
+    (y ** fy) = g x
+    (ys ** fys) = dunzipWith g xs
+  in (y :: ys ** fy :: fys)
+
+export
+dunzip : {0 f : a -> Type} -> (dpairs : List (x ** f x)) -> (xs ** DList f xs)
+dunzip = dunzipWith id
+
+export
+dzipWith : {0 f : b -> Type} -> ((y : b) -> f y -> a) -> (ys ** DList f ys) -> List a
+dzipWith g (Nil ** Nil) = Nil
+dzipWith g (y :: ys ** fy :: fys) = let
+    x = g y fy
+    xs = dzipWith g (ys ** fys)
+  in (x :: xs)
+
+export
+dzip : {0 f : b -> Type} -> (ys ** DList f ys) -> List (y ** f y)
+dzip dpairs = dzipWith (\y => \fy => (y ** fy)) dpairs
+

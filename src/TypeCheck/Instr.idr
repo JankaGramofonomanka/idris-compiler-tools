@@ -18,7 +18,9 @@ typeCheckExpr' ctx expr = evalStateT ctx $ typeCheckExpr expr
 typeCheckExprOfType' : (t : TC.LNGType) -> VarCTX -> Expr -> TypeCheckM (TC.Expr t)
 typeCheckExprOfType' t ctx expr = evalStateT ctx $ typeCheckExprOfType t expr
 
+-- TODO: try `typeCheckInstrOfKind`
 -- TODO: try linear context
+export
 typeCheckInstr : (t : TC.LNGType) -> VarCTX -> Instr -> TypeCheckM (VarCTX, (kind : InstrKind t ** TC.Instr kind))
 
 typeCheckInstr t ctx (Block instrs) = do

@@ -17,4 +17,10 @@ public export
 
 
 
+export
+onFirst : (a -> b) -> (a, c) -> (b, c)
+onFirst f (x, y) = (f x, y)
 
+export
+onSecond : (b -> c) -> (a, b) -> (a, c)
+onSecond f (x, y) = (x, f y)

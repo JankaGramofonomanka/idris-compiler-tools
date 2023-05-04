@@ -28,6 +28,14 @@ public export
 data Ident = MkId String
 
 export
+implementation Eq Ident where
+  MkId s == MkId s' = s == s'
+
+export
+implementation Ord Ident where
+  MkId s `compare` MkId s' = s `compare` s'
+
+export
 unIdent : Ident -> String
 unIdent (MkId s) = s
 
