@@ -7,12 +7,14 @@ import Data.SortedMap
 import Data.Zippable
 
 import Data.DList
-import LNG.Parsed           as LNG
-import LNG.TypeChecked      as TC
-import TypeCheck.TypeCheckM
+import LNG.Parsed                 as LNG
+import LNG.TypeChecked            as TC
+import TypeCheck.Tools.CTX
+import TypeCheck.Tools.TypeCheckM
 
+public export
 TypeCheckM' : Type -> Type
-TypeCheckM' = StateT (SortedMap Ident TC.LNGType) TypeCheckM
+TypeCheckM' = StateT VarCTX TypeCheckM
 
 getVarType : LNG.Ident -> TypeCheckM' TC.LNGType
 getVarType id = do
@@ -32,7 +34,6 @@ decideEq _ _ = Nothing
 
 
 
-export
 tcBinOp : BinOperator -> (t1, t2 : TC.LNGType) -> Maybe (t3 ** TC.BinOperator t1 t2 t3)
 
 tcBinOp Add TInt  TInt  = Just (TInt  ** TC.Add)
@@ -52,7 +53,6 @@ tcBinOp GT  TInt  TInt  = Just (TBool ** TC.GT)
 
 tcBinOp _ _ _ = Nothing
 
-export
 tcUnOp : UnOperator -> (t1 : TC.LNGType) -> Maybe (t2 ** TC.UnOperator t1 t2)
 tcUnOp Neg TInt   = Just (TInt  ** TC.Neg)
 tcUnOp Not TBool  = Just (TBool ** TC.Not)
@@ -89,6 +89,8 @@ assertType t t' expr' = case decideEq t t' of
 
 
 mutual
+
+  export
   typeCheckExpr : LNG.Expr -> TypeCheckM' (t ** TC.Expr t)
 
   typeCheckExpr (Lit lit) = case lit of
@@ -129,6 +131,7 @@ mutual
       typeCheckArgs _ _ = throwError NumParamsMismatch
 
 
+  export
   typeCheckExprOfType : (t : TC.LNGType) -> Expr -> TypeCheckM' (TC.Expr t)
   typeCheckExprOfType t expr = do
     (t' ** expr') <- typeCheckExpr expr

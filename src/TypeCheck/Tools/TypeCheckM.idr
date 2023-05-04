@@ -1,16 +1,17 @@
-module TypeCheck.TypeCheckM
+module TypeCheck.Tools.TypeCheckM
 
 import Control.Monad.Either
 import Control.Monad.State
 
 import Data.SortedMap
 
-import LNG.Parsed       as LNG
-import LNG.TypeChecked  as TC
+import LNG.Parsed           as LNG
+import LNG.TypeChecked      as TC
+import TypeCheck.Tools.CTX
 
 record TypeCheckState where
   constructor MkTCST
-  funcs : SortedMap Ident (TC.LNGType, List TC.LNGType)
+  funcs : FunCTX
 
 public export
 data Error
@@ -18,6 +19,7 @@ data Error
   | NoSuchFunction Ident
   | TypeError
   | NumParamsMismatch
+  | ReturnPrecedingInstructions
 
 -- TODO: remove the `public` keyword
 public export
