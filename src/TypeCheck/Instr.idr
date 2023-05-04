@@ -46,22 +46,26 @@ typeCheckInstr t ctx (Block instrs) = do
       case k' of
         Simple => do
           (ctx'', (k'' ** instrs')) <- typeCheck' t ctx' instrs
-          pure (?hctx'', (k'' ** (instr' :: instrs')))
+          pure (ctx'', (k'' ** (instr' :: instrs')))
         
-        -- idris knows the `t` here is the same
         Returning t => throwError ReturnPrecedingInstructions
 
+typeCheckInstr t ctx (Declare ty id expr) = do
+  case lookup id ctx of
+    Just t' => throwError (VariableAlreadyDeclared id)
+
+    Nothing => do
+      expr' <- typeCheckExprOfType' (tc ty) ctx expr
+      let ctx' = declare id (tc ty) ctx
+      pure (ctx', (Simple ** TC.Assign (mkVar (tc ty) id) expr'))
+
 typeCheckInstr t ctx (Assign id expr) = do
-  -- TODO: consider a separate `Declare` instruction
   case lookup id ctx of
     Just t' => do
       expr' <- typeCheckExprOfType' t' ctx expr
       pure (ctx, (Simple ** TC.Assign (mkVar t' id) expr'))
 
-    Nothing => do
-      (t' ** expr') <- typeCheckExpr' ctx expr
-      let ctx' = declare id t' ctx
-      pure (ctx', (Simple ** TC.Assign (mkVar t' id) expr'))
+    Nothing => throwError (NoSuchVariable id)
 
 typeCheckInstr t ctx (If cond thn) = do
   cond' <- typeCheckExprOfType' TBool ctx cond

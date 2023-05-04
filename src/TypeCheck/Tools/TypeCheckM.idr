@@ -22,6 +22,7 @@ data Error
   | ReturnPrecedingInstructions
   | MissingReturnInstr
   | NoMainFunction
+  | VariableAlreadyDeclared Ident
 
 -- TODO: remove the `public` keyword
 public export

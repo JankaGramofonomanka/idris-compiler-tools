@@ -117,7 +117,7 @@ mutual
     args <- typeCheckArgs paramTs args
     
     let fun' = MkFun retT paramTs (MkFunId $ unIdent fun)
-    pure (retT ** TC.Call fun' ?hargs')
+    pure (retT ** TC.Call fun' args)
 
     where
       typeCheckArgs : (ts : List TC.LNGType) -> List Expr -> TypeCheckM' (DList TC.Expr ts)

@@ -50,6 +50,7 @@ data Expr
 public export
 data Instr
   = Block (List Instr)
+  | Declare LNGType Ident Expr
   | Assign Ident Expr
   | If Expr Instr
   | IfElse Expr Instr Instr
