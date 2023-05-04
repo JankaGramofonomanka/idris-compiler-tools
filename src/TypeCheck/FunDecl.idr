@@ -20,6 +20,7 @@ import Utils
 mkVar' : (LNG.LNGType, Ident) -> (t ** TC.Variable t)
 mkVar' (t, id) = (tc t ** mkVar (tc t) id)
 
+export
 typeCheckFunDecl : FunDecl -> TypeCheckM (t ** ts ** fun ** TC.FunDecl t ts fun)
 typeCheckFunDecl funDecl = do
   

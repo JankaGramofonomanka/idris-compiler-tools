@@ -21,6 +21,7 @@ data Error
   | NumParamsMismatch
   | ReturnPrecedingInstructions
   | MissingReturnInstr
+  | NoMainFunction
 
 -- TODO: remove the `public` keyword
 public export
