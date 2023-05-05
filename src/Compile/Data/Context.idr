@@ -14,14 +14,7 @@ import LNG.TypeChecked
 import LLVM
 import Compile.Utils
 import CFG
-
-public export
-FunVal : LNGType -> List LNGType -> Type
-FunVal t ts = LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))
-
-public export
-FunVal' : (LNGType, List LNGType) -> Type
-FunVal' (t, ts) = FunVal t ts
+import Compile.Utils
 
 export
 FunCTX : Type

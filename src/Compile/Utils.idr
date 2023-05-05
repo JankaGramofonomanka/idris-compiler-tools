@@ -12,6 +12,15 @@ GetLLType TInt = I32
 GetLLType TBool = I1
 GetLLType TVoid = Void
 
+public export
+FunVal : LNGType -> List LNGType -> Type
+FunVal t ts = LLFun (GetLLType t) (map GetLLType ts)
+
+public export
+FunVal' : (LNGType, List LNGType) -> Type
+FunVal' (t, ts) = FunVal t ts
+
+
 
 export
 addInput : (lbl : BlockLabel)

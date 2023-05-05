@@ -149,6 +149,16 @@ implementation Typed LLValue where
   typeOf (ConstPtr cst) = The.map Ptr (typeOf cst)
   typeOf (Null t) = MkThe (Ptr t)
 
+public export
+LLFun : LLType -> List LLType -> Type
+LLFun t ts = LLValue (Ptr $ FunType t ts)
+
+public export
+LLFun' : (LLType, List LLType) -> Type
+LLFun' (t, ts) = LLFun t ts
+
+
+
 -- BinOperator, CMPKind, BlockLabel, Inputs -----------------------------------
 public export
 data BinOperator : LLType -> LLType -> LLType -> Type where
