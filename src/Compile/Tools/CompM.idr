@@ -3,7 +3,7 @@ module Compile.Tools.CompM
 import Control.Monad.State
 import Control.Monad.Either
 
-import Data.DMap
+--import Data.DMap
 import Data.GCompare
 import Data.GEq
 import Data.The
@@ -14,25 +14,22 @@ import LNG.TypeChecked
 
 import Compile.Tools
 import Compile.Tools.CBlock
+import Compile.Tools.Context
 import CFG
 
 import Utils
 
 public export
-FunVal : (LNGType, List LNGType) -> Type
-FunVal (t, ts) = LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))
-
-public export
 record CompState where
   constructor MkCompST
   -- TODO: move this type to a separate module, as with `VarCTX`
-  funcs : DMap Fun' FunVal
+  funcs : FunCTX
   regCount : Int
   lblCount : Int
 
 export
 emptyState : CompState
-emptyState = MkCompST { funcs = DMap.empty, regCount = 0, lblCount = 0 }
+emptyState = MkCompST { funcs = empty, regCount = 0, lblCount = 0 }
 
 public export
 data Error : Type where
@@ -73,7 +70,7 @@ export
 getFunPtr : Fun' (t, ts) -> CompM $ LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))
 getFunPtr {t, ts} funId = do
   funcs <- gets funcs
-  let Just ptr = DMap.lookup {v = (t, ts)} funId funcs
+  let Just ptr = lookup funId funcs
     | Nothing => throwError (NoSuchFunction (getFunId funId))
   
   pure ptr

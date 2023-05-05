@@ -1,4 +1,5 @@
-module Compile.Tools.VariableCTX
+module Compile.Tools.Context.Utils
+
 
 import Control.Monad.State
 
@@ -14,33 +15,9 @@ import LNG.TypeChecked
 import LLVM
 import Compile.Tools
 import Compile.Tools.CompM
+import Compile.Tools.Context
 import Compile.Tools.Other
 import CFG
-
-
-
-{-
-A map, that stores the values of variables in a particular place in the control
-flow graph
--}
-public export
-VarCTX : Type
-VarCTX = DMap Variable (LLValue . GetLLType)
-
-
-export
-lookup : Variable t -> VarCTX -> Maybe (LLValue (GetLLType t))
-lookup var ctx = DMap.lookup var ctx
-
-export
-insert : Variable t -> LLValue (GetLLType t) -> VarCTX -> VarCTX
-insert var val ctx = DMap.insert var val ctx
-
-
-
-export
-emptyCtx : VarCTX
-emptyCtx = DMap.empty
 
 
 public export
@@ -121,7 +98,7 @@ addCTX : (lbl ~> lbl') :~: VarCTX
       -> Segregated' lbl' (MkInputs $ lbl :: ins)
 
 addCTX ctx {ins} (SG' ctx')
-  = foldl handleItem (SG' DMap.empty) (distribute $ map DMap.toList ctx)
+  = foldl handleItem (SG' DMap.empty) (distribute $ map VarCTX.toList ctx)
   
   where
 
@@ -144,7 +121,7 @@ addCTX ctx {ins} (SG' ctx')
 
 
 finalize : Segregated' lbl ins -> CompM (Segregated lbl ins)
-finalize {lbl} (SG' ctx) = foldlM handleItem (SG (attach lbl emptyCtx) Nil) (toList ctx) where
+finalize {lbl} (SG' ctx) = foldlM handleItem (SG (attach lbl VarCTX.empty) Nil) (toList ctx) where
   
   handleItem : Segregated lbl ins
    -> DSum Variable (ValueOrPhi lbl ins)
@@ -186,12 +163,6 @@ segregate : {lbls : List BlockLabel}
 segregate ctxs = finalize (segregate' ctxs)
 
 
--- Same as `VarCTX` but every value is in a register
-public export
-VarCTX' : Type
-VarCTX' = DMap Variable (Reg . GetLLType)
-
-
 export
 newRegForAll : List (t ** Variable t) -> CompM VarCTX'
 newRegForAll vars = foldlM addNewReg DMap.empty vars
@@ -202,10 +173,11 @@ newRegForAll vars = foldlM addNewReg DMap.empty vars
              -> (t ** Variable t)
              -> CompM VarCTX'
     
-    addNewReg ctx (t ** var) = pure (insert var !(freshRegister $ GetLLType t) ctx)
+    addNewReg ctx (t ** var) = pure (VarCTX'.insert var !(freshRegister $ GetLLType t) ctx)
 
 
 export
 commonKeys : DList (:~: VarCTX) lbls -> List (t ** Variable t)
 commonKeys l = ?hck
+
 

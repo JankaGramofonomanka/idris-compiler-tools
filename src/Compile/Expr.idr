@@ -6,7 +6,6 @@ import Control.Monad.State
 import Control.Monad.Either
 
 import Data.Some
-import Data.DMap
 import Data.DList
 import Data.Attached
 import Data.The
@@ -19,7 +18,7 @@ import Compile.Tools
 import Compile.Tools.CBlock
 import Compile.Tools.CompileResult
 import Compile.Tools.CompM
-import Compile.Tools.VariableCTX
+import Compile.Tools.Context
 import CFG
 
 import Theory
@@ -330,14 +329,14 @@ mutual
     
     
     let trueBLK : CBlock labelTrue (Just outsT) (Just [labelPost])
-        trueBLK = MkBB { theLabel = MkThe labelTrue, phis = [], body = [], term = Branch labelPost, ctx = DMap.empty}
+        trueBLK = MkBB { theLabel = MkThe labelTrue, phis = [], body = [], term = Branch labelPost, ctx = empty}
     
     let trueG : CFG CBlock (Defined $ outsT ~~> labelTrue) (Defined [labelTrue ~> labelPost])
         trueG = SingleVertex {vins = Just outsT, vouts = Just [labelPost]} trueBLK
     
     
     let falseBLK : CBlock labelFalse (Just outsF) (Just [labelPost])
-        falseBLK = MkBB { theLabel = MkThe labelFalse, phis = [], body =  [], term = Branch labelPost, ctx = DMap.empty}
+        falseBLK = MkBB { theLabel = MkThe labelFalse, phis = [], body =  [], term = Branch labelPost, ctx = empty}
 
     let falseG : CFG CBlock (Defined $ outsF ~~> labelFalse) (Defined [labelFalse ~> labelPost])
         falseG = SingleVertex {vins = Just outsF, vouts = Just [labelPost]} falseBLK

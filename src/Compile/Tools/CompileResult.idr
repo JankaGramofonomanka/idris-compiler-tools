@@ -13,8 +13,9 @@ import LNG.TypeChecked
 
 import Compile.Tools
 import Compile.Tools.CBlock
-import Compile.Tools.VariableCTX
 import Compile.Tools.CompM
+import Compile.Tools.Context
+import Compile.Tools.Context.Utils
 import CFG
 
 import Theory

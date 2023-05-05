@@ -1,7 +1,6 @@
 module Compile.Tools.CBlock
 
 import Data.Attached
-import Data.DMap
 import Data.DList
 import Data.GCompare
 import Data.The
@@ -10,6 +9,7 @@ import LLVM
 import LNG.TypeChecked
 
 import Compile.Tools
+import Compile.Tools.Context
 import CFG
 
 -- TODO: `MbPhis Undefined = List [t ** Variable t]` - list of variables that need a phi assignment
@@ -45,27 +45,27 @@ record CBlock (label : BlockLabel) (ins : Neighbors BlockLabel) (outs : Neighbor
   term : MbTerm outs
   
   -- TODO: divide assignments between individual instructions
-  ctx : DMap Variable (LLValue . GetLLType)
+  ctx : VarCTX
 
 export
-context : {lbl : BlockLabel} -> CBlock lbl ins Undefined -> lbl :~: DMap Variable (LLValue . GetLLType)
+context : {lbl : BlockLabel} -> CBlock lbl ins Undefined -> lbl :~: VarCTX
 context {lbl} blk = attach lbl (ctx blk)
 
 export
 contexts : {0 lbl : BlockLabel}
         -> {outs : List BlockLabel}
         -> CBlock lbl ins (Just outs)
-        -> DList (:~: DMap Variable (LLValue . GetLLType)) (lbl ~>> outs)
+        -> DList (:~: VarCTX) (lbl ~>> outs)
 contexts {lbl, outs} blk = replicate' lblTo outs (\l => attach (lblTo l) (ctx blk)) where
   0 lblTo : BlockLabel -> Edge BlockLabel
   lblTo v = lbl ~> v
   
 export
 initCBlock : {lbl : BlockLabel} -> CBlock lbl Undefined Undefined
-initCBlock {lbl} = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = (), ctx = DMap.empty}
+initCBlock {lbl} = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = (), ctx = empty}
 
 export
-emptyCBlock : {lbl : BlockLabel} -> DMap Variable (LLValue . GetLLType) -> CBlock lbl Undefined Undefined
+emptyCBlock : {lbl : BlockLabel} -> VarCTX -> CBlock lbl Undefined Undefined
 emptyCBlock {lbl} ctx = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = (), ctx}
 
 
@@ -100,7 +100,7 @@ export
     , phis
     , body = (body ++ body')
     , term = term'
-    , ctx = (ctx' `DMap.union` ctx {- `ctx'` takes precedence -})
+    , ctx = (ctx' `union` ctx {- `ctx'` takes precedence -})
     }
 
 export
@@ -151,11 +151,11 @@ implementation Connectable CBlock where
 export
 getContext : {lbl : BlockLabel}
           -> CFG CBlock ins (Undefined lbl)
-          -> lbl :~: DMap Variable (LLValue . GetLLType)
+          -> lbl :~: VarCTX
 getContext {lbl} cfg = attach lbl $ oget ctx cfg
 
 export
 getContexts : CFG CBlock ins (Defined outs)
-           -> DList (:~: DMap Variable (LLValue . GetLLType)) outs
+           -> DList (:~: VarCTX) outs
 getContexts cfg = oget' contexts cfg
 

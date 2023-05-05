@@ -8,7 +8,7 @@ import Control.Monad.Either
 import Data.Some
 import Data.Attached
 import Data.DList
-import Data.DMap
+--import Data.DMap
 import Data.DSum
 import Data.The
 import Data.Typed
@@ -20,7 +20,8 @@ import Compile.Tools
 import Compile.Tools.CBlock
 import Compile.Tools.CompileResult
 import Compile.Tools.CompM
-import Compile.Tools.VariableCTX
+import Compile.Tools.Context
+import Compile.Tools.Context.Utils
 import Compile.Tools.Other
 import Compile.Expr
 
@@ -363,7 +364,7 @@ mutual
 
     -- TODO: get rid of unnecessary assignments
     ctxNode' <- attach labelNodeIn <$> newRegForAll (commonKeys ctxsIn)
-    let ctxNode = map (DMap.map LLVM.Var) ctxNode'
+    let ctxNode = map toValues ctxNode'
 
     ((labelNodeOut ** nodeG), val) <- compileExpr' labelNodeIn ctxNode cond
     labelLoop <- freshLabel
@@ -396,7 +397,7 @@ mutual
             -> DList (:~: VarCTX) (lbls ~~> lbl)
             -> CompM $ List (PhiInstr (MkInputs lbls))
       
-      mkPhis ctx {lbls} ctxs = traverse mkPhi' (DMap.toList ctx) where
+      mkPhis ctx {lbls} ctxs = traverse mkPhi' (toList ctx) where
         
         mkPhi' : (DSum Variable (Reg . GetLLType))
               -> CompM $ PhiInstr (MkInputs lbls)
@@ -415,7 +416,7 @@ mutual
             getVal : (key : Variable t) -> VarCTX -> CompM $ LLValue (GetLLType t)
 
             getVal key ctx = do
-              let Just val  = VariableCTX.lookup key ctx
+              let Just val  = lookup key ctx
                             | Nothing => throwError $ Impossible "variable non existent in loop body or node context"
               pure val
       

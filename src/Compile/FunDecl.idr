@@ -16,7 +16,7 @@ import Compile.Tools
 import Compile.Tools.CBlock
 import Compile.Tools.CompM
 import Compile.Tools.CompileResult
-import Compile.Tools.VariableCTX
+import Compile.Tools.Context
 
 
 compileBody : (labelIn : BlockLabel)
@@ -58,7 +58,7 @@ compileFunDecl func {paramTypes} = do
       pure (var, reg)
 
     contextify : DList VRPair ts -> VarCTX
-    contextify pairs = dfoldr insert' emptyCtx pairs where
+    contextify pairs = dfoldr insert' empty pairs where
       insert' : VRPair t' -> VarCTX -> VarCTX
       insert' (k, v) = insert k (Var v)
     
