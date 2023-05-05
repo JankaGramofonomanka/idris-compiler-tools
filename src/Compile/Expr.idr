@@ -14,11 +14,11 @@ import Data.Typed
 import LNG.TypeChecked
 import LLVM
 
-import Compile.Tools
-import Compile.Tools.CBlock
-import Compile.Tools.CompileResult
-import Compile.Tools.CompM
-import Compile.Tools.Context
+import Compile.Data.CBlock
+import Compile.Data.CompileResult
+import Compile.Data.CompM
+import Compile.Data.Context
+import Compile.Utils
 import CFG
 
 import Theory

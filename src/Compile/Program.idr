@@ -8,9 +8,9 @@ import Data.GCompare
 import LNG.TypeChecked as LNG
 import LLVM
 import Compile.FunDecl
-import Compile.Tools
-import Compile.Tools.CompM
-import Compile.Tools.Context
+import Compile.Data.CompM
+import Compile.Data.Context
+import Compile.Utils
 
 
 mkFunMap : List (t ** ts ** fun ** FunDecl t ts fun) -> FunCTX

@@ -1,9 +1,17 @@
-module Compile.Tools.Other
+module Compile.Utils
 
 import Data.DList
 import Data.Attached
 
+import LNG.TypeChecked
 import LLVM
+
+public export
+GetLLType : LNGType -> LLType
+GetLLType TInt = I32
+GetLLType TBool = I1
+GetLLType TVoid = Void
+
 
 export
 addInput : (lbl : BlockLabel)

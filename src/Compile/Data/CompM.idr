@@ -1,4 +1,4 @@
-module Compile.Tools.CompM
+module Compile.Data.CompM
 
 import Control.Monad.State
 import Control.Monad.Either
@@ -12,9 +12,9 @@ import Data.Typed
 import LLVM
 import LNG.TypeChecked
 
-import Compile.Tools
-import Compile.Tools.CBlock
-import Compile.Tools.Context
+import Compile.Data.CBlock
+import Compile.Data.Context
+import Compile.Utils
 import CFG
 
 import Utils

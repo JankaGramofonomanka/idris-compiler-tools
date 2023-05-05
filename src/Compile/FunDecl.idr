@@ -12,11 +12,11 @@ import LLVM
 import LNG.TypeChecked
 import CFG
 import Compile.Instr
-import Compile.Tools
-import Compile.Tools.CBlock
-import Compile.Tools.CompM
-import Compile.Tools.CompileResult
-import Compile.Tools.Context
+import Compile.Data.CBlock
+import Compile.Data.CompM
+import Compile.Data.CompileResult
+import Compile.Data.Context
+import Compile.Utils
 
 
 compileBody : (labelIn : BlockLabel)

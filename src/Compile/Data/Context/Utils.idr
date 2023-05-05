@@ -1,4 +1,4 @@
-module Compile.Tools.Context.Utils
+module Compile.Data.Context.Utils
 
 
 import Control.Monad.State
@@ -13,10 +13,9 @@ import Data.The
 import Data.Typed
 import LNG.TypeChecked
 import LLVM
-import Compile.Tools
-import Compile.Tools.CompM
-import Compile.Tools.Context
-import Compile.Tools.Other
+import Compile.Data.CompM
+import Compile.Data.Context
+import Compile.Utils
 import CFG
 
 

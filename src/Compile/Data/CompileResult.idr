@@ -1,4 +1,4 @@
-module Compile.Tools.CompileResult
+module Compile.Data.CompileResult
 
 import Data.List
 
@@ -11,11 +11,11 @@ import Data.Attached
 import LLVM
 import LNG.TypeChecked
 
-import Compile.Tools
-import Compile.Tools.CBlock
-import Compile.Tools.CompM
-import Compile.Tools.Context
-import Compile.Tools.Context.Utils
+import Compile.Data.CBlock
+import Compile.Data.CompM
+import Compile.Data.Context
+import Compile.Data.Context.Utils
+import Compile.Utils
 import CFG
 
 import Theory
