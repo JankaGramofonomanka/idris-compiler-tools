@@ -9,6 +9,7 @@ import LNG.Parsed               as LNG
 import LNG.TypeChecked          as TC
 import TypeCheck.Data.Context
 
+public export
 record TypeCheckState where
   constructor MkTCST
   funcs : FunCTX

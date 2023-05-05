@@ -39,6 +39,7 @@ findMain ((t ** ts ** fun ** decl) :: funcs) = case fun of
     (main, funcs') <- findMain funcs
     pure (main, (t ** ts ** fun ** decl) :: funcs')
 
+export
 typeCheckProgram : LNG.Program -> TypeCheckM TC.Program
 typeCheckProgram prog = do
 

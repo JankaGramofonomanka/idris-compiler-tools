@@ -24,3 +24,21 @@ onFirst f (x, y) = (f x, y)
 export
 onSecond : (b -> c) -> (a, b) -> (a, c)
 onSecond f (x, y) = (x, f y)
+
+
+export
+curry3 : ((a, b, c) -> d) -> a -> b -> c -> d
+curry3 f x y z = f (x, y, z)
+
+export
+uncurry3 : (a -> b -> c -> d) -> (a, b, c) -> d
+uncurry3 f (x, y, z) = f x y z
+
+export
+foldr3 : Foldable t => (e1 -> e2 -> e3 -> acc -> acc) -> acc -> t (e1, e2, e3) -> acc
+foldr3 = foldr . uncurry3
+
+export
+foldl3 : Foldable t => (acc -> e1 -> e2 -> e3 -> acc) -> acc -> t (e1, e2, e3) -> acc
+foldl3 f = foldl (uncurry3 . f)
+
