@@ -5,9 +5,9 @@ import Control.Monad.State
 
 import Data.SortedMap
 
-import LNG.Parsed           as LNG
-import LNG.TypeChecked      as TC
-import TypeCheck.Tools.CTX
+import LNG.Parsed               as LNG
+import LNG.TypeChecked          as TC
+import TypeCheck.Tools.Context
 
 record TypeCheckState where
   constructor MkTCST

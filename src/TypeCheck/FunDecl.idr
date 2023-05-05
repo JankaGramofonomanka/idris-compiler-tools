@@ -11,7 +11,7 @@ import Data.The
 import LNG.Parsed as LNG
 import LNG.TypeChecked as TC
 import TypeCheck.Instr
-import TypeCheck.Tools.CTX
+import TypeCheck.Tools.Context
 import TypeCheck.Tools.Other
 import TypeCheck.Tools.TypeCheckM
 

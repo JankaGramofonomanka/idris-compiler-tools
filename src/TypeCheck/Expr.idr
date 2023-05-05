@@ -9,7 +9,7 @@ import Data.Zippable
 import Data.DList
 import LNG.Parsed                 as LNG
 import LNG.TypeChecked            as TC
-import TypeCheck.Tools.CTX
+import TypeCheck.Tools.Context
 import TypeCheck.Tools.TypeCheckM
 
 public export

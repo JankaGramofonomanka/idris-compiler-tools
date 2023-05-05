@@ -1,4 +1,4 @@
-module TypeCheck.Tools.CTX
+module TypeCheck.Tools.Context
 
 import Data.SortedMap
 
