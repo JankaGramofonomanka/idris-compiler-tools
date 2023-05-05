@@ -56,7 +56,7 @@ typeCheckInstr t ctx (Declare ty id expr) = do
 
     Nothing => do
       expr' <- typeCheckExprOfType' (tc ty) ctx expr
-      let ctx' = declare id (tc ty) ctx
+      let ctx' = declare (tc ty) id ctx
       pure (ctx', (Simple ** TC.Assign (mkVar (tc ty) id) expr'))
 
 typeCheckInstr t ctx (Assign id expr) = do

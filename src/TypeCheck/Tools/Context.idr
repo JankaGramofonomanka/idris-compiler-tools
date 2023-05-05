@@ -6,18 +6,47 @@ import LNG.Parsed       as LNG
 import LNG.TypeChecked  as TC
 
 
--- TODO: consider making it non-public
-public export
+export
 FunCTX : Type
 FunCTX = SortedMap LNG.Ident (TC.LNGType, List TC.LNGType)
 
--- TODO: consider making it non-public
-public export
+export
 VarCTX : Type
 VarCTX = SortedMap LNG.Ident TC.LNGType
 
-export
-declare : LNG.Ident -> TC.LNGType -> VarCTX -> VarCTX
-declare = insert
+namespace FunCTX
 
+  export
+  empty : FunCTX
+  empty = SortedMap.empty
+
+  export
+  insert : LNG.Ident -> (TC.LNGType, List TC.LNGType) -> FunCTX -> FunCTX
+  insert = SortedMap.insert
+
+  export
+  declare : TC.LNGType -> List TC.LNGType -> LNG.Ident -> FunCTX -> FunCTX
+  declare t ts fun = FunCTX.insert fun (t, ts)
+
+  export
+  lookup : LNG.Ident -> FunCTX -> Maybe (TC.LNGType, List TC.LNGType)
+  lookup = SortedMap.lookup
+
+namespace VarCTX
+
+  export
+  empty : VarCTX
+  empty = SortedMap.empty
+
+  export
+  insert : LNG.Ident -> TC.LNGType -> VarCTX -> VarCTX
+  insert = SortedMap.insert
+
+  export
+  declare : TC.LNGType -> LNG.Ident -> VarCTX -> VarCTX
+  declare = flip SortedMap.insert
+
+  export
+  lookup : LNG.Ident -> VarCTX -> Maybe TC.LNGType
+  lookup = SortedMap.lookup
 

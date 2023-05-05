@@ -13,7 +13,7 @@ import TypeCheck.Tools.Other
 import TypeCheck.Tools.TypeCheckM
 
 mkFunMap : List LNG.FunDecl -> FunCTX
-mkFunMap = foldr (uncurry insert . idAndTypes) SortedMap.empty where
+mkFunMap = foldr (uncurry FunCTX.insert . idAndTypes) FunCTX.empty where
   idAndTypes decl = (decl.funId, (tc decl.retType, map (tc . fst) decl.params))
 
 findMain : List (t ** ts ** fun ** FunDecl t ts fun)

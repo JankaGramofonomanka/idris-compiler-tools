@@ -28,7 +28,7 @@ typeCheckFunDecl funDecl = do
   let (paramTypes ** paramIds) = dunzipWith mkVar' funDecl.params
   let funId = mkFunId funDecl.funId
 
-  let initCtx = foldr (uncurry $ (flip $ insert) . tc) SortedMap.empty funDecl.params
+  let initCtx = foldr (uncurry $ declare . tc) empty funDecl.params
 
   (_, (bk ** body)) <- typeCheckInstr retType initCtx funDecl.body
   let Returning retType = bk
