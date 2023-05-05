@@ -9,8 +9,8 @@ import Data.Zippable
 import Data.DList
 import LNG.Parsed                 as LNG
 import LNG.TypeChecked            as TC
-import TypeCheck.Tools.Context
-import TypeCheck.Tools.TypeCheckM
+import TypeCheck.Data.Context
+import TypeCheck.Data.TypeCheckM
 
 public export
 TypeCheckM' : Type -> Type

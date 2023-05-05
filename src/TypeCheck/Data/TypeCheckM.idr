@@ -1,4 +1,4 @@
-module TypeCheck.Tools.TypeCheckM
+module TypeCheck.Data.TypeCheckM
 
 import Control.Monad.Either
 import Control.Monad.State
@@ -7,7 +7,7 @@ import Data.SortedMap
 
 import LNG.Parsed               as LNG
 import LNG.TypeChecked          as TC
-import TypeCheck.Tools.Context
+import TypeCheck.Data.Context
 
 record TypeCheckState where
   constructor MkTCST

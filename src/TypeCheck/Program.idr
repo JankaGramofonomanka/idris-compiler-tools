@@ -7,10 +7,11 @@ import Data.SortedMap
 
 import LNG.Parsed                 as LNG
 import LNG.TypeChecked            as TC
+import TypeCheck.Data.Context
+import TypeCheck.Data.TypeCheckM
 import TypeCheck.FunDecl
-import TypeCheck.Tools.Context
-import TypeCheck.Tools.Other
-import TypeCheck.Tools.TypeCheckM
+import TypeCheck.Utils
+
 
 mkFunMap : List LNG.FunDecl -> FunCTX
 mkFunMap = foldr (uncurry FunCTX.insert . idAndTypes) FunCTX.empty where

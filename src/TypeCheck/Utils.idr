@@ -1,4 +1,4 @@
-module TypeCheck.Tools.Other
+module TypeCheck.Utils
 
 import LNG.Parsed       as LNG
 import LNG.TypeChecked  as TC

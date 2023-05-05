@@ -1,4 +1,4 @@
-module TypeCheck.Tools.Context
+module TypeCheck.Data.Context
 
 import Data.SortedMap
 

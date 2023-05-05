@@ -10,10 +10,10 @@ import Data.DList
 import Data.The
 import LNG.Parsed as LNG
 import LNG.TypeChecked as TC
+import TypeCheck.Data.Context
+import TypeCheck.Data.TypeCheckM
 import TypeCheck.Instr
-import TypeCheck.Tools.Context
-import TypeCheck.Tools.Other
-import TypeCheck.Tools.TypeCheckM
+import TypeCheck.Utils
 
 import Utils
 

@@ -7,10 +7,10 @@ import Data.SortedMap
 
 import LNG.Parsed                   as LNG
 import LNG.TypeChecked              as TC
+import TypeCheck.Data.Context
+import TypeCheck.Data.TypeCheckM
 import TypeCheck.Expr
-import TypeCheck.Tools.Context
-import TypeCheck.Tools.Other
-import TypeCheck.Tools.TypeCheckM
+import TypeCheck.Utils
 
 typeCheckExpr' : VarCTX -> Expr -> TypeCheckM (t ** TC.Expr t)
 typeCheckExpr' ctx expr = evalStateT ctx $ typeCheckExpr expr
