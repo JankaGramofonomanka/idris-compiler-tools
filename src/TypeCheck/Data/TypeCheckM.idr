@@ -32,8 +32,8 @@ TypeCheckM = StateT TypeCheckState (Either Error)
 
 
 export
-getFunTypes : Ident -> TypeCheckM (TC.LNGType, List TC.LNGType)
+getFunTypes : ^Ident -> TypeCheckM (TC.LNGType, List TC.LNGType)
 getFunTypes funId = do
-  Just ptr <- gets (lookup funId . funcs)
-            | Nothing => throwError (NoSuchFunction funId)
+  Just ptr <- gets (lookup (^^funId) . funcs)
+            | Nothing => throwError (NoSuchFunction $ ^^funId)
   pure ptr

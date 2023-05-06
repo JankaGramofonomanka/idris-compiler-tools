@@ -53,6 +53,7 @@ render tabLength margin doc = unlines (render' 0 doc) where
 
   prtComment : Nat -> Maybe String -> String
   prtComment spacesTaken Nothing = ""
+  -- TODO: the `;` is LLVM specific, make this general
   prtComment spacesTaken (Just cmt) = replicate (margin `minus` spacesTaken) ' ' ++ ";" ++ cmt
 
   mutual

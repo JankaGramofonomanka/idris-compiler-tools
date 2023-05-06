@@ -12,10 +12,12 @@ import TypeCheck.Data.TypeCheckM
 import TypeCheck.FunDecl
 import TypeCheck.Utils
 
+import Utils
 
-mkFunMap : List LNG.FunDecl -> FunCTX
-mkFunMap = foldr (uncurry FunCTX.insert . idAndTypes) FunCTX.empty where
-  idAndTypes decl = (decl.funId, (tc decl.retType, map (tc . fst) decl.params))
+mkFunMap : List (^LNG.FunDecl) -> FunCTX
+mkFunMap = foldr (uncurry3 FunCTX.declare . idAndTypes) FunCTX.empty where
+  idAndTypes : ^LNG.FunDecl -> (TC.LNGType, List TC.LNGType, ^Ident)
+  idAndTypes (p |^ decl) = (tc' decl.retType, map (tc' . fst) decl.params, decl.funId)
 
 findMain : List (t ** ts ** fun ** FunDecl t ts fun)
         -> TypeCheckM ( FunDecl TVoid [] (MkFunId "main")

@@ -17,18 +17,18 @@ import TypeCheck.Utils
 
 import Utils
 
-mkVar' : (LNG.LNGType, Ident) -> (t ** TC.Variable t)
-mkVar' (t, id) = (tc t ** mkVar (tc t) id)
+mkVar' : (^LNG.LNGType, ^Ident) -> (t ** TC.Variable t)
+mkVar' (t, id) = (tc' t ** mkVar (tc' t) (^^id))
 
 export
-typeCheckFunDecl : FunDecl -> TypeCheckM (t ** ts ** fun ** TC.FunDecl t ts fun)
-typeCheckFunDecl funDecl = do
+typeCheckFunDecl : ^LNG.FunDecl -> TypeCheckM (t ** ts ** fun ** TC.FunDecl t ts fun)
+typeCheckFunDecl (_ |^ funDecl) = do
   
-  let retType = tc funDecl.retType
+  let retType = tc' funDecl.retType
   let (paramTypes ** paramIds) = dunzipWith mkVar' funDecl.params
-  let funId = mkFunId funDecl.funId
+  let funId = mkFunId (^^funDecl.funId)
 
-  let initCtx = foldr (uncurry $ declare . tc) empty funDecl.params
+  let initCtx = foldr (uncurry $ VarCTX.declare . tc') empty funDecl.params
 
   (_, (bk ** body)) <- typeCheckInstr retType initCtx funDecl.body
   let Returning retType = bk

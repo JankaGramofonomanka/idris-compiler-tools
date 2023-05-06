@@ -11,17 +11,18 @@ import LNG.Parsed                 as LNG
 import LNG.TypeChecked            as TC
 import TypeCheck.Data.Context
 import TypeCheck.Data.TypeCheckM
+import TypeCheck.Utils
 
 public export
 TypeCheckM' : Type -> Type
 TypeCheckM' = StateT VarCTX TypeCheckM
 
-getVarType : LNG.Ident -> TypeCheckM' TC.LNGType
+getVarType : ^LNG.Ident -> TypeCheckM' TC.LNGType
 getVarType id = do
   m <- get
-  case lookup id m of
+  case lookup (^^id) m of
     Just t => pure t
-    Nothing => throwError (NoSuchVariable id)
+    Nothing => throwError (NoSuchVariable $ ^^id)
 
 
 
@@ -60,16 +61,16 @@ tcUnOp _ _ = Nothing
 
 
 
-getBinOp : BinOperator -> (lt, rt : TC.LNGType) -> TypeCheckM' (t ** TC.BinOperator lt rt t)
+getBinOp : ^BinOperator -> (lt, rt : TC.LNGType) -> TypeCheckM' (t ** TC.BinOperator lt rt t)
 getBinOp op lt rt = do
-  let Just op' = tcBinOp op lt rt
+  let Just op' = tcBinOp (^^op) lt rt
                -- TODO: make the error contain more info
                | Nothing => throwError TypeError
   pure op'
 
-getUnOp : UnOperator -> (t : TC.LNGType) -> TypeCheckM' (t' ** TC.UnOperator t t')
+getUnOp : ^UnOperator -> (t : TC.LNGType) -> TypeCheckM' (t' ** TC.UnOperator t t')
 getUnOp op t = do
-  let Just op' = tcUnOp op t
+  let Just op' = tcUnOp (^^op) t
                -- TODO: make the error contain more info
                | Nothing => throwError TypeError
   pure op'
@@ -91,36 +92,36 @@ assertType t t' expr' = case decideEq t t' of
 mutual
 
   export
-  typeCheckExpr : LNG.Expr -> TypeCheckM' (t ** TC.Expr t)
+  typeCheckExpr : ^LNG.Expr -> TypeCheckM' (t ** TC.Expr t)
 
-  typeCheckExpr (Lit lit) = case lit of
+  typeCheckExpr (_ |^ Lit lit) = case ^^lit of
     LitBool b => pure (TC.TBool ** TC.Lit (TC.LitBool b))
     LitInt  i => pure (TC.TInt  ** TC.Lit (TC.LitInt  i))
 
-  typeCheckExpr (Var id) = do
+  typeCheckExpr (_ |^ Var id) = do
     t <- getVarType id
-    pure (t ** TC.Var (MkVar t (MkVarId $ unIdent id)))
+    pure (t ** TC.Var (mkVar t $ ^^id))
 
-  typeCheckExpr (BinOperation op lhs rhs) = do
+  typeCheckExpr (_ |^ BinOperation op lhs rhs) = do
     (lt ** lhs') <- typeCheckExpr lhs
     (rt ** rhs') <- typeCheckExpr rhs
     (retT ** op') <- getBinOp op lt rt
     pure (retT ** TC.BinOperation op' lhs' rhs')
 
-  typeCheckExpr (UnOperation op expr) = do
+  typeCheckExpr (_ |^ UnOperation op expr) = do
     (t ** expr') <- typeCheckExpr expr
     (retT ** op') <- getUnOp op t
     pure (retT ** TC.UnOperation op' expr')
 
-  typeCheckExpr (Call fun args) = do
+  typeCheckExpr (_ |^ Call fun args) = do
     (retT, paramTs) <- lift $ getFunTypes fun
     args <- typeCheckArgs paramTs args
     
-    let fun' = MkFun retT paramTs (MkFunId $ unIdent fun)
+    let fun' = mkFun retT paramTs (^^fun)
     pure (retT ** TC.Call fun' args)
 
     where
-      typeCheckArgs : (ts : List TC.LNGType) -> List Expr -> TypeCheckM' (DList TC.Expr ts)
+      typeCheckArgs : (ts : List TC.LNGType) -> List (^Expr) -> TypeCheckM' (DList TC.Expr ts)
       typeCheckArgs Nil Nil = pure Nil
       typeCheckArgs (t :: ts) (arg :: args) = do
         arg' <- typeCheckExprOfType t arg
@@ -132,7 +133,7 @@ mutual
 
 
   export
-  typeCheckExprOfType : (t : TC.LNGType) -> Expr -> TypeCheckM' (TC.Expr t)
+  typeCheckExprOfType : (t : TC.LNGType) -> ^LNG.Expr -> TypeCheckM' (TC.Expr t)
   typeCheckExprOfType t expr = do
     (t' ** expr') <- typeCheckExpr expr
     assertType t t' expr'

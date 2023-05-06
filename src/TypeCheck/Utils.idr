@@ -20,3 +20,8 @@ tc : LNG.LNGType -> TC.LNGType
 tc LNG.TInt   = TC.TInt
 tc LNG.TBool  = TC.TBool
 tc LNG.TVoid  = TC.TVoid
+
+export
+tc' : ^LNG.LNGType -> TC.LNGType
+tc' (_ |^ t) = tc t
+

@@ -2,17 +2,18 @@ module TypeCheck.Data.Context
 
 import Data.SortedMap
 
+import LNG.Data.Position
 import LNG.Parsed       as LNG
 import LNG.TypeChecked  as TC
 
 
 export
 FunCTX : Type
-FunCTX = SortedMap LNG.Ident (TC.LNGType, List TC.LNGType)
+FunCTX = SortedMap LNG.Ident (Pos, TC.LNGType, List TC.LNGType)
 
 export
 VarCTX : Type
-VarCTX = SortedMap LNG.Ident TC.LNGType
+VarCTX = SortedMap LNG.Ident (Pos, TC.LNGType)
 
 namespace FunCTX
 
@@ -21,16 +22,12 @@ namespace FunCTX
   empty = SortedMap.empty
 
   export
-  insert : LNG.Ident -> (TC.LNGType, List TC.LNGType) -> FunCTX -> FunCTX
-  insert = SortedMap.insert
-
-  export
-  declare : TC.LNGType -> List TC.LNGType -> LNG.Ident -> FunCTX -> FunCTX
-  declare t ts fun = FunCTX.insert fun (t, ts)
+  declare : TC.LNGType -> List TC.LNGType -> ^LNG.Ident -> FunCTX -> FunCTX
+  declare t ts (p |^ fun) = insert fun (p, t, ts)
 
   export
   lookup : LNG.Ident -> FunCTX -> Maybe (TC.LNGType, List TC.LNGType)
-  lookup = SortedMap.lookup
+  lookup = map snd .: SortedMap.lookup
 
 namespace VarCTX
 
@@ -39,14 +36,10 @@ namespace VarCTX
   empty = SortedMap.empty
 
   export
-  insert : LNG.Ident -> TC.LNGType -> VarCTX -> VarCTX
-  insert = SortedMap.insert
-
-  export
-  declare : TC.LNGType -> LNG.Ident -> VarCTX -> VarCTX
-  declare = flip SortedMap.insert
+  declare : TC.LNGType -> ^LNG.Ident -> VarCTX -> VarCTX
+  declare t (p |^ id) = SortedMap.insert id (p, t)
 
   export
   lookup : LNG.Ident -> VarCTX -> Maybe TC.LNGType
-  lookup = SortedMap.lookup
+  lookup = map snd .: SortedMap.lookup
 
