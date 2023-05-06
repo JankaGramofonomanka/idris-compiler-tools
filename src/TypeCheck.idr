@@ -17,7 +17,7 @@ typeCheck : LNG.Program -> Either Error TC.Program
 typeCheck = evalStateT initState . typeCheckProgram where
 
   builtIns : FunCTX
-  builtIns = foldr3 FunCTX.declare empty TypeCheck.builtIns
+  builtIns = foldr3 FunCTX.declareBuiltIn FunCTX.empty BuiltIns.TypeCheck.builtIns
   
   initState = MkTCST { funcs = builtIns }
 

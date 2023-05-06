@@ -7,6 +7,7 @@ import Data.SortedMap
 import Data.Zippable
 
 import Data.DList
+import LNG.Data.Position
 import LNG.Parsed                 as LNG
 import LNG.TypeChecked            as TC
 import TypeCheck.Data.Context
@@ -21,8 +22,8 @@ getVarType : ^LNG.Ident -> TypeCheckM' TC.LNGType
 getVarType id = do
   m <- get
   case lookup (^^id) m of
-    Just t => pure t
-    Nothing => throwError (NoSuchVariable $ ^^id)
+    Just (p, t) => pure t
+    Nothing => throwError (noSuchVariable id)
 
 
 
@@ -61,28 +62,24 @@ tcUnOp _ _ = Nothing
 
 
 
-getBinOp : ^BinOperator -> (lt, rt : TC.LNGType) -> TypeCheckM' (t ** TC.BinOperator lt rt t)
-getBinOp op lt rt = do
+getBinOp : (binOpExprPos : Pos) -> ^BinOperator -> (lt, rt : TC.LNGType) -> TypeCheckM' (t ** TC.BinOperator lt rt t)
+getBinOp p op lt rt = do
   let Just op' = tcBinOp (^^op) lt rt
-               -- TODO: make the error contain more info
-               | Nothing => throwError TypeError
+               | Nothing => throwError $ binOpTypeError p lt rt
   pure op'
 
-getUnOp : ^UnOperator -> (t : TC.LNGType) -> TypeCheckM' (t' ** TC.UnOperator t t')
-getUnOp op t = do
+getUnOp : (unOpExprPos : Pos) -> ^UnOperator -> (t : TC.LNGType) -> TypeCheckM' (t' ** TC.UnOperator t t')
+getUnOp p op t = do
   let Just op' = tcUnOp (^^op) t
-               -- TODO: make the error contain more info
-               | Nothing => throwError TypeError
+               | Nothing => throwError $ unOpTypeError p t
   pure op'
 
 
 
-assertType : (t, t' : TC.LNGType) -> TC.Expr t' -> TypeCheckM' (TC.Expr t)
-assertType t t' expr' = case decideEq t t' of
+assertType : Pos -> (t, t' : TC.LNGType) -> TC.Expr t' -> TypeCheckM' (TC.Expr t)
+assertType p t t' expr' = case decideEq t t' of
   Just prf => pure (rewrite prf in expr')
-
-  -- TODO: make the error contain more info
-  Nothing => throwError TypeError
+  Nothing => throwError $ typeError p t t'
 
 
 
@@ -102,15 +99,15 @@ mutual
     t <- getVarType id
     pure (t ** TC.Var (mkVar t $ ^^id))
 
-  typeCheckExpr (_ |^ BinOperation op lhs rhs) = do
+  typeCheckExpr (p |^ BinOperation op lhs rhs) = do
     (lt ** lhs') <- typeCheckExpr lhs
     (rt ** rhs') <- typeCheckExpr rhs
-    (retT ** op') <- getBinOp op lt rt
+    (retT ** op') <- getBinOp p op lt rt
     pure (retT ** TC.BinOperation op' lhs' rhs')
 
-  typeCheckExpr (_ |^ UnOperation op expr) = do
+  typeCheckExpr (p |^ UnOperation op expr) = do
     (t ** expr') <- typeCheckExpr expr
-    (retT ** op') <- getUnOp op t
+    (retT ** op') <- getUnOp p op t
     pure (retT ** TC.UnOperation op' expr')
 
   typeCheckExpr (_ |^ Call fun args) = do
@@ -121,20 +118,28 @@ mutual
     pure (retT ** TC.Call fun' args)
 
     where
-      typeCheckArgs : (ts : List TC.LNGType) -> List (^Expr) -> TypeCheckM' (DList TC.Expr ts)
-      typeCheckArgs Nil Nil = pure Nil
-      typeCheckArgs (t :: ts) (arg :: args) = do
-        arg' <- typeCheckExprOfType t arg
-        args' <- typeCheckArgs ts args
-        pure (arg' :: args')
-      
-      -- TODO: make the error contain more info
-      typeCheckArgs _ _ = throwError NumParamsMismatch
+
+      typeCheckArgs  : (ts : List TC.LNGType) -> PosList Expr -> TypeCheckM' (DList TC.Expr ts)
+      typeCheckArgs ts args = typeCheckArgs' ts args where
+
+        expected, actual : Nat
+        expected = length ts
+        actual = length args
+
+        typeCheckArgs' : (ts : List TC.LNGType) -> PosList Expr -> TypeCheckM' (DList TC.Expr ts)
+        typeCheckArgs' Nil (Nil _) = pure Nil
+        typeCheckArgs' (t :: ts) (arg :: args) = do
+          arg' <- typeCheckExprOfType t arg
+          args' <- typeCheckArgs' ts args
+          pure (arg' :: args')
+        
+        typeCheckArgs' Nil (arg :: _) = throwError $ numParamsMismatch (pos arg) expected actual
+        typeCheckArgs' (t :: ts) (Nil p) = throwError $ numParamsMismatch p expected actual
 
 
   export
   typeCheckExprOfType : (t : TC.LNGType) -> ^LNG.Expr -> TypeCheckM' (TC.Expr t)
   typeCheckExprOfType t expr = do
     (t' ** expr') <- typeCheckExpr expr
-    assertType t t' expr'
+    assertType (pos expr) t t' expr'
 

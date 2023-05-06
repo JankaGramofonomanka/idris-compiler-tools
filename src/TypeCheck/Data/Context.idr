@@ -6,10 +6,12 @@ import LNG.Data.Position
 import LNG.Parsed       as LNG
 import LNG.TypeChecked  as TC
 
+public export
+data DefPos = BuiltIn | DefinedAt Pos
 
 export
 FunCTX : Type
-FunCTX = SortedMap LNG.Ident (Pos, TC.LNGType, List TC.LNGType)
+FunCTX = SortedMap LNG.Ident (DefPos, TC.LNGType, List TC.LNGType)
 
 export
 VarCTX : Type
@@ -23,11 +25,15 @@ namespace FunCTX
 
   export
   declare : TC.LNGType -> List TC.LNGType -> ^LNG.Ident -> FunCTX -> FunCTX
-  declare t ts (p |^ fun) = insert fun (p, t, ts)
+  declare t ts (p |^ fun) = insert fun (DefinedAt p, t, ts)
 
   export
-  lookup : LNG.Ident -> FunCTX -> Maybe (TC.LNGType, List TC.LNGType)
-  lookup = map snd .: SortedMap.lookup
+  declareBuiltIn : TC.LNGType -> List TC.LNGType -> LNG.Ident -> FunCTX -> FunCTX
+  declareBuiltIn t ts fun = insert fun (BuiltIn, t, ts)
+
+  export
+  lookup : LNG.Ident -> FunCTX -> Maybe (DefPos, TC.LNGType, List TC.LNGType)
+  lookup = SortedMap.lookup
 
 namespace VarCTX
 
@@ -40,6 +46,6 @@ namespace VarCTX
   declare t (p |^ id) = SortedMap.insert id (p, t)
 
   export
-  lookup : LNG.Ident -> VarCTX -> Maybe TC.LNGType
-  lookup = map snd .: SortedMap.lookup
+  lookup : LNG.Ident -> VarCTX -> Maybe (Pos, TC.LNGType)
+  lookup = SortedMap.lookup
 

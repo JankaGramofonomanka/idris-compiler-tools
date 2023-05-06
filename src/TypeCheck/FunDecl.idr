@@ -8,6 +8,7 @@ import Data.SortedMap
 
 import Data.DList
 import Data.The
+import LNG.Data.Position
 import LNG.Parsed as LNG
 import LNG.TypeChecked as TC
 import TypeCheck.Data.Context
@@ -32,7 +33,7 @@ typeCheckFunDecl (_ |^ funDecl) = do
 
   (_, (bk ** body)) <- typeCheckInstr retType initCtx funDecl.body
   let Returning retType = bk
-                        | Simple => throwError MissingReturnInstr
+                        | Simple => throwError $ missingReturnInstr (pos funDecl.body)
 
   let decl = TC.MkFunDecl { theId       = MkThe funId
                           , theRetType  = MkThe retType

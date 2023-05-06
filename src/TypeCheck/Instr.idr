@@ -5,6 +5,7 @@ import Control.Monad.Either
 
 import Data.SortedMap
 
+import LNG.Data.Position
 import LNG.Parsed                   as LNG
 import LNG.TypeChecked              as TC
 import TypeCheck.Data.Context
@@ -29,11 +30,11 @@ typeCheckInstr t ctx (_ |^ Block instrs) = do
   
   where
     
-    typeCheck' : (t : TC.LNGType) -> VarCTX -> List (^Instr) -> TypeCheckM (VarCTX, (kind : InstrKind t ** TC.Instrs kind))
+    typeCheck' : (t : TC.LNGType) -> VarCTX -> PosList Instr -> TypeCheckM (VarCTX, (kind : InstrKind t ** TC.Instrs kind))
     
-    typeCheck' t ctx [] = pure (ctx, (Simple ** []))
+    typeCheck' t ctx (Nil p) = pure (ctx, (Simple ** []))
     
-    typeCheck' t ctx [instr] = do
+    typeCheck' t ctx (instr :: Nil p) = do
       (ctx', (k ** instr')) <- typeCheckInstr t ctx instr
       case k of
         Simple => pure (ctx', (Simple ** [instr']))
@@ -48,11 +49,11 @@ typeCheckInstr t ctx (_ |^ Block instrs) = do
           (ctx'', (k'' ** instrs')) <- typeCheck' t ctx' instrs
           pure (ctx'', (k'' ** (instr' :: instrs')))
         
-        Returning t => throwError ReturnPrecedingInstructions
+        Returning t => throwError $ returnPrecedingInstructions (headOrNilpos instrs)
 
 typeCheckInstr t ctx (_ |^ Declare ty id expr) = do
   case VarCTX.lookup (^^id) ctx of
-    Just t' => throwError (VariableAlreadyDeclared $ ^^id)
+    Just (p, t') => throwError (variableAlreadyDeclared id p)
 
     Nothing => do
       expr' <- typeCheckExprOfType' (tc' ty) ctx expr
@@ -61,11 +62,11 @@ typeCheckInstr t ctx (_ |^ Declare ty id expr) = do
 
 typeCheckInstr t ctx (_ |^ Assign id expr) = do
   case VarCTX.lookup (^^id) ctx of
-    Just t' => do
+    Just (p, t') => do
       expr' <- typeCheckExprOfType' t' ctx expr
       pure (ctx, (Simple ** TC.Assign (mkVar t' $ ^^id) expr'))
 
-    Nothing => throwError (NoSuchVariable $ ^^id)
+    Nothing => throwError (noSuchVariable id)
 
 typeCheckInstr t ctx (_ |^ If cond thn) = do
   cond' <- typeCheckExprOfType' TBool ctx cond
@@ -87,9 +88,8 @@ typeCheckInstr t ctx (_ |^ Return expr) = do
   expr' <- typeCheckExprOfType' t ctx expr
   pure (ctx, (Returning t ** TC.Return expr'))
 
-typeCheckInstr t ctx (_ |^ RetVoid) = case t of
+typeCheckInstr t ctx (p |^ RetVoid) = case t of
   TVoid => pure (ctx, (TC.Returning TC.TVoid ** TC.RetVoid))
-  -- TODO: make the error contain more info
-  _ => throwError TypeError
+  t => throwError $ typeError p t TVoid
 
 

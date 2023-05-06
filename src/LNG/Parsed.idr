@@ -1,40 +1,7 @@
 module LNG.Parsed
 
-public export
-record Position where
-  constructor MkPosition
-  line : Int
-  column : Int
+import LNG.Data.Position
   
-
-public export
-data Pos
-
-  = Between Position Position
-  
-  -- used, when the AST tree is artificially constructed in the code, eg. in tests.
-  | Fake Int
-
-prefix 10 ^
-infix 1 |^
-public export
-data (^) : Type -> Type where
-  (|^) : Pos -> a -> ^ a
-
-export
-pos : ^a -> Pos
-pos (p |^ x) = p
-
-export
-unPos : ^a -> a
-unPos (p |^ x) = x
-
-prefix 10 ^^
-export
-(^^) : ^a -> a
-(^^) = unPos
-
-
 public export
 data LNGType = TInt | TBool | TVoid
 
@@ -79,11 +46,11 @@ data Expr
   | Var (^Ident)
   | BinOperation (^BinOperator) (^Expr) (^Expr)
   | UnOperation (^UnOperator) (^Expr)
-  | Call (^Ident) (List $ ^Expr)
+  | Call (^Ident) (PosList Expr)
 
 public export
 data Instr
-  = Block (List $ ^Instr)
+  = Block (PosList Instr)
   | Declare (^LNGType) (^Ident) (^Expr)
   | Assign (^Ident) (^Expr)
   | If (^Expr) (^Instr)
@@ -103,6 +70,6 @@ record FunDecl where
 public export
 record Program where
   constructor MkProgram
-  funcs : List (^FunDecl)
+  funcs : PosList FunDecl
 
 
