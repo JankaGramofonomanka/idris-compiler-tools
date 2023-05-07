@@ -34,6 +34,7 @@ implementation Typed (Phi' lbl ins) where
   typeOf (MkPhi' t _) = MkThe t
 
 toPhi : Phi' lbl ins t -> PhiExpr ins t
+toPhi = ?htoPhi
 
 
 ValueOrPhi : BlockLabel -> Inputs -> LNGType -> Type

@@ -22,7 +22,6 @@ import Utils
 public export
 record CompState where
   constructor MkCompST
-  -- TODO: move this type to a separate module, as with `VarCTX`
   funcs : FunCTX
   regCount : Int
   lblCount : Int

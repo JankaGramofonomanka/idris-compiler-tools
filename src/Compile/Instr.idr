@@ -257,10 +257,6 @@ mutual
         final = rewrite collect_concat labelPost branchOuts outsF
                 in LBranch condG thenG
     
-    {-
-    TODO: change the signature of `ifology` to return `NonEmpty outsT` and 
-    `NonEmpty outsF`
-    -}
     pure $ CRUDO (branchOuts ++ outsF ** (final, plusplus_nonempty prfF))
     
 

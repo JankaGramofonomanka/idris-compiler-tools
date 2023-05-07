@@ -204,7 +204,6 @@ funcompare (MkFun t ts (MkFunId id)) (MkFun t' ts' (MkFunId id')) = case compare
     
   
 
--- TODO: define Fun' : (LNGType, List LNGType) -> Type
 public export
 Fun' : (LNGType, List LNGType) -> Type
 Fun' (t, ts) = Fun t ts
