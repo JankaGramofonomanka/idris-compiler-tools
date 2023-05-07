@@ -69,6 +69,18 @@ namespace VarCTX
   export
   toList : VarCTX -> List (DSum Variable (LLValue . GetLLType))
   toList = DMap.toList
+
+  export
+  intersection : VarCTX -> VarCTX -> VarCTX
+  intersection = DMap.intersection
+
+  export
+  keys : VarCTX -> List (t ** Variable t)
+  keys ctx = map toDPair (keys ctx) where
+    
+    toDPair : Some Variable -> (t ** Variable t)
+    toDPair (MkSome var) = case typeOf {f = Variable} var of
+      MkThe t => (t ** var)
   
 namespace VarCTX'
 

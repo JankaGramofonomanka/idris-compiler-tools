@@ -177,6 +177,13 @@ newRegForAll vars = foldlM addNewReg DMap.empty vars
 
 export
 commonKeys : DList (:~: VarCTX) lbls -> List (t ** Variable t)
-commonKeys l = ?hck
+commonKeys ctxs = VarCTX.keys (intersection' ctxs) where
+
+  intersection' : DList (:~: VarCTX) lbls' -> VarCTX
+  intersection' Nil = VarCTX.empty
+  intersection' (ctx :: ctxs) = VarCTX.intersection (detach ctx) (intersection' ctxs)
+
+  
+
 
 
