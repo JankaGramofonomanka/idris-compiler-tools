@@ -15,10 +15,16 @@ import TypeCheck.Utils
 
 import Utils
 
-mkFunMap : PosList LNG.FunDecl -> FunCTX
-mkFunMap l = foldr {t = PosList} (uncurry3 FunCTX.declare . idAndTypes) FunCTX.empty l where
-  idAndTypes : LNG.FunDecl -> (TC.LNGType, List TC.LNGType, ^Ident)
-  idAndTypes decl = (tc' decl.retType, map (tc' . fst) decl.params, decl.funId)
+mkFunMap : PosList LNG.FunDecl -> TypeCheckM FunCTX
+mkFunMap l = posFoldlM declare FunCTX.empty l where
+  
+  declare : FunCTX -> ^FunDecl -> TypeCheckM FunCTX
+  declare ctx (p |^ decl) = do
+  let Nothing = FunCTX.lookup (^^decl.funId) ctx
+              | Just (p, _, _) => throwError $ fuctionAlreadyDefined decl.funId p
+  
+  pure (FunCTX.declare (tc' decl.retType) (map (tc' . fst) decl.params) decl.funId ctx)
+
 
 typeCheckFunDecl' : ^LNG.FunDecl -> TypeCheckM (^(t ** ts ** fun ** TC.FunDecl t ts fun))
 typeCheckFunDecl' decl = do
@@ -47,7 +53,7 @@ export
 typeCheckProgram : LNG.Program -> TypeCheckM TC.Program
 typeCheckProgram prog = do
 
-  let funMap = mkFunMap prog.funcs
+  funMap <- mkFunMap prog.funcs
 
   funcs' <- posTraverse typeCheckFunDecl' prog.funcs
 

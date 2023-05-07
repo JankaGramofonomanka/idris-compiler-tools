@@ -62,6 +62,16 @@ implementation Traversable PosList where
   traverse g ((p |^ x) :: xs) = (::) <$> ((p |^) <$> g x) <*> traverse g xs
 
 export
+posFoldr : (^a -> acc -> acc) -> acc -> PosList a -> acc
+posFoldr f acc (Nil p) = acc
+posFoldr f acc (x :: xs) = f x (posFoldr f acc xs)
+
+export
+posFoldlM : Monad m => (acc -> ^a -> m acc) -> acc -> PosList a -> m acc
+posFoldlM f acc (Nil p) = pure acc
+posFoldlM f acc (x :: xs) = posFoldlM f acc xs >>= flip f x
+
+export
 posTraverse : Applicative f => (^a -> f (^b)) -> PosList a -> f (PosList b)
 posTraverse g (Nil p) = pure (Nil p)
 posTraverse g (x :: xs) = (::) <$> g x <*> posTraverse g xs
