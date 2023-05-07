@@ -26,15 +26,18 @@ record Segregated (lbl : BlockLabel) (ins : Inputs) where
   phis : List (PhiInstr ins)
 
 
--- TODO: rewrite `PhiExpr` so that it equals to this type or implement `toPhi`
+-- TODO: Consider rewriting `PhiExpr` so that it equals to this type
 data Phi' : BlockLabel -> Inputs -> LLType -> Type where
   MkPhi' : (t : LLType) -> DList (:~: LLValue t) (ins ~~> lbl) -> Phi' lbl (MkInputs ins) t
 
 implementation Typed (Phi' lbl ins) where
   typeOf (MkPhi' t _) = MkThe t
 
-toPhi : Phi' lbl ins t -> PhiExpr ins t
-toPhi = ?htoPhi
+toPhi : {ins : Inputs} -> Phi' lbl ins t -> PhiExpr ins t
+toPhi {ins = MkInputs Nil} (MkPhi' t Nil) = Phi t Nil
+toPhi {ins = MkInputs (lbl :: lbls)} (MkPhi' t (val :: vals)) = let
+    Phi t pairs = toPhi {ins = MkInputs lbls} (MkPhi' t vals)
+  in Phi t ((lbl, detach val) :: pairs)
 
 
 ValueOrPhi : BlockLabel -> Inputs -> LNGType -> Type
@@ -120,8 +123,8 @@ addCTX ctx {ins} (SG' ctx')
 
 
 
-finalize : Segregated' lbl ins -> CompM (Segregated lbl ins)
-finalize {lbl} (SG' ctx) = foldlM handleItem (SG (attach lbl VarCTX.empty) Nil) (toList ctx) where
+finalize : {ins : Inputs} -> Segregated' lbl ins -> CompM (Segregated lbl ins)
+finalize {ins, lbl} (SG' ctx) = foldlM handleItem (SG (attach lbl VarCTX.empty) Nil) (toList ctx) where
   
   handleItem : Segregated lbl ins
    -> DSum Variable (ValueOrPhi lbl ins)
