@@ -46,11 +46,11 @@ data Expr
   | Var (^Ident)
   | BinOperation (^BinOperator) (^Expr) (^Expr)
   | UnOperation (^UnOperator) (^Expr)
-  | Call (^Ident) (PosList Expr)
+  | Call (^Ident) (^(List (^Expr)))
 
 public export
 data Instr
-  = Block (PosList Instr)
+  = Block (^(List (^Instr)))
   | Declare (^LNGType) (^Ident) (^Expr)
   | Assign (^Ident) (^Expr)
   | If (^Expr) (^Instr)
@@ -70,6 +70,6 @@ record FunDecl where
 public export
 record Program where
   constructor MkProgram
-  funcs : PosList FunDecl
+  funcs : ^(List (^FunDecl))
 
 

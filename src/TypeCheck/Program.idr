@@ -15,8 +15,8 @@ import TypeCheck.Utils
 
 import Utils
 
-mkFunMap : PosList LNG.FunDecl -> TypeCheckM FunCTX
-mkFunMap l = posFoldlM declare FunCTX.empty l where
+mkFunMap : List (^LNG.FunDecl) -> TypeCheckM FunCTX
+mkFunMap l = foldlM declare FunCTX.empty l where
   
   declare : FunCTX -> ^FunDecl -> TypeCheckM FunCTX
   declare ctx (p |^ decl) = do
@@ -31,34 +31,34 @@ typeCheckFunDecl' decl = do
   decl' <- typeCheckFunDecl decl
   pure (pos decl |^ decl')
 
-findMain : PosList (t ** ts ** fun ** FunDecl t ts fun)
+findMain : (funcsPos : Pos)
+        -> (funcs : List (^(t ** ts ** fun ** FunDecl t ts fun)))
         -> TypeCheckM ( FunDecl TVoid [] (MkFunId "main")
                       , List (t ** ts ** fun ** FunDecl t ts fun)
                       )
-findMain (Nil p) = throwError $ noMainFunction p
-findMain ((funPos |^ (t ** ts ** fun ** decl)) :: funcs) = case fun of
+findMain p Nil = throwError $ noMainFunction p
+findMain p ((funPos |^ (t ** ts ** fun ** decl)) :: funcs) = case fun of
   MkFunId "main" => case t of
   
     TVoid => case ts of
-      [] => pure {f = TypeCheckM} (decl, unPosList funcs)
+      [] => pure {f = TypeCheckM} (decl, map (^^) funcs)
       _ => throwError $ numParamsMismatch funPos 0 (length ts)
   
     _ => throwError $ typeError funPos TVoid t
   
   _ => do
-    (main, funcs') <- findMain funcs
+    (main, funcs') <- findMain p funcs
     pure (main, (t ** ts ** fun ** decl) :: funcs')
 
 export
 typeCheckProgram : LNG.Program -> TypeCheckM TC.Program
 typeCheckProgram prog = do
 
-  funMap <- mkFunMap prog.funcs
+  funMap <- mkFunMap (^^prog.funcs)
 
-  funcs' <- posTraverse typeCheckFunDecl' prog.funcs
+  funcs' <- traverse typeCheckFunDecl' (^^prog.funcs)
 
-  (main, funcs'') <- findMain funcs'
+  (main, funcs'') <- findMain (pos prog.funcs) funcs'
 
   pure $ TC.MkProgram { main, funcs = funcs'' }
-
 

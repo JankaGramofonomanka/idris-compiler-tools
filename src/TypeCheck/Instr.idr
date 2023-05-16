@@ -25,16 +25,19 @@ export
 typeCheckInstr : (t : TC.LNGType) -> VarCTX -> ^Instr -> TypeCheckM (VarCTX, (kind : InstrKind t ** TC.Instr kind))
 
 typeCheckInstr t ctx (_ |^ Block instrs) = do
-  (ctx', (k ** instrs')) <- typeCheck' t ctx instrs
+  (ctx', (k ** instrs')) <- typeCheck' t ctx (^^instrs)
   pure (ctx', (k ** TC.Block instrs'))
   
   where
     
-    typeCheck' : (t : TC.LNGType) -> VarCTX -> PosList Instr -> TypeCheckM (VarCTX, (kind : InstrKind t ** TC.Instrs kind))
+    typeCheck' : (t : TC.LNGType)
+              -> VarCTX
+              -> List (^Instr)
+              -> TypeCheckM (VarCTX, (kind : InstrKind t ** TC.Instrs kind))
     
-    typeCheck' t ctx (Nil p) = pure (ctx, (Simple ** []))
+    typeCheck' t ctx Nil = pure (ctx, (Simple ** []))
     
-    typeCheck' t ctx (instr :: Nil p) = do
+    typeCheck' t ctx (instr :: Nil) = do
       (ctx', (k ** instr')) <- typeCheckInstr t ctx instr
       case k of
         Simple => pure (ctx', (Simple ** [instr']))
@@ -42,14 +45,14 @@ typeCheckInstr t ctx (_ |^ Block instrs) = do
         -- idris knows the `t` here is the same
         Returning t => pure (ctx', (Returning t ** TC.TermSingleton instr'))
     
-    typeCheck' t ctx (instr :: instrs) = do
-      (ctx', (k' ** instr')) <- typeCheckInstr t ctx instr
+    typeCheck' t ctx (instr1 :: instr2 :: instrs) = do
+      (ctx', (k' ** instr1')) <- typeCheckInstr t ctx instr1
       case k' of
         Simple => do
-          (ctx'', (k'' ** instrs')) <- typeCheck' t ctx' instrs
-          pure (ctx'', (k'' ** (instr' :: instrs')))
+          (ctx'', (k'' ** instrs')) <- typeCheck' t ctx' (instr2 :: instrs)
+          pure (ctx'', (k'' ** (instr1' :: instrs')))
         
-        Returning t => throwError $ returnPrecedingInstructions (headOrNilpos instrs)
+        Returning t => throwError $ returnPrecedingInstructions (pos instr2)
 
 typeCheckInstr t ctx (_ |^ Declare ty id expr) = do
   case VarCTX.lookup (^^id) ctx of

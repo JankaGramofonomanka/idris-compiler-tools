@@ -119,22 +119,22 @@ mutual
 
     where
 
-      typeCheckArgs  : (ts : List TC.LNGType) -> PosList Expr -> TypeCheckM' (DList TC.Expr ts)
-      typeCheckArgs ts args = typeCheckArgs' ts args where
+      typeCheckArgs  : (ts : List TC.LNGType) -> ^(List (^Expr)) -> TypeCheckM' (DList TC.Expr ts)
+      typeCheckArgs ts (argsPos |^ args) = typeCheckArgs' ts args where
 
         expected, actual : Nat
         expected = length ts
         actual = length args
 
-        typeCheckArgs' : (ts : List TC.LNGType) -> PosList Expr -> TypeCheckM' (DList TC.Expr ts)
-        typeCheckArgs' Nil (Nil _) = pure Nil
+        typeCheckArgs' : (ts : List TC.LNGType) -> List (^Expr) -> TypeCheckM' (DList TC.Expr ts)
+        typeCheckArgs' Nil Nil = pure Nil
         typeCheckArgs' (t :: ts) (arg :: args) = do
           arg' <- typeCheckExprOfType t arg
           args' <- typeCheckArgs' ts args
           pure (arg' :: args')
         
         typeCheckArgs' Nil (arg :: _) = throwError $ numParamsMismatch (pos arg) expected actual
-        typeCheckArgs' (t :: ts) (Nil p) = throwError $ numParamsMismatch p expected actual
+        typeCheckArgs' (t :: ts) Nil = throwError $ numParamsMismatch argsPos expected actual
 
 
   export

@@ -19,15 +19,18 @@ addFunDecl (p |^ decl)
   $ { funcs $= insert (^^decl.funId) (funInterpreter decl) }
     
 
-makeFunMap : Monad m => PosList FunDecl -> InterpreterT m ()
-makeFunMap (Nil p) = pure ()
+makeFunMap : Monad m => List (^FunDecl) -> InterpreterT m ()
+makeFunMap Nil = pure ()
 makeFunMap (decl :: decls) = addFunDecl decl >> makeFunMap decls
 
-findMainAndMakeFunMap : Monad m => PosList FunDecl -> InterpreterT m FunDecl
-findMainAndMakeFunMap (Nil p) = throwError $ noMainFunction p
-findMainAndMakeFunMap (decl :: decls) = case (^^decl).funId of
-  (_ |^ MkId "main") => makeFunMap (decl :: decls) >> pure (^^decl)
-  _ => addFunDecl decl >> findMainAndMakeFunMap decls
+findMainAndMakeFunMap : Monad m => ^(List $ ^FunDecl) -> InterpreterT m FunDecl
+findMainAndMakeFunMap (p |^ funcs) = findMainAndMakeFunMap' p funcs where
+
+  findMainAndMakeFunMap' : Pos -> List (^FunDecl) -> InterpreterT m FunDecl
+  findMainAndMakeFunMap' p Nil = throwError $ noMainFunction p
+  findMainAndMakeFunMap' p (decl :: decls) = case (^^decl).funId of
+    (_ |^ MkId "main") => makeFunMap (decl :: decls) >> pure (^^decl)
+    _ => addFunDecl decl >> findMainAndMakeFunMap' p decls
   
 
 

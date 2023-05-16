@@ -99,25 +99,29 @@ mutual
               => (t : LNGType)
               -> (ts : List LNGType)
               -> Fun t ts (InterpreterT m)
-              -> PosList Expr
+              -> ^(List $ ^Expr)
               -> InterpreterT m (Value t)
   interpretFun t ts fun args = let
     
       expected, actual : Nat
       expected = length ts
-      actual = length args
+      actual = length (^^args)
 
-      interpretArgs : (ts : List LNGType) -> PosList Expr -> InterpreterT m (DList Value ts)
-      interpretArgs Nil (Nil p) = pure Nil
+      argsPos : Pos
+      argsPos = pos args
+
+      interpretArgs : (ts : List LNGType) -> List (^Expr) -> InterpreterT m (DList Value ts)
+      interpretArgs Nil Nil = pure Nil
       interpretArgs (t :: ts) (arg :: args) = do
         arg' <- interpretExprOfType t arg
         args' <- interpretArgs ts args
         pure (arg' :: args')
       
-      interpretArgs _ args = throwError $ numParamsMismatch (headOrNilpos args) expected actual
+      interpretArgs Nil (arg :: args) = throwError $ numParamsMismatch (pos arg) expected actual
+      interpretArgs (t :: ts) Nil = throwError $ numParamsMismatch argsPos expected actual
 
     in do
-      args' <- interpretArgs ts args
+      args' <- interpretArgs ts (^^args)
       -- TODO: take builtins into account
       st <- gets { ctx := empty }
       lift $ evalStateT st (fun args')

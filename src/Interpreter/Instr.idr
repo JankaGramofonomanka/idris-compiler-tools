@@ -14,11 +14,11 @@ import LNG.Parsed
 export
 interpretInstr : Monad m => ^Instr -> InterpreterT m ()
 
-interpretInstr (p |^ Block instrs) = interpret instrs where
+interpretInstr (p |^ Block instrs) = interpret (^^instrs) where
   
-  interpret : PosList Instr -> InterpreterT m ()
-  interpret (Nil p) = throwError $ missingReturnInstr p
-  interpret (instr :: Nil p) = interpretInstr instr
+  interpret : List (^Instr) -> InterpreterT m ()
+  interpret Nil = throwError $ missingReturnInstr (pos instrs)
+  interpret (instr :: Nil) = interpretInstr instr
   interpret (instr :: instrs) = do
     interpretInstr instr
     interpret instrs
@@ -75,11 +75,11 @@ interpretInstrRet t (p |^ Assign var expr)      = throwError $ missingReturnInst
 interpretInstrRet t (p |^ If cond thn)          = throwError $ missingReturnInstr p
 interpretInstrRet t (p |^ While cond body)      = throwError $ missingReturnInstr p
 
-interpretInstrRet t (p |^ Block instrs) = interpret instrs where
+interpretInstrRet t (p |^ Block instrs) = interpret (^^instrs) where
   
-  interpret : PosList Instr -> InterpreterT m (Value t)
-  interpret (Nil p) = throwError $ missingReturnInstr p
-  interpret (instr :: Nil p) = interpretInstrRet t instr
+  interpret : List (^Instr) -> InterpreterT m (Value t)
+  interpret Nil = throwError $ missingReturnInstr (pos instrs)
+  interpret (instr :: Nil) = interpretInstrRet t instr
   interpret (instr :: instrs) = do
     interpretInstr instr
     interpret instrs
