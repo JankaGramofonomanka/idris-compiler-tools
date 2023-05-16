@@ -26,10 +26,10 @@ typeCheckFunDecl : ^LNG.FunDecl -> TypeCheckM (t ** ts ** fun ** TC.FunDecl t ts
 typeCheckFunDecl (_ |^ funDecl) = do
   
   let retType = tc' funDecl.retType
-  let (paramTypes ** paramIds) = dunzipWith mkVar' funDecl.params
+  let (paramTypes ** paramIds) = dunzipWith mkVar' (^^funDecl.params)
   let funId = mkFunId (^^funDecl.funId)
 
-  let initCtx = foldr (uncurry $ VarCTX.declare . tc') empty funDecl.params
+  let initCtx = foldr (uncurry $ VarCTX.declare . tc') empty (^^funDecl.params)
 
   (_, (bk ** body)) <- typeCheckInstr retType initCtx funDecl.body
   let Returning retType = bk

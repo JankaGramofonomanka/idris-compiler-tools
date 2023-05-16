@@ -23,7 +23,7 @@ mkFunMap l = posFoldlM declare FunCTX.empty l where
   let Nothing = FunCTX.lookup (^^decl.funId) ctx
               | Just (p, _, _) => throwError $ fuctionAlreadyDefined decl.funId p
   
-  pure (FunCTX.declare (tc' decl.retType) (map (tc' . fst) decl.params) decl.funId ctx)
+  pure (FunCTX.declare (tc' decl.retType) (map (tc' . fst) $ ^^decl.params) decl.funId ctx)
 
 
 typeCheckFunDecl' : ^LNG.FunDecl -> TypeCheckM (^(t ** ts ** fun ** TC.FunDecl t ts fun))

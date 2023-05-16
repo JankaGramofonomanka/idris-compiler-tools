@@ -64,7 +64,7 @@ record FunDecl where
   constructor MkFunDecl
   funId : (^Ident)
   retType : (^LNGType)
-  params : List (^LNGType, ^Ident)
+  params : ^(List (^LNGType, ^Ident))
   body : (^Instr)
 
 public export
