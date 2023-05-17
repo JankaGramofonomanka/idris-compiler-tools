@@ -33,3 +33,6 @@ export
 (^^) : ^a -> a
 (^^) = unPos
 
+export
+implementation Functor (^) where
+  map f (p |^ x) = (p |^ f x)
