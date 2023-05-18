@@ -4,6 +4,15 @@ import Control.Monad.State
 
 import Parse.Data.Parser
 import Parse.Data.Position
+import Parse.Data.Tokenize
+
+export
+item : Tokenize str tok => Parser str tok
+item = do
+  s <- get
+  (tok, s') <- lift $ tokenize s
+  put s'
+  pure tok
 
 namespace Pos
   export
@@ -30,16 +39,7 @@ namespace Pos
 
     export
     many : PosParser token a -> PosParser token (List $ ^a)
-    many p = nil <|> some p
-
-  export
-  item : SimplePosParser Char
-  item = do
-    (p, s) <- get
-    case s of
-      Nil => empty
-      '\n'  :: xs => put ({ line $= (+1), column := 0     } p, xs) >> pure (Between p p |^ '\n')
-      x     :: xs => put ({               column $= (+1)  } p, xs) >> pure (Between p p |^ x)
+    many p = some p <|> nil
 
   export
   suchThat : PosParser token a -> (a -> Bool) -> PosParser token a
@@ -66,7 +66,27 @@ namespace Pos
   (<^$>) : (^a -> b) -> PosParser token a -> PosParser token b
   (<^$>) = inheritPos
 
+  export
+  separated : (sep : Parser' token a) -> (item : PosParser token b) -> PosParser token (List (^b))
+  separated sep item = nil <|> (:: Nil) <^$> item <|> do
+    x <- item
+    _ <- sep
+    xs <- separated sep item
+    pure (fromTo (pos x) (pos xs) |^ x :: ^^xs)
+
+
 namespace SimplePos
+  {-
+  export
+  item : SimplePosParser Char
+  item = do
+    (p, s) <- get
+    case s of
+      Nil => empty
+      '\n'  :: xs => put ({ line $= (+1), column := 0     } p, xs) >> pure (Between p p |^ '\n')
+      x     :: xs => put ({               column $= (+1)  } p, xs) >> pure (Between p p |^ x)
+  -}
+  
   export
   sat : (Char -> Bool) -> SimplePosParser Char
   sat isOk = do
@@ -195,15 +215,7 @@ namespace SimplePos
   floor = theChar '_'
 
   export
-  separated : (sep : SimpleParser a) -> (item : SimplePosParser b) -> SimplePosParser (List (^b))
-  separated sep item = nil <|> (:: Nil) <^$> item <|> do
-    x <- item
-    _ <- ws *> sep
-    xs <- separated sep item
-    pure (fromTo (pos x) (pos xs) |^ x :: ^^xs)
-
-  export
   commaSeparated : (item : SimplePosParser b) -> SimplePosParser (List (^b))
-  commaSeparated = separated comma
+  commaSeparated = separated (ws *> comma *> ws)
 
 

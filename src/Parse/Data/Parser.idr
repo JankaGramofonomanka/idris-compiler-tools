@@ -6,15 +6,19 @@ import Parse.Data.Position
 
 public export
 Parser : Type -> Type -> Type
-Parser token a = StateT (Position, List token) List a
+Parser str a = StateT str List a
+
+public export
+Parser' : Type -> Type -> Type
+Parser' token a = StateT (Position, List token) List a
 
 public export
 SimpleParser : Type -> Type
-SimpleParser a = Parser Char a
+SimpleParser a = Parser' Char a
 
 public export
 PosParser : Type -> Type -> Type
-PosParser token a = Parser token (^a)
+PosParser token a = Parser' token (^a)
 
 public export
 SimplePosParser : Type -> Type
@@ -36,17 +40,27 @@ fromTo : Pos -> Pos -> Pos
 fromTo p1 p2 = Between (beginning p1) (end p2)
 
 export
-currentPosition : Parser token Position
+currentPosition : Parser' token Position
 currentPosition = gets fst
 
-
-
 export
-parse : Parser token a -> List token -> Maybe a
-parse parser tokens = case evalStateT (MkPosition { line = 0, column = 0 }, tokens) parser of
+parse : Parser str a -> str -> Maybe a
+parse parser s = case evalStateT s parser of
   Nil => Nothing
   (x :: _) => Just x
 
 export
+parse' : Parser' token a -> List token -> Maybe a
+parse' parser tokens = parse parser (MkPosition { line = 0, column = 0 }, tokens)
+
+export
 simpleParse : SimpleParser a -> String -> Maybe a
-simpleParse parser s = parse parser (unpack s)
+simpleParse parser s = parse' parser (unpack s)
+
+export
+posParse : PosParser token a -> List token -> Maybe a
+posParse parser tokens = (^^) <$> parse parser (MkPosition { line = 0, column = 0}, tokens)
+
+export
+simplePosParse : SimplePosParser a -> String -> Maybe a
+simplePosParse parser s = posParse parser (unpack s)
