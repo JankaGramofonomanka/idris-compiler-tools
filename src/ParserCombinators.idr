@@ -18,7 +18,7 @@ fromTo p1 p2 = Between (beginning p1) (end p2)
 
 public export
 Parser : Type -> Type
-Parser a = StateT (List (Position, Char)) List a
+Parser a = StateT (Position, List Char) List a
 
 public export
 PosParser : Type -> Type
@@ -26,16 +26,20 @@ PosParser a = Parser (^a)
 
 export
 currentPosition : Parser Position
-currentPosition = do
-  (x :: _) <- get
-            | Nil => empty
-  pure (fst x)
+currentPosition = gets fst
 
 export
 nil : PosParser (List a)
 nil = do
   p <- currentPosition
   pure (Between p p |^ Nil)
+
+export
+eof : PosParser ()
+eof = do
+  (p, Nil) <- get
+            | (p, _ :: _) => empty
+  pure (Between p p |^ ())
 
 mutual
   export
@@ -53,16 +57,23 @@ mutual
 export
 item : PosParser Char
 item = do
-  s <- get
+  (p, s) <- get
   case s of
     Nil => empty
-    (p, x) :: xs => put xs >> pure (Between p p |^ x)
+    '\n'  :: xs => put ({ line $= (+1), column := 0     } p, xs) >> pure (Between p p |^ '\n')
+    x     :: xs => put ({               column $= (+1)  } p, xs) >> pure (Between p p |^ x)
 
 export
 sat : (Char -> Bool) -> PosParser Char
 sat isOk = do
   x <- item
   if isOk (^^x) then pure x else empty
+
+export
+suchThat : PosParser a -> (a -> Bool) -> PosParser a
+parser `suchThat` pred = do
+  x <- parser
+  if pred (^^x) then pure x else empty
 
 export
 theChar : Char -> PosParser Char
@@ -217,19 +228,7 @@ colonSeparated : (item : PosParser b) -> PosParser (List (^b))
 colonSeparated = separated colon
 
 export
-enumarateString : String -> List (Position, Char)
-enumarateString s = evalState (MkPosition { line = 0, column = 0 }) (enumStr $ unpack s) where
-  enumStr : List Char -> State Position (List (Position, Char))
-  enumStr Nil = pure Nil
-  enumStr ('\n' :: chars) = modify { line $= (+1), column := 0 } >> enumStr chars
-  enumStr (ch :: chars) = do
-    modify { column $= (+1) }
-    pos <- get
-    ((pos, ch) ::) <$> enumStr chars
-    
-
-export
 parse : Parser a -> String -> Maybe a
-parse parser s = case evalStateT (enumarateString s) parser of
+parse parser s = case evalStateT (MkPosition { line = 0, column = 0 }, unpack s) parser of
   Nil => Nothing
   (x :: _) => Just x

@@ -6,6 +6,22 @@ import ParserCombinators
 import LNG.Data.Position
 import LNG.Parsed
 
+-- Keywords -------------------------------------------------------------------
+returnKW, whileKW, ifKW, elseKW : String
+returnKW  = "return"
+whileKW   = "while"
+ifKW      = "if"
+elseKW    = "else"
+
+keywords : List String
+keywords = [returnKW, whileKW, ifKW, elseKW]
+
+kwReturn, kwWhile, kwIf, kwElse : PosParser ()
+kwReturn  = overwrite () (theString returnKW)
+kwWhile   = overwrite () (theString whileKW)
+kwIf      = overwrite () (theString ifKW)
+kwElse    = overwrite () (theString elseKW)
+
 
 -- LNGType --------------------------------------------------------------------
 tint : PosParser LNGType
@@ -26,10 +42,12 @@ literal = (map LitInt <$> integer) <|> (map LitBool <$> boolean)
 
 -- Ident ----------------------------------------------------------------------
 ident : PosParser Ident
-ident = do
-  pfst |^ first <- sat isLower <|> floor
-  prest |^ rest <- many (sat isAlphaNum <|> floor)
-  pure (fromTo pfst prest |^ MkId (pack $ first :: map unPos rest))
+ident = map MkId <$> (ident' `suchThat` not . (`elem` keywords)) where
+  ident' : PosParser String
+  ident' = do
+    pfst |^ first <- sat isLower <|> floor
+    prest |^ rest <- many (sat isAlphaNum <|> floor)
+    pure (fromTo pfst prest |^ (pack $ first :: map unPos rest))
 
 -- BinOperator ----------------------------------------------------------------
 addOp : PosParser BinOperator
@@ -127,30 +145,18 @@ var = Var <^$> ident
 
 mutual
   expr6, expr5, expr4, expr3, expr2, expr1, expr0 : PosParser Expr
-  expr6 = call expr0 <|> lit <|> var      <|> inBrackets expr0
-  expr5 = unOperation unOp expr6          <|> expr6
-  expr4 = binOperation expr5 binOp4 expr4 <|> expr5
-  expr3 = binOperation expr4 binOp3 expr3 <|> expr4
-  expr2 = binOperation expr3 binOp2 expr2 <|> expr3
-  expr1 = binOperation expr2 binOp1 expr1 <|> expr2
-  expr0 = binOperation expr1 binOp0 expr0 <|> expr1
+  expr6 = lit <|> var <|> call expr0 <|> inBrackets expr0
+  expr5 = expr6 <|> unOperation unOp expr6
+  expr4 = expr5 <|> binOperation expr5 binOp4 expr4
+  expr3 = expr4 <|> binOperation expr4 binOp3 expr3
+  expr2 = expr3 <|> binOperation expr3 binOp2 expr2
+  expr1 = expr2 <|> binOperation expr2 binOp1 expr1
+  expr0 = expr1 <|> binOperation expr1 binOp0 expr0
 
   expression : PosParser Expr
   expression = expr0
 
 -- Instr ----------------------------------------------------------------------
-returnKW : PosParser ()
-returnKW = overwrite () (theString "return")
-
-whileKW : PosParser ()
-whileKW = overwrite () (theString "while")
-
-ifKW : PosParser ()
-ifKW = overwrite () (theString "if")
-
-elseKW : PosParser ()
-elseKW = overwrite () (theString "else")
-
 declare : PosParser Instr
 declare = do
   ty    <- lngType
@@ -172,21 +178,21 @@ assign = do
 
 return : PosParser Instr
 return = do
-  kwp |^ _  <- returnKW
+  kwp |^ _  <- kwReturn
   expr      <- ws *> expression
   _         <- ws *> semicolon
   pure (fromTo kwp (pos expr) |^ Return expr)
 
 retvoid : PosParser Instr
-retvoid = overwrite RetVoid returnKW <* ws <* semicolon
+retvoid = overwrite RetVoid kwReturn <* ws <* semicolon
 
 mutual
   block : PosParser Instr
-  block = Block <^$> inCurlyBraces (many $ ws *> instruction)
+  block = Block <^$> inCurlyBraces (many (ws *> instruction) <* ws)
 
   ifthenelse : PosParser Instr
   ifthenelse = do
-    ifP |^ _  <- ifKW
+    ifP |^ _  <- kwIf
     cond      <- ws *> inBrackets (ws *> expression <* ws)
     thn       <- ws *> instruction
     elseBLK ifP cond thn <|> pure (fromTo ifP (pos thn) |^ If cond thn)
@@ -194,14 +200,14 @@ mutual
     where
       elseBLK : Pos -> ^Expr -> ^Instr -> PosParser Instr
       elseBLK p cond thn = do
-        _   <- elseKW
+        _   <- ws *> kwElse
         els <- ws *> instruction
         pure (fromTo p (pos els) |^ IfElse cond thn els)
 
 
   while : PosParser Instr
   while = do
-    kwp |^ _ <- whileKW
+    kwp |^ _ <- kwWhile
     cond <- ws *> inBrackets (ws *> expression <* ws)
     body <- ws *> instruction
     pure (fromTo kwp (pos body) |^ While cond body)
@@ -209,7 +215,7 @@ mutual
   
 
   instruction : PosParser Instr
-  instruction = block <|> declare <|> assign <|> ifthenelse <|> while <|> return <|> retvoid
+  instruction = return <|> retvoid <|> declare <|> assign <|> ifthenelse <|> while <|> block
 
 -- FunDecl --------------------------------------------------------------------
 singleParam : PosParser (^LNGType, ^Ident)
@@ -225,16 +231,15 @@ funDecl : PosParser FunDecl
 funDecl = do
   retT    <- lngType
   funId   <- ws *> ident
-  params  <- ws *> inCurlyBraces funParams
+  params  <- ws *> inBrackets funParams
   body    <- ws *> block
   pure (fromTo (pos retT) (pos body) |^ MkFunDecl { funId, retType = retT, params, body })
 
 
 -- Program --------------------------------------------------------------------
+export
 program : PosParser Program
-program = do
-  funcs <- many (ws *> funDecl) <* ws
-  pure (pos funcs |^ MkProgram { funcs })
+program = MkProgram <^$> many (ws *> funDecl) <* ws <* eof
 
 
 
