@@ -17,7 +17,7 @@ elseKW    = "else"
 keywords : List String
 keywords = [returnKW, whileKW, ifKW, elseKW]
 
-kwReturn, kwWhile, kwIf, kwElse : PosParser ()
+kwReturn, kwWhile, kwIf, kwElse : SimplePosParser ()
 kwReturn  = overwrite () (theString returnKW)
 kwWhile   = overwrite () (theString whileKW)
 kwIf      = overwrite () (theString ifKW)
@@ -25,127 +25,127 @@ kwElse    = overwrite () (theString elseKW)
 
 
 -- LNGType --------------------------------------------------------------------
-tint : PosParser LNGType
+tint : SimplePosParser LNGType
 tint = overwrite TInt (theString "int")
 
-tbool : PosParser LNGType
+tbool : SimplePosParser LNGType
 tbool = overwrite TBool (theString "boolean")
 
-tvoid : PosParser LNGType
+tvoid : SimplePosParser LNGType
 tvoid = overwrite TVoid (theString "void")
 
-lngType : PosParser LNGType
+lngType : SimplePosParser LNGType
 lngType = tint <|> tbool <|> tvoid
 
 -- Literal --------------------------------------------------------------------
-literal : PosParser Literal
+literal : SimplePosParser Literal
 literal = (map LitInt <$> integer) <|> (map LitBool <$> boolean)
 
 -- Ident ----------------------------------------------------------------------
-ident : PosParser Ident
+ident : SimplePosParser Ident
 ident = map MkId <$> (ident' `suchThat` not . (`elem` keywords)) where
-  ident' : PosParser String
+  ident' : SimplePosParser String
   ident' = do
     pfst |^ first <- sat isLower <|> floor
     prest |^ rest <- many (sat isAlphaNum <|> floor)
     pure (fromTo pfst prest |^ (pack $ first :: map unPos rest))
 
 -- BinOperator ----------------------------------------------------------------
-addOp : PosParser BinOperator
+addOp : SimplePosParser BinOperator
 addOp = overwrite Add plus
 
-subOp : PosParser BinOperator
+subOp : SimplePosParser BinOperator
 subOp = overwrite Sub minus
 
-mulOp : PosParser BinOperator
+mulOp : SimplePosParser BinOperator
 mulOp = overwrite Mul star
 
-divOp : PosParser BinOperator
+divOp : SimplePosParser BinOperator
 divOp = overwrite Div slash
 
 -- TODO
---modOp : PosParser BinOperator
+--modOp : SimplePosParser BinOperator
 --modOp = overwrite Mod (theChar '%')
 
-andOp : PosParser BinOperator
+andOp : SimplePosParser BinOperator
 andOp = overwrite And (theString "&&")
 
-orOp : PosParser BinOperator
+orOp : SimplePosParser BinOperator
 orOp = overwrite Or (theString "||")
 
-eqOp : PosParser BinOperator
+eqOp : SimplePosParser BinOperator
 eqOp = overwrite EQ (theString "==")
 
 -- TODO
---neOp : PosParser BinOperator
+--neOp : SimplePosParser BinOperator
 --neOp = overwrite NE (theString "!=")
 
-leOp : PosParser BinOperator
+leOp : SimplePosParser BinOperator
 leOp = overwrite LE (theString "<=")
 
-ltOp : PosParser BinOperator
+ltOp : SimplePosParser BinOperator
 ltOp = overwrite LT (theString "<")
 
-geOp : PosParser BinOperator
+geOp : SimplePosParser BinOperator
 geOp = overwrite GE (theString ">=")
 
-gtOp : PosParser BinOperator
+gtOp : SimplePosParser BinOperator
 gtOp = overwrite GT (theString ">")
 
-binOp0 : PosParser BinOperator
+binOp0 : SimplePosParser BinOperator
 binOp0 = orOp
 
-binOp1 : PosParser BinOperator
+binOp1 : SimplePosParser BinOperator
 binOp1 = andOp
 
-binOp2 : PosParser BinOperator
+binOp2 : SimplePosParser BinOperator
 binOp2 = eqOp {- TODO <|> neOp -} <|> leOp <|> ltOp <|> geOp <|> gtOp
 
-binOp3 : PosParser BinOperator
+binOp3 : SimplePosParser BinOperator
 binOp3 = addOp <|> subOp
 
-binOp4 : PosParser BinOperator
+binOp4 : SimplePosParser BinOperator
 binOp4 = mulOp <|> divOp {- TODO <|> modOp -}
 
 
 -- UnOperator -----------------------------------------------------------------
-negOp : PosParser UnOperator
+negOp : SimplePosParser UnOperator
 negOp = overwrite Neg minus
 
-notOp : PosParser UnOperator
+notOp : SimplePosParser UnOperator
 notOp = overwrite Not (theChar '!')
 
-unOp : PosParser UnOperator
+unOp : SimplePosParser UnOperator
 unOp = negOp <|> notOp
 
 -- Expr -----------------------------------------------------------------------
-binOperation : PosParser Expr -> PosParser BinOperator -> PosParser Expr -> PosParser Expr
+binOperation : SimplePosParser Expr -> SimplePosParser BinOperator -> SimplePosParser Expr -> SimplePosParser Expr
 binOperation lhs op rhs = do
   lhs'  <- lhs
   op'   <- ws *> op
   rhs'  <- ws *> rhs
   pure (fromTo (pos lhs') (pos rhs') |^ BinOperation op' lhs' rhs')
 
-unOperation : PosParser UnOperator -> PosParser Expr -> PosParser Expr
+unOperation : SimplePosParser UnOperator -> SimplePosParser Expr -> SimplePosParser Expr
 unOperation op expr = do
   op' <- op
   expr' <- expr
   pure (fromTo (pos op') (pos expr') |^ UnOperation op' expr')
 
-call : PosParser Expr -> PosParser Expr
+call : SimplePosParser Expr -> SimplePosParser Expr
 call expr = do
   fun   <- ident
-  args  <- ws *> inCurlyBraces (colonSeparated expr)
+  args  <- ws *> inCurlyBraces (commaSeparated expr)
   pure (fromTo (pos fun) (pos args) |^ Call fun args)
 
-lit : PosParser Expr
+lit : SimplePosParser Expr
 lit = Lit <^$> literal
 
-var : PosParser Expr
+var : SimplePosParser Expr
 var = Var <^$> ident
 
 mutual
-  expr6, expr5, expr4, expr3, expr2, expr1, expr0 : PosParser Expr
+  expr6, expr5, expr4, expr3, expr2, expr1, expr0 : SimplePosParser Expr
   expr6 = lit <|> var <|> call expr0 <|> inBrackets expr0
   expr5 = expr6 <|> unOperation unOp expr6
   expr4 = expr5 <|> binOperation expr5 binOp4 expr4
@@ -154,11 +154,11 @@ mutual
   expr1 = expr2 <|> binOperation expr2 binOp1 expr1
   expr0 = expr1 <|> binOperation expr1 binOp0 expr0
 
-  expression : PosParser Expr
+  expression : SimplePosParser Expr
   expression = expr0
 
 -- Instr ----------------------------------------------------------------------
-declare : PosParser Instr
+declare : SimplePosParser Instr
 declare = do
   ty    <- lngType
   var   <- ws *> ident
@@ -168,7 +168,7 @@ declare = do
   
   pure $ fromTo (pos ty) (pos expr) |^ Declare ty var expr
 
-assign : PosParser Instr
+assign : SimplePosParser Instr
 assign = do
   var   <- ident
   _     <- ws *> theChar '='
@@ -177,21 +177,21 @@ assign = do
   pure (fromTo (pos var) (pos expr) |^ Assign var expr) 
 
 
-return : PosParser Instr
+return : SimplePosParser Instr
 return = do
   kwp |^ _  <- kwReturn
   expr      <- ws *> expression
   _         <- ws *> semicolon
   pure (fromTo kwp (pos expr) |^ Return expr)
 
-retvoid : PosParser Instr
+retvoid : SimplePosParser Instr
 retvoid = overwrite RetVoid kwReturn <* ws <* semicolon
 
 mutual
-  block : PosParser Instr
+  block : SimplePosParser Instr
   block = Block <^$> inCurlyBraces (many (ws *> instruction) <* ws)
 
-  ifthenelse : PosParser Instr
+  ifthenelse : SimplePosParser Instr
   ifthenelse = do
     ifP |^ _  <- kwIf
     cond      <- ws *> inBrackets (ws *> expression <* ws)
@@ -199,14 +199,14 @@ mutual
     elseBLK ifP cond thn <|> pure (fromTo ifP (pos thn) |^ If cond thn)
 
     where
-      elseBLK : Pos -> ^Expr -> ^Instr -> PosParser Instr
+      elseBLK : Pos -> ^Expr -> ^Instr -> SimplePosParser Instr
       elseBLK p cond thn = do
         _   <- ws *> kwElse
         els <- ws *> instruction
         pure (fromTo p (pos els) |^ IfElse cond thn els)
 
 
-  while : PosParser Instr
+  while : SimplePosParser Instr
   while = do
     kwp |^ _ <- kwWhile
     cond <- ws *> inBrackets (ws *> expression <* ws)
@@ -215,20 +215,20 @@ mutual
 
   
 
-  instruction : PosParser Instr
+  instruction : SimplePosParser Instr
   instruction = return <|> retvoid <|> declare <|> assign <|> ifthenelse <|> while <|> block
 
 -- FunDecl --------------------------------------------------------------------
-singleParam : PosParser (^LNGType, ^Ident)
+singleParam : SimplePosParser (^LNGType, ^Ident)
 singleParam = do
   ty    <- lngType
   param <- ws *> ident
   pure $ fromTo (pos ty) (pos param) |^ (ty, param)
 
-funParams : PosParser (List (^LNGType, ^Ident))
-funParams = map (map (^^)) <$> colonSeparated singleParam
+funParams : SimplePosParser (List (^LNGType, ^Ident))
+funParams = map (map (^^)) <$> commaSeparated singleParam
 
-funDecl : PosParser FunDecl
+funDecl : SimplePosParser FunDecl
 funDecl = do
   retT    <- lngType
   funId   <- ws *> ident
@@ -239,7 +239,7 @@ funDecl = do
 
 -- Program --------------------------------------------------------------------
 export
-program : PosParser Program
+program : SimplePosParser Program
 program = MkProgram <^$> many (ws *> funDecl) <* ws <* eof
 
 
