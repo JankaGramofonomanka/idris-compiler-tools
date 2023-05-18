@@ -8,8 +8,8 @@ import Data.SortedMap
 import Data.DList
 import Interpreter.InterpreterT
 import Interpreter.Semantics
-import LNG.Data.Position
 import LNG.Parsed
+import Parse.Data.Position
 
 assertType : Monad m => Pos -> (t, t' : LNGType) -> Value t' -> InterpreterT m (Value t)
 assertType p TInt     TInt    val = pure val

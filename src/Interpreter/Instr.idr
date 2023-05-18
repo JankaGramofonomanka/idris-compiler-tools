@@ -8,8 +8,8 @@ import Data.SortedMap
 import Interpreter.Expr
 import Interpreter.InterpreterT
 import Interpreter.Semantics
-import LNG.Data.Position
 import LNG.Parsed
+import Parse.Data.Position
 
 export
 interpretInstr : Monad m => ^Instr -> InterpreterT m ()

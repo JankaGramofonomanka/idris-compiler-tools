@@ -1,8 +1,10 @@
-module ParserCombinators
+module Parse.Combinators
 
 import Control.Monad.State
 
-import LNG.Data.Position
+import Parse.Data.Parser
+import Parse.Data.Position
+
 
 beginning : Pos -> Position
 beginning (Between l r) = l
@@ -17,15 +19,15 @@ fromTo : Pos -> Pos -> Pos
 fromTo p1 p2 = Between (beginning p1) (end p2)
 
 public export
-Parser : Type -> Type
-Parser a = StateT (Position, List Char) List a
+SimpleParser : Type -> Type
+SimpleParser a = Parser Char a
 
 public export
 PosParser : Type -> Type
-PosParser a = Parser (^a)
+PosParser a = SimpleParser (^a)
 
 export
-currentPosition : Parser Position
+currentPosition : SimpleParser Position
 currentPosition = gets fst
 
 export
@@ -216,7 +218,7 @@ export
 (<^$>) = inheritPos
 
 export
-separated : (sep : Parser a) -> (item : PosParser b) -> PosParser (List (^b))
+separated : (sep : SimpleParser a) -> (item : PosParser b) -> PosParser (List (^b))
 separated sep item = nil <|> (:: Nil) <^$> item <|> do
   x <- item
   _ <- ws *> sep
@@ -228,7 +230,7 @@ colonSeparated : (item : PosParser b) -> PosParser (List (^b))
 colonSeparated = separated colon
 
 export
-parse : Parser a -> String -> Maybe a
+parse : SimpleParser a -> String -> Maybe a
 parse parser s = case evalStateT (MkPosition { line = 0, column = 0 }, unpack s) parser of
   Nil => Nothing
   (x :: _) => Just x

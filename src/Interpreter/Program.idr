@@ -9,8 +9,8 @@ import Data.DList
 import Interpreter.InterpreterT
 import Interpreter.Semantics
 import Interpreter.FunDecl
-import LNG.Data.Position
 import LNG.Parsed
+import Parse.Data.Position
 
 addFunDecl : Monad m => ^FunDecl -> InterpreterT m ()
 addFunDecl (p |^ decl)

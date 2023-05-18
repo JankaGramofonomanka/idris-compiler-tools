@@ -1,6 +1,6 @@
 module LNG.Parsed
 
-import LNG.Data.Position
+import Parse.Data.Position
   
 public export
 data LNGType = TInt | TBool | TVoid

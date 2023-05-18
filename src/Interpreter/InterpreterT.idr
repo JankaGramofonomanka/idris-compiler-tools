@@ -10,8 +10,8 @@ import Data.Console
 import Data.DList
 import Interpreter.Semantics
 import LNG.BuiltIns
-import LNG.Data.Position
 import LNG.Parsed
+import Parse.Data.Position
 
 data Error'
   = NoSuchVariable Ident

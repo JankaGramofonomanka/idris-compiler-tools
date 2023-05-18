@@ -1,8 +1,8 @@
 module TypeCheck.Utils
 
-import LNG.Data.Position
 import LNG.Parsed       as LNG
 import LNG.TypeChecked  as TC
+import Parse.Data.Position
 
 export
 mkVar : (t : TC.LNGType) -> LNG.Ident -> TC.Variable t

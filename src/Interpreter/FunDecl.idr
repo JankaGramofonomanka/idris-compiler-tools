@@ -9,8 +9,8 @@ import Data.DList
 import Interpreter.InterpreterT
 import Interpreter.Semantics
 import Interpreter.Instr
-import LNG.Data.Position
 import LNG.Parsed
+import Parse.Data.Position
 
 ParamTypes : List (^LNGType, ^Ident) -> List LNGType
 ParamTypes = map ((^^) . Builtin.fst)

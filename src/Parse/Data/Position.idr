@@ -1,4 +1,4 @@
-module LNG.Data.Position
+module Parse.Data.Position
 
 public export
 record Position where

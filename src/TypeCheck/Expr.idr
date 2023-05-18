@@ -7,9 +7,9 @@ import Data.SortedMap
 import Data.Zippable
 
 import Data.DList
-import LNG.Data.Position
 import LNG.Parsed                 as LNG
 import LNG.TypeChecked            as TC
+import Parse.Data.Position
 import TypeCheck.Data.Context
 import TypeCheck.Data.TypeCheckM
 import TypeCheck.Utils

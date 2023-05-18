@@ -2,8 +2,9 @@ module LNG.Parse
 
 import Control.Monad.State
 
-import ParserCombinators
-import LNG.Data.Position
+import Parse.Combinators
+import Parse.Data.Parser
+import Parse.Data.Position
 import LNG.Parsed
 
 -- Keywords -------------------------------------------------------------------

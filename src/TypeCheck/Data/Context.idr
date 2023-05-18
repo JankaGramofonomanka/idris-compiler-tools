@@ -2,9 +2,9 @@ module TypeCheck.Data.Context
 
 import Data.SortedMap
 
-import LNG.Data.Position
 import LNG.Parsed       as LNG
 import LNG.TypeChecked  as TC
+import Parse.Data.Position
 
 public export
 data DefPos = BuiltIn | DefinedAt Pos
