@@ -36,34 +36,34 @@ keyword : Tokenizer Token
 keyword = map Kw <$> keyword'
 
 -- SpecialSign ----------------------------------------------------------------
-plus, minus, star, slash, percent, andand, oror, equals : Tokenizer SpecialSign
-exclamationEquals, doubleEquals, lesserEquals, lesser   : Tokenizer SpecialSign
-greaterEquals, greater, exclamation, comma, semicolon   : Tokenizer SpecialSign
+andand, oror, exclamationEquals, doubleEquals, greaterEquals, lesserEquals,
+plus, minus, star, slash, percent, equals, lesser, greater, exclamation, comma,
+semicolon : Tokenizer SpecialSign
 
+andand            = overwrite AndAnd            (theString "&&")
+oror              = overwrite OrOr              (theString "||")
+exclamationEquals = overwrite ExclamationEquals (theString "!=")
+doubleEquals      = overwrite DoubleEquals      (theString "==")
+greaterEquals     = overwrite GreaterEquals     (theString ">=")
+lesserEquals      = overwrite LesserEquals      (theString "<=")
 plus              = overwrite Plus              (theString "+")
 minus             = overwrite Minus             (theString "-")
 star              = overwrite Star              (theString "*")
 slash             = overwrite Slash             (theString "/")
 percent           = overwrite Percent           (theString "%")
-andand            = overwrite AndAnd            (theString "&&")
-oror              = overwrite OrOr              (theString "||")
 equals            = overwrite Equals            (theString "=")
-exclamationEquals = overwrite ExclamationEquals (theString "!=")
-doubleEquals      = overwrite DoubleEquals      (theString "==")
-lesserEquals      = overwrite LesserEquals      (theString "<=")
 lesser            = overwrite Lesser            (theString "<")
-greaterEquals     = overwrite GreaterEquals     (theString ">=")
 greater           = overwrite Greater           (theString ">")
 exclamation       = overwrite Exclamation       (theString "!")
 comma             = overwrite Comma             (theString ",")
 semicolon         = overwrite Semicolon         (theString ";")
 
+-- Double character signs should be first
 specialSign' : Tokenizer SpecialSign
 specialSign'
-    = plus <|> minus <|> star <|> slash <|> percent <|> andand <|> oror
-  <|> equals <|> exclamationEquals <|> doubleEquals <|> lesserEquals
-  <|> lesser <|> greaterEquals <|> greater <|> exclamation <|> comma
-  <|> semicolon
+    = andand <|> oror <|> exclamationEquals <|> doubleEquals <|> greaterEquals
+  <|> lesserEquals <|> plus <|> minus <|> star <|> slash <|> percent <|> equals
+  <|> lesser <|> greater <|> exclamation <|> comma <|> semicolon
 
 specialSign : Tokenizer Token
 specialSign = map Sp <$> specialSign'

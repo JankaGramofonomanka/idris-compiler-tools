@@ -11,6 +11,7 @@ import Parse.Data.Token
 import Parse.Data.Tokenize
 import LNG.Parsed
 
+public export
 LNGParser : Type -> Type
 LNGParser = PosParser (^Token)
 
@@ -73,20 +74,20 @@ ident = do
   pure (p |^ MkId id)
 
 -- BinOperator ----------------------------------------------------------------
-addOp, subOp, mulOp, divOp {- TODO, modOp -} : LNGParser BinOperator
+addOp, subOp, mulOp, divOp, modOp : LNGParser BinOperator
 addOp = overwrite Add $ theToken (Sp Plus)
 subOp = overwrite Sub $ theToken (Sp Minus)
 mulOp = overwrite Mul $ theToken (Sp Star)
 divOp = overwrite Div $ theToken (Sp Slash)
---modOp = overwrite Mod $ theToken (Sp Percent)
+modOp = overwrite Mod $ theToken (Sp Percent)
 
 andOp, orOp : LNGParser BinOperator
 andOp = overwrite And $ theToken (Sp AndAnd)
 orOp  = overwrite Or  $ theToken (Sp OrOr)
 
-eqOp, {- TODO neOp, -} leOp, ltOp, geOp, gtOp : LNGParser BinOperator
+eqOp, neOp, leOp, ltOp, geOp, gtOp : LNGParser BinOperator
 eqOp = overwrite EQ $ theToken (Sp DoubleEquals)
---neOp = overwrite NE $ heToken (Sp ExclamationEquals)
+neOp = overwrite NE $ theToken (Sp ExclamationEquals)
 leOp = overwrite LE $ theToken (Sp LesserEquals)
 ltOp = overwrite LT $ theToken (Sp Lesser)
 geOp = overwrite GE $ theToken (Sp GreaterEquals)
@@ -95,9 +96,9 @@ gtOp = overwrite GT $ theToken (Sp Greater)
 binOp0, binOp1, binOp2, binOp3, binOp4 : LNGParser BinOperator
 binOp0 = orOp
 binOp1 = andOp
-binOp2 = eqOp {- TODO <|> neOp -} <|> leOp <|> ltOp <|> geOp <|> gtOp
+binOp2 = eqOp <|> neOp <|> leOp <|> ltOp <|> geOp <|> gtOp
 binOp3 = addOp <|> subOp
-binOp4 = mulOp <|> divOp {- TODO <|> modOp -}
+binOp4 = mulOp <|> divOp <|> modOp
 
 -- UnOperator -----------------------------------------------------------------
 negOp, notOp : LNGParser UnOperator
@@ -124,7 +125,7 @@ unOperation op expr = do
 call : LNGParser Expr -> LNGParser Expr
 call expr = do
   fun   <- ident
-  args  <- inCurlyBraces (commaSeparated expr)
+  args  <- inBrackets (commaSeparated expr)
   pure (fromTo (pos fun) (pos args) |^ Call fun args)
 
 lit : LNGParser Expr
@@ -165,6 +166,8 @@ assign = do
   _     <- semicolon
   pure (fromTo (pos var) (pos expr) |^ Assign var expr) 
 
+exec : LNGParser Instr
+exec = Exec <^$> expression <* semicolon
 
 return : LNGParser Instr
 return = do
@@ -205,7 +208,7 @@ mutual
   
 
   instruction : LNGParser Instr
-  instruction = return <|> retvoid <|> declare <|> assign <|> ifthenelse <|> while <|> block
+  instruction = return <|> retvoid <|> declare <|> assign <|> ifthenelse <|> while <|> block <|> exec
 
 -- FunDecl --------------------------------------------------------------------
 singleParam : LNGParser (^LNGType, ^Ident)

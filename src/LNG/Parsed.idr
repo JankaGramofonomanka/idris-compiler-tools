@@ -11,9 +11,11 @@ data BinOperator
   | Sub
   | Mul
   | Div
+  | Mod
   | And
   | Or
   | EQ
+  | NE
   | LE
   | LT
   | GE
@@ -53,6 +55,7 @@ data Instr
   = Block (^(List (^Instr)))
   | Declare (^LNGType) (^Ident) (^Expr)
   | Assign (^Ident) (^Expr)
+  | Exec (^Expr)
   | If (^Expr) (^Instr)
   | IfElse (^Expr) (^Instr) (^Instr)
   | While (^Expr) (^Instr)
