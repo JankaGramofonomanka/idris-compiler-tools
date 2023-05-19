@@ -2,6 +2,8 @@ module Parse.Combinators
 
 import Control.Monad.State
 
+import Data.List.Lazy
+
 import Parse.Data.Parser
 import Parse.Data.Position
 import Parse.Data.Tokenize

@@ -3,14 +3,15 @@ module Parse.Data.Parser
 import Control.Monad.State
 
 import Parse.Data.Position
+import Data.List.Lazy
 
 public export
 Parser : Type -> Type -> Type
-Parser str a = StateT str List a
+Parser str a = StateT str LazyList a
 
 public export
 Parser' : Type -> Type -> Type
-Parser' token a = StateT (Position, List token) List a
+Parser' token a = Parser (Position, List token) a
 
 public export
 SimpleParser : Type -> Type
