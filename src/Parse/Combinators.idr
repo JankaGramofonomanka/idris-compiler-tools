@@ -63,6 +63,17 @@ namespace Pos
     x <- p
     pure (pos x |^ f x)
 
+  export
+  extendPosLeft : Pos -> PosParser token a -> PosParser token a
+  extendPosLeft p parser = do
+    p' |^ x <- parser
+    pure (fromTo p p' |^ x)
+
+  infixr 4 <<^>
+  export
+  (<<^>) : Pos -> PosParser token a -> PosParser token a
+  (<<^>) = extendPosLeft
+
   infixr 4 <^$>
   export
   (<^$>) : (^a -> b) -> PosParser token a -> PosParser token b

@@ -8,6 +8,7 @@ import Parse.Combinators
 import Parse.Data.Parser
 import Parse.Data.Position
 import Parse.Data.Token
+import Parse.Data.Tokenize
 
 Tokenizer : Type -> Type
 Tokenizer = SimplePosParser
@@ -109,6 +110,30 @@ bool' = true <|> false
 bool : Tokenizer Token
 bool = map Boo <$> bool'
 
+-- Str ------------------------------------------------------------------------
+string' : Tokenizer String
+string' = do
+  lp |^ lquote <- theChar '"'
+  rp |^ s <-map  pack <$> stopOnRQuote
+  pure (fromTo lp rp |^ s)
+
+  where
+    stopOnRQuote : Tokenizer (List Char)
+    stopOnRQuote = do
+      p |^ ch <- the (Tokenizer Char) item
+      case ch of
+        '\\' => do
+          p' |^ ch' <- the (Tokenizer Char) item
+          case ch' of
+            '"' => p <<^> map ('"' ::) <$> stopOnRQuote
+            ch' => p <<^> map (\l => ch :: ch' :: l) <$> stopOnRQuote
+          
+        '"'   => pure (p |^ Nil)
+        ch    => p <<^> map (ch ::) <$> stopOnRQuote
+
+string : Tokenizer Token
+string = map Str <$> string'      
+
 -- Id -------------------------------------------------------------------------
 ident : Tokenizer Token
 ident = map Id <$> (ident' `suchThat` not . (`elem` keywords)) where
@@ -120,7 +145,7 @@ ident = map Id <$> (ident' `suchThat` not . (`elem` keywords)) where
 
 -- Token ----------------------------------------------------------------------
 token : Tokenizer Token
-token = keyword <|> specialSign <|> bracket <|> tokType <|> num <|> bool <|> ident
+token = keyword <|> specialSign <|> bracket <|> tokType <|> num <|> bool <|> string <|> ident
 
 tokens : SimpleParser (List $ ^Token)
 tokens = (^^) <$> many (ws *> token) <* ws <* eof

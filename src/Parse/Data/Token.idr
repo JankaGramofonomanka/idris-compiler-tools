@@ -98,7 +98,7 @@ data Token
   | Id String
   | Num Integer
   | Boo Bool
-  --| Str String
+  | Str String
 
 export
 implementation Eq Token where
