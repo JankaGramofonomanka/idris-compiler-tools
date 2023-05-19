@@ -173,7 +173,7 @@ namespace SimplePos
 
   export
   whitespace : SimplePosParser ()
-  whitespace = overwrite () $ many (space <|> nln)
+  whitespace = overwrite () $ many (item `suchThat` isSpace)
 
   export
   ws : SimplePosParser ()
