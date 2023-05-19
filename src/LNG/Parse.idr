@@ -43,12 +43,13 @@ kwElse    = overwrite () (theToken $ Kw Else)
 
 -- LNGType --------------------------------------------------------------------
 tint, tbool, tvoid : LNGParser LNGType
-tint  = overwrite TInt  (theToken $ Ty TokInt)
-tbool = overwrite TBool (theToken $ Ty TokBool)
-tvoid = overwrite TVoid (theToken $ Ty TokVoid)
+tint    = overwrite TInt    (theToken $ Ty TokInt)
+tbool   = overwrite TBool   (theToken $ Ty TokBool)
+tstring = overwrite TString (theToken $ Ty TokString)
+tvoid   = overwrite TVoid   (theToken $ Ty TokVoid)
 
 lngType : LNGParser LNGType
-lngType = tint <|> tbool <|> tvoid
+lngType = tint <|> tbool <|> tstring <|> tvoid
 
 -- Literal --------------------------------------------------------------------
 integer : LNGParser Integer
@@ -63,8 +64,15 @@ boolean = do
               | _ => empty
   pure (p |^ b)
 
+string : LNGParser String
+string = do
+  p |^ Str s <- the (LNGParser Token) item
+              | _ => empty
+
+  pure (p |^ s)
+
 literal : LNGParser Literal
-literal = (map LitInt <$> integer) <|> (map LitBool <$> boolean)
+literal = (map LitInt <$> integer) <|> (map LitBool <$> boolean) <|> (map LitString <$> string)
 
 -- Ident ----------------------------------------------------------------------
 ident : LNGParser Ident
@@ -93,11 +101,14 @@ ltOp = overwrite LT $ theToken (Sp Lesser)
 geOp = overwrite GE $ theToken (Sp GreaterEquals)
 gtOp = overwrite GT $ theToken (Sp Greater)
 
+concatOp : LNGParser BinOperator
+concatOp = overwrite Concat $ theToken (Sp PlusPlus)
+
 binOp0, binOp1, binOp2, binOp3, binOp4 : LNGParser BinOperator
 binOp0 = orOp
 binOp1 = andOp
 binOp2 = eqOp <|> neOp <|> leOp <|> ltOp <|> geOp <|> gtOp
-binOp3 = addOp <|> subOp
+binOp3 = addOp <|> subOp <|> concatOp
 binOp4 = mulOp <|> divOp <|> modOp
 
 -- UnOperator -----------------------------------------------------------------

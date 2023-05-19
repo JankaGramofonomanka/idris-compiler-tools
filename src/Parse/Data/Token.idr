@@ -23,6 +23,7 @@ data SpecialSign
   | Star
   | Slash
   | Percent
+  | PlusPlus
   | AndAnd
   | OrOr
   | Equals
@@ -43,6 +44,7 @@ implementation Eq SpecialSign where
   Star              == Star               = True
   Slash             == Slash              = True
   Percent           == Percent            = True
+  PlusPlus          == PlusPlus           = True
   AndAnd            == AndAnd             = True
   OrOr              == OrOr               = True
   Equals            == Equals             = True
@@ -80,14 +82,16 @@ public export
 data TokType
   = TokInt
   | TokBool
+  | TokString
   | TokVoid
 
 export
 implementation Eq TokType where
-  TokInt  == TokInt   = True
-  TokBool == TokBool  = True
-  TokVoid == TokVoid  = True
-  _       == _        = False
+  TokInt    == TokInt     = True
+  TokBool   == TokBool    = True
+  TokString == TokString  = True
+  TokVoid   == TokVoid    = True
+  _         == _          = False
 
 public export
 data Token

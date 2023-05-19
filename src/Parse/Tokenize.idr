@@ -36,10 +36,11 @@ keyword : Tokenizer Token
 keyword = map Kw <$> keyword'
 
 -- SpecialSign ----------------------------------------------------------------
-andand, oror, exclamationEquals, doubleEquals, greaterEquals, lesserEquals,
-plus, minus, star, slash, percent, equals, lesser, greater, exclamation, comma,
-semicolon : Tokenizer SpecialSign
+plusplus, andand, oror, exclamationEquals, doubleEquals, greaterEquals, 
+lesserEquals, plus, minus, star, slash, percent, equals, lesser, greater, 
+exclamation, comma, semicolon : Tokenizer SpecialSign
 
+plusplus          = overwrite PlusPlus          (theString "++")
 andand            = overwrite AndAnd            (theString "&&")
 oror              = overwrite OrOr              (theString "||")
 exclamationEquals = overwrite ExclamationEquals (theString "!=")
@@ -61,9 +62,10 @@ semicolon         = overwrite Semicolon         (theString ";")
 -- Double character signs should be first
 specialSign' : Tokenizer SpecialSign
 specialSign'
-    = andand <|> oror <|> exclamationEquals <|> doubleEquals <|> greaterEquals
-  <|> lesserEquals <|> plus <|> minus <|> star <|> slash <|> percent <|> equals
-  <|> lesser <|> greater <|> exclamation <|> comma <|> semicolon
+    = plusplus <|> andand <|> oror <|> exclamationEquals <|> doubleEquals
+  <|> greaterEquals <|> lesserEquals <|> plus <|> minus <|> star <|> slash
+  <|> percent <|> equals <|> lesser <|> greater <|> exclamation <|> comma
+  <|> semicolon
 
 specialSign : Tokenizer Token
 specialSign = map Sp <$> specialSign'
@@ -85,12 +87,13 @@ bracket = map Br <$> bracket'
 
 -- TokType --------------------------------------------------------------------
 tint, tbool, tvoid : Tokenizer TokType
-tint  = overwrite TokInt  (theString "int")
-tbool = overwrite TokBool (theString "bool")
-tvoid = overwrite TokVoid (theString "void")
+tint    = overwrite TokInt    (theString "int")
+tbool   = overwrite TokBool   (theString "bool")
+tstring = overwrite TokString (theString "string")
+tvoid   = overwrite TokVoid   (theString "void")
 
 tokType' : Tokenizer TokType
-tokType' = tint <|> tbool <|> tvoid
+tokType' = tint <|> tbool <|> tstring <|> tvoid
 
 tokType : Tokenizer Token
 tokType = map Ty <$> tokType'

@@ -3,7 +3,7 @@ module LNG.Parsed
 import Parse.Data.Position
   
 public export
-data LNGType = TInt | TBool | TVoid
+data LNGType = TInt | TBool | TString | TVoid
 
 public export
 data BinOperator
@@ -20,12 +20,13 @@ data BinOperator
   | LT
   | GE
   | GT
+  | Concat
 
 public export
 data UnOperator = Neg | Not
 
 public export
-data Literal = LitBool Bool | LitInt Integer
+data Literal = LitBool Bool | LitInt Integer | LitString String
 
 public export
 data Ident = MkId String
