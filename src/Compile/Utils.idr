@@ -10,6 +10,7 @@ public export
 GetLLType : LNGType -> LLType
 GetLLType TInt = I32
 GetLLType TBool = I1
+GetLLType TString = ?hstring
 GetLLType TVoid = Void
 
 public export

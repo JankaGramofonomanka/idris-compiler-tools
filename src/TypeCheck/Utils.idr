@@ -18,9 +18,10 @@ mkFun t ts id = MkFun t ts (mkFunId id)
 
 export
 tc : LNG.LNGType -> TC.LNGType
-tc LNG.TInt   = TC.TInt
-tc LNG.TBool  = TC.TBool
-tc LNG.TVoid  = TC.TVoid
+tc LNG.TInt     = TC.TInt
+tc LNG.TBool    = TC.TBool
+tc LNG.TString  = TC.TString
+tc LNG.TVoid    = TC.TVoid
 
 export
 tc' : ^LNG.LNGType -> TC.LNGType

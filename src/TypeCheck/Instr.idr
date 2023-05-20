@@ -71,6 +71,10 @@ typeCheckInstr t ctx (_ |^ Assign id expr) = do
 
     Nothing => throwError (noSuchVariable id)
 
+typeCheckInstr t ctx (_ |^ Exec expr) = do
+  expr' <- typeCheckExprOfType' TVoid ctx expr
+  pure (ctx, (Simple ** TC.Exec expr'))
+
 typeCheckInstr t ctx (_ |^ If cond thn) = do
   cond' <- typeCheckExprOfType' TBool ctx cond
   (_, (_ ** thn')) <- typeCheckInstr t ctx thn

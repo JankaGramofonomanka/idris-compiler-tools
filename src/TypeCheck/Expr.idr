@@ -42,16 +42,25 @@ tcBinOp Add TInt  TInt  = Just (TInt  ** TC.Add)
 tcBinOp Sub TInt  TInt  = Just (TInt  ** TC.Sub)
 tcBinOp Mul TInt  TInt  = Just (TInt  ** TC.Mul)
 tcBinOp Div TInt  TInt  = Just (TInt  ** TC.Div)
+tcBinOp Mod TInt  TInt  = Just (TInt  ** TC.Mod)
 
 tcBinOp And TBool TBool = Just (TBool ** TC.And)
 tcBinOp Or  TBool TBool = Just (TBool ** TC.Or )
 
-tcBinOp EQ  TBool TBool = Just (TBool ** TC.EQ)
-tcBinOp EQ  TInt  TInt  = Just (TBool ** TC.EQ)
-tcBinOp LE  TInt  TInt  = Just (TBool ** TC.LE)
-tcBinOp LT  TInt  TInt  = Just (TBool ** TC.LT)
-tcBinOp GE  TInt  TInt  = Just (TBool ** TC.GE)
-tcBinOp GT  TInt  TInt  = Just (TBool ** TC.GT)
+tcBinOp EQ TInt    TInt    = Just (TBool ** TC.EQ)
+tcBinOp EQ TBool   TBool   = Just (TBool ** TC.EQ)
+tcBinOp EQ TString TString = Just (TBool ** TC.EQ)
+
+tcBinOp NE TInt    TInt    = Just (TBool ** TC.NE)
+tcBinOp NE TBool   TBool   = Just (TBool ** TC.NE)
+tcBinOp NE TString TString = Just (TBool ** TC.NE)
+
+tcBinOp LE TInt TInt = Just (TBool ** TC.LE)
+tcBinOp LT TInt TInt = Just (TBool ** TC.LT)
+tcBinOp GE TInt TInt = Just (TBool ** TC.GE)
+tcBinOp GT TInt TInt = Just (TBool ** TC.GT)
+
+tcBinOp Concat TString TString  = Just (TString ** TC.Concat)
 
 tcBinOp _ _ _ = Nothing
 
@@ -92,8 +101,9 @@ mutual
   typeCheckExpr : ^LNG.Expr -> TypeCheckM' (t ** TC.Expr t)
 
   typeCheckExpr (_ |^ Lit lit) = case ^^lit of
-    LitBool b => pure (TC.TBool ** TC.Lit (TC.LitBool b))
-    LitInt  i => pure (TC.TInt  ** TC.Lit (TC.LitInt  i))
+    LitBool   b => pure (TC.TBool   ** TC.Lit (TC.LitBool   b))
+    LitInt    i => pure (TC.TInt    ** TC.Lit (TC.LitInt    i))
+    LitString s => pure (TC.TString ** TC.Lit (TC.LitString s))
 
   typeCheckExpr (_ |^ Var id) = do
     t <- getVarType id

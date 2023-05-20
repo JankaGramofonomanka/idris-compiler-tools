@@ -13,28 +13,37 @@ import Data.Typed
 import Theory
 
 public export
-data LNGType = TInt | TBool | TVoid
+data LNGType = TInt | TBool | TString | TVoid
 
 export
 implementation Eq LNGType where
-  TInt  == TInt   = True
-  TBool == TBool  = True
-  TVoid == TVoid  = True
-  _     == _      = False
+  TInt    == TInt     = True
+  TBool   == TBool    = True
+  TString == TString  = True
+  TVoid   == TVoid    = True
+  _       == _        = False
 
 export
 implementation Ord LNGType where
-  compare TInt TInt = EQ
-  compare TInt TBool = LT
-  compare TInt TVoid = LT
+  compare TInt TInt     = EQ
+  compare TInt TBool    = LT
+  compare TInt TString  = LT
+  compare TInt TVoid    = LT
 
-  compare TBool TInt = GT
-  compare TBool TBool = EQ
-  compare TBool TVoid = LT
+  compare TBool TInt    = GT
+  compare TBool TBool   = EQ
+  compare TBool TString = LT
+  compare TBool TVoid   = LT
+
+  compare TString TInt    = GT
+  compare TString TBool   = GT
+  compare TString TString = EQ
+  compare TString TVoid   = LT
   
-  compare TVoid TInt = GT
-  compare TVoid TBool = GT
-  compare TVoid TVoid = EQ
+  compare TVoid TInt    = GT
+  compare TVoid TBool   = GT
+  compare TVoid TString = GT
+  compare TVoid TVoid   = EQ
 
 lngeq : (t1 : LNGType) -> (t2 : LNGType) -> Maybe (t1 = t2)
 TInt  `lngeq` TInt  = Just Refl
@@ -44,17 +53,25 @@ _     `lngeq` _     = Nothing
 
 lngcompare : (t, t' : LNGType) -> GOrdering t t'
 
-lngcompare TInt  TInt  = GEQ
-lngcompare TInt  TBool = GLT
-lngcompare TInt  TVoid = GLT
+lngcompare TInt  TInt     = GEQ
+lngcompare TInt  TBool    = GLT
+lngcompare TInt  TString  = GLT
+lngcompare TInt  TVoid    = GLT
 
-lngcompare TBool TInt  = GGT
-lngcompare TBool TBool = GEQ
-lngcompare TBool TVoid = GLT
+lngcompare TBool TInt     = GGT
+lngcompare TBool TBool    = GEQ
+lngcompare TBool TString  = GLT
+lngcompare TBool TVoid    = GLT
 
-lngcompare TVoid TInt  = GGT
-lngcompare TVoid TBool = GGT
-lngcompare TVoid TVoid = GEQ
+lngcompare TString TInt     = GGT
+lngcompare TString TBool    = GGT
+lngcompare TString TString  = GEQ
+lngcompare TString TVoid    = GLT
+
+lngcompare TVoid TInt     = GGT
+lngcompare TVoid TBool    = GGT
+lngcompare TVoid TString  = GGT
+lngcompare TVoid TVoid    = GEQ
 
 lngcompare' : (ts, ts' : List LNGType) -> GOrdering ts ts'
 lngcompare' Nil Nil = GEQ
@@ -72,6 +89,7 @@ public export
 data EqComparable : LNGType -> Type where
   EqCMPInt : EqComparable TInt
   EqCMPBool : EqComparable TBool
+  EqCMPString : EqComparable TString
 
 public export
 data BinOperator : LNGType -> LNGType -> LNGType -> Type where
@@ -79,14 +97,18 @@ data BinOperator : LNGType -> LNGType -> LNGType -> Type where
   Sub : BinOperator TInt TInt TInt
   Mul : BinOperator TInt TInt TInt
   Div : BinOperator TInt TInt TInt
+  Mod : BinOperator TInt TInt TInt
   And : BinOperator TBool TBool TBool
   Or  : BinOperator TBool TBool TBool
   
   EQ  : {auto 0 prf : EqComparable t} -> BinOperator t t TBool
+  NE  : {auto 0 prf : EqComparable t} -> BinOperator t t TBool
   LE  : BinOperator TInt TInt TBool
   LT  : BinOperator TInt TInt TBool
   GE  : BinOperator TInt TInt TBool
   GT  : BinOperator TInt TInt TBool
+
+  Concat : BinOperator TString TString TString
 
 binRetTypeOf : BinOperator t1 t2 t3 -> The t3
 
@@ -94,14 +116,18 @@ binRetTypeOf Add = MkThe TInt
 binRetTypeOf Sub = MkThe TInt
 binRetTypeOf Mul = MkThe TInt
 binRetTypeOf Div = MkThe TInt
+binRetTypeOf Mod = MkThe TInt
 binRetTypeOf And = MkThe TBool
 binRetTypeOf Or  = MkThe TBool
 
-binRetTypeOf EQ  = MkThe TBool
-binRetTypeOf LE  = MkThe TBool
-binRetTypeOf LT  = MkThe TBool
-binRetTypeOf GE  = MkThe TBool
-binRetTypeOf GT  = MkThe TBool
+binRetTypeOf EQ = MkThe TBool
+binRetTypeOf NE = MkThe TBool
+binRetTypeOf LE = MkThe TBool
+binRetTypeOf LT = MkThe TBool
+binRetTypeOf GE = MkThe TBool
+binRetTypeOf GT = MkThe TBool
+
+binRetTypeOf Concat = MkThe TString
 
 public export
 data UnOperator : LNGType -> LNGType -> Type where
@@ -116,11 +142,13 @@ public export
 data Literal : LNGType -> Type where
   LitBool : Bool -> Literal TBool
   LitInt : Integer -> Literal TInt
+  LitString : String -> Literal TString
 
 export
 implementation Typed Literal where
-  typeOf (LitBool b) = MkThe TBool
-  typeOf (LitInt i) = MkThe TInt
+  typeOf (LitBool b)    = MkThe TBool
+  typeOf (LitInt i)     = MkThe TInt
+  typeOf (LitString s)  = MkThe TString
 
 public export
 data VarId : LNGType -> Type where
@@ -259,6 +287,7 @@ mutual
   data Instr : InstrKind t -> Type where
     Block : Instrs k -> Instr k
     Assign : Variable t -> Expr t -> Instr Simple
+    Exec : Expr TVoid -> Instr Simple
     If : Expr TBool -> Instr k -> Instr Simple
     IfElse : Expr TBool -> Instr k -> Instr k' -> Instr (BrKind k k')
     While : Expr TBool -> Instr k -> Instr Simple
