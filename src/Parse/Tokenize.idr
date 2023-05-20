@@ -88,7 +88,7 @@ bracket = map Br <$> bracket'
 -- TokType --------------------------------------------------------------------
 tint, tbool, tvoid : Tokenizer TokType
 tint    = overwrite TokInt    (theString "int")
-tbool   = overwrite TokBool   (theString "bool")
+tbool   = overwrite TokBool   (theString "boolean")
 tstring = overwrite TokString (theString "string")
 tvoid   = overwrite TokVoid   (theString "void")
 
