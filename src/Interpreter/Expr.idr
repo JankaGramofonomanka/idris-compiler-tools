@@ -14,12 +14,14 @@ import Parse.Data.Position
 assertType : Monad m => Pos -> (t, t' : LNGType) -> Value t' -> InterpreterT m (Value t)
 assertType p TInt     TInt    val = pure val
 assertType p TBool    TBool   val = pure val
+assertType p TString  TString val = pure val
 assertType p TVoid    TVoid   val = pure val
 assertType p expected actual  val = throwError $ typeError p expected actual
 
 interpretLit : Monad m => ^Literal -> InterpreterT m (t ** Value t)
 interpretLit (_ |^ LitInt i) = pure (TInt ** cast i)
 interpretLit (_ |^ LitBool b) = pure (TBool ** b)
+interpretLit (_ |^ LitString s) = pure (TString ** s)
 
 mutual
   export
@@ -30,17 +32,20 @@ mutual
   interpretExpr (_ |^ Var var) = getVar var
   
   interpretExpr (_ |^ BinOperation op lhs rhs) = case ^^op of
-    Add => interpretAritmOp Semantics.add lhs rhs
-    Sub => interpretAritmOp Semantics.sub lhs rhs
-    Mul => interpretAritmOp Semantics.mul lhs rhs
-    Div => interpretAritmOp Semantics.div lhs rhs
-    And => interpretLogOp Semantics.and lhs rhs
-    Or  => interpretLogOp Semantics.or lhs rhs
-    EQ  => interpretEQOp lhs rhs
-    LE  => interpretCMPOp Semantics.le lhs rhs
-    LT  => interpretCMPOp Semantics.lt lhs rhs
-    GE  => interpretCMPOp Semantics.ge lhs rhs
-    GT  => interpretCMPOp Semantics.gt lhs rhs
+    Add     => interpretAritmOp Semantics.add lhs rhs
+    Sub     => interpretAritmOp Semantics.sub lhs rhs
+    Mul     => interpretAritmOp Semantics.mul lhs rhs
+    Div     => interpretAritmOp Semantics.div lhs rhs
+    Mod     => interpretAritmOp Semantics.mod lhs rhs
+    And     => interpretLogOp Semantics.and lhs rhs
+    Or      => interpretLogOp Semantics.or lhs rhs
+    EQ      => (\v => (TBool ** v))               <$> interpretEQOp lhs rhs
+    NE      => (\v => (TBool ** Semantics.not v)) <$> interpretEQOp lhs rhs
+    LE      => interpretCMPOp Semantics.le lhs rhs
+    LT      => interpretCMPOp Semantics.lt lhs rhs
+    GE      => interpretCMPOp Semantics.ge lhs rhs
+    GT      => interpretCMPOp Semantics.gt lhs rhs
+    Concat  => interpretConcOp lhs rhs
 
   interpretExpr (_ |^ UnOperation op expr) = case ^^op of
     Neg => do
@@ -73,18 +78,28 @@ mutual
     lval <- interpretExprOfType TBool lhs
     rval <- interpretExprOfType TBool rhs
     pure (TBool ** fun lval rval)
+  
+  interpretConcOp : Monad m => ^Expr -> ^Expr -> InterpreterT m (t ** Value t)
+  interpretConcOp lhs rhs = do
+    lval <- interpretExprOfType TString lhs
+    rval <- interpretExprOfType TString rhs
+    pure (TString ** Semantics.conc lval rval)
 
-  interpretEQOp : Monad m => ^Expr -> ^Expr -> InterpreterT m (t ** Value t)
+  interpretEQOp : Monad m => ^Expr -> ^Expr -> InterpreterT m (Value TBool)
   interpretEQOp lhs rhs = do
     (lt ** lval) <- interpretExpr lhs
     case lt of
       TInt => do
         rval <- interpretExprOfType TInt rhs
-        pure (TBool ** ieq lval rval)
+        pure (ieq lval rval)
 
       TBool => do
         rval <- interpretExprOfType TBool rhs
-        pure (TBool ** beq lval rval)
+        pure (beq lval rval)
+
+      TString => do
+        rval <- interpretExprOfType TString rhs
+        pure (streq lval rval)
 
       TVoid => throwError $ typeError' (pos lhs) [TInt, TBool] TVoid
 

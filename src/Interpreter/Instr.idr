@@ -42,6 +42,8 @@ interpretInstr (p |^ Assign var expr) = do
   
   pure ()
 
+interpretInstr (p |^ Exec expr) = interpretExpr expr *> pure ()
+
 interpretInstr (p |^ If cond thn) = do
   cond' <- interpretExprOfType TBool cond
   
@@ -72,6 +74,7 @@ interpretInstrRet : Monad m => (t : LNGType) -> ^Instr -> InterpreterT m (Value 
 
 interpretInstrRet t (p |^ Declare ty var expr)  = throwError $ missingReturnInstr p
 interpretInstrRet t (p |^ Assign var expr)      = throwError $ missingReturnInstr p
+interpretInstrRet t (p |^ Exec expr)            = throwError $ missingReturnInstr p
 interpretInstrRet t (p |^ If cond thn)          = throwError $ missingReturnInstr p
 interpretInstrRet t (p |^ While cond body)      = throwError $ missingReturnInstr p
 

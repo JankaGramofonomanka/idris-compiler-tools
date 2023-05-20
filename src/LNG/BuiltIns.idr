@@ -79,8 +79,8 @@ namespace Interpreter
           => SortedMap Ident (t : LNG.LNGType ** ts : List LNG.LNGType ** Fun t ts m)
   builtIns
     = insert (MkId printInt) (TVoid ** [TInt] ** defPrintInt . head)
-    --$ insert (MkId printString) (TVoid ** [TStr] ** defPrintString . head)
+    $ insert (MkId printString) (TVoid ** [TString] ** defPrintString . head)
     $ insert (MkId error) (TVoid ** [] ** const defError)
     $ insert (MkId error) (TInt ** [] ** const defReadInt)
-    --$ insert (MkId error) (TStr ** [] ** const defReadString)
+    $ insert (MkId error) (TString ** [] ** const defReadString)
     $ empty
