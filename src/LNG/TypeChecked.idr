@@ -91,6 +91,10 @@ data EqComparable : LNGType -> Type where
   EqCMPBool : EqComparable TBool
   EqCMPString : EqComparable TString
 
+export
+voidNotEqComparable : EqComparable TVoid -> Void
+voidNotEqComparable prf = case prf of {}
+
 public export
 data BinOperator : LNGType -> LNGType -> LNGType -> Type where
   Add : BinOperator TInt TInt TInt
@@ -251,6 +255,7 @@ implementation GCompare Fun' where
                        in rewrite tuple_destruct b
                        in funcompare (rewrite thm a in k1) (rewrite thm b in k2)
 
+export
 implementation Typed Fun' where
   typeOf {x} fun = rewrite tuple_destruct x
                 in typeOfFun (rewrite thm x in fun)
@@ -263,6 +268,7 @@ data Expr : LNGType -> Type where
   UnOperation : UnOperator t1 t2 -> Expr t1 -> Expr t2
   Call : Fun t ts -> DList Expr ts -> Expr t
 
+export
 implementation Typed Expr where
   typeOf (Lit l) = typeOf l
   typeOf (Var v) = typeOf v

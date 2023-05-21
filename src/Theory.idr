@@ -8,6 +8,10 @@ export
 revEq : a = b -> b = a
 revEq Refl = Refl
 
+total
+export
+exfalso : Void -> a
+exfalso v = case v of {}
 
 namespace List
   total

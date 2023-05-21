@@ -210,7 +210,12 @@ data LLExpr : LLType -> Type where
   BinOperation : BinOperator tl tr t -> LLValue tl -> LLValue tr -> LLExpr t
   Call : LLValue (Ptr (FunType t ts)) -> DList LLValue ts -> LLExpr t
 
-  -- TODO: getelementptr
+  -- this does not express the ful functionality of the `getelementptr` instruction
+  GetElementPtr : {t : LLType}
+               -> LLValue (Ptr (Array t k))
+               -> (idx1 : LLValue (I n))
+               -> (idx2 : LLValue (I n))
+               -> LLExpr (Ptr t)
 
   -- TODO what about pointers
   -- TODO fcmp, dcmp? what else?
@@ -235,7 +240,8 @@ retTypeOf = unFun . unPtr . typeOf
 export
 implementation Typed LLExpr where
   typeOf (BinOperation op lhs rhs) = resType op
-  typeOf (Call fun args) = retTypeOf fun where
+  typeOf (Call fun args) = retTypeOf fun
+  typeOf (GetElementPtr {t} arr idx1 idx2) = MkThe (Ptr t)
   typeOf (ICMP cmp lhs rhs) = MkThe I1
   typeOf (Load ptr) = unPtr (typeOf ptr)
   typeOf (BitCast val t) = MkThe t

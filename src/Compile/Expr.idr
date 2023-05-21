@@ -11,6 +11,7 @@ import Data.Attached
 import Data.The
 import Data.Typed
 
+import LNG.BuiltIns
 import LNG.TypeChecked
 import LLVM
 
@@ -26,43 +27,10 @@ import Theory
 
 
 
-
-fromLNGLit : Literal t -> LLValue (GetLLType t)
-fromLNGLit (LitBool b) = ILitV (if b then 1 else 0)
-fromLNGLit (LitInt i) = ILitV i
-
-
-comparableInts : EqComparable t -> (n ** GetLLType t = I n)
-comparableInts EqCMPInt = (32 ** Refl)
-comparableInts EqCMPBool = (1 ** Refl)
-
-
-
--- Another case where dependent pairs with custom multiplicities would be useful
-record DPairI (f : Nat -> Type) where
-  constructor MkDPairI
-  0 n : Nat
-  val : f n
-
--- TODO: This is a hack that wouldn't work if there were more comparable types.
--- probably we should be able to determine the type of an expressiion
-integerize : {auto 0 prf : EqComparable t}
-          -> (LLValue (GetLLType t), LLValue (GetLLType t))
-          -> DPairI (\n => (LLValue (I n), LLValue (I n)))
-integerize {prf} (val, val') = let
-  
-  0 nsuch : (k ** I k = GetLLType t)
-  nsuch = case prf of
-    EqCMPBool => (1 ** Refl)
-    EqCMPInt => (32 ** Refl)
-  
-  in MkDPairI nsuch.fst (rewrite nsuch.snd in val, rewrite nsuch.snd in val')
-
-
-
-
-
-
+data EQType = EQ' | NE'
+cmpKind : EQType -> CMPKind
+cmpKind EQ' = EQ
+cmpKind NE' = NE
 
 
 
@@ -76,6 +44,21 @@ getValue var = do
   pure val
 
 
+
+compileLiteral : (labelIn : BlockLabel)
+              -> (literal : Literal t)
+              -> CompM' ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue (GetLLType t))
+compileLiteral labelIn (LitBool b) = pure $ ((labelIn ** initCFG), ILitV (if b then 1 else 0))
+compileLiteral labelIn (LitInt i) = pure $ ((labelIn ** initCFG), ILitV i)
+compileLiteral labelIn (LitString s) = do
+
+  (k ** cst) <- lift (getStringLiteral s)
+  reg <- lift $ freshRegister (Ptr I8)
+  
+  let expr = GetElementPtr {k} {n = 32} (ConstPtr cst) (ILitV 0) (ILitV 0)
+  let g = omap {outs = Undefined} (<+ Assign reg expr) initCFG
+  
+  pure ((labelIn ** g), Var reg)
 
 
 mutual
@@ -96,7 +79,7 @@ mutual
 
 
 
-  compileExpr labelIn (Lit lit) = pure ((labelIn ** initCFG), fromLNGLit lit)
+  compileExpr labelIn (Lit lit) = compileLiteral labelIn lit
 
   compileExpr labelIn (Var var) = do
     
@@ -111,21 +94,26 @@ mutual
     Sub => compileAritmOp labelIn SUB lhs rhs
     Mul => compileAritmOp labelIn MUL lhs rhs
     Div => compileAritmOp labelIn SDIV lhs rhs
+    Mod => compileAritmOp labelIn SREM lhs rhs
     
     And => compileBoolExpr labelIn (BinOperation And lhs rhs)
     Or  => compileBoolExpr labelIn (BinOperation Or  lhs rhs)
     
-    EQ => do
-        ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
-        let MkDPairI n (lhs'', rhs'') = integerize (lhs', rhs')
+    EQ {prf} => compileEqComparison {prf} labelIn EQ' lhs rhs
+    NE {prf} => compileEqComparison {prf} labelIn NE' lhs rhs
 
-        (g', val) <- addICMP EQ g lhs'' rhs''
-        pure ((lbl ** g'), val)
+    LE => compileIntComparison labelIn SLE lhs rhs
+    LT => compileIntComparison labelIn SLT lhs rhs
+    GE => compileIntComparison labelIn SGE lhs rhs
+    GT => compileIntComparison labelIn SGT lhs rhs
 
-    LE => compileOrdComparison labelIn SLE lhs rhs
-    LT => compileOrdComparison labelIn SLT lhs rhs
-    GE => compileOrdComparison labelIn SGE lhs rhs
-    GT => compileOrdComparison labelIn SGT lhs rhs
+    Concat => do
+      ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
+
+      reg <- lift $ freshRegister (Ptr I8)
+      let g' = omap {outs = Undefined} (<+ Assign reg (Call (ConstPtr strconcat) [lhs', rhs'])) g
+
+      pure ((lbl ** g'), Var reg)
   
   
 
@@ -212,21 +200,62 @@ mutual
   
 
 
+
   -----------------------------------------------------------------------------
-  compileOrdComparison : (labelIn : BlockLabel)
+  compileEqComparison : {0 prf : EqComparable t}
+                     -> (labelIn : BlockLabel)
+                     -> EQType
+                     -> Expr t
+                     -> Expr t
+                     -> CompM' ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue I1)
+  compileEqComparison labelIn eqType lhs rhs = case typeOf {f = Expr} lhs of
+    
+    MkThe TInt    => compileIntComparison labelIn (cmpKind eqType) lhs rhs
+    
+    MkThe TBool   => compileBoolComparison labelIn (cmpKind eqType) lhs rhs
+    
+    MkThe TString => do
+      ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
+
+      reg <- lift $ freshRegister I1
+      let g' = omap {outs = Undefined} (<+ Assign reg (Call (ConstPtr strcompare) [lhs', rhs'])) g
+
+      pure ((lbl ** g'), Var reg)
+
+    MkThe TVoid   => let
+    
+        0 impossiblePrf : (CompM' ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue I1) = ())
+        impossiblePrf = exfalso (voidNotEqComparable prf)
+
+      in rewrite impossiblePrf in ()
+
+  -----------------------------------------------------------------------------
+  compileIntComparison : (labelIn : BlockLabel)
                       -> CMPKind
                       -> Expr TInt
                       -> Expr TInt
                       -> CompM' ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue I1)
-  compileOrdComparison labelIn cmpKind lhs rhs = do
+  compileIntComparison labelIn cmpKind lhs rhs = do
     ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
 
     (g', val) <- addICMP cmpKind g lhs' rhs'
     pure ((lbl ** g'), val)
   
-    
-  
+  -----------------------------------------------------------------------------
+  compileBoolComparison : (labelIn : BlockLabel)
+                       -> CMPKind
+                       -> Expr TBool
+                       -> Expr TBool
+                       -> CompM' ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue I1)
+  compileBoolComparison labelIn cmpKind lhs rhs = do
+    ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
 
+    (g', val) <- addICMP cmpKind g lhs' rhs'
+    pure ((lbl ** g'), val)
+  
+  
+  
+  
   -----------------------------------------------------------------------------
   addICMP : CMPKind
          -> CFG CBlock ins (Undefined labelOut)

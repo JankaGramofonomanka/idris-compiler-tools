@@ -8,7 +8,6 @@ import Control.Monad.Either
 import Data.Some
 import Data.Attached
 import Data.DList
---import Data.DMap
 import Data.DSum
 import Data.The
 import Data.Typed
@@ -165,6 +164,10 @@ mutual
     let ctx' = getContext g'
     pure $ CRUUO (lbl ** g')
     
+  -- Exec ---------------------------------------------------------------------
+  compileInstrUU labelIn ctx (Exec expr) = do
+    ((lbl ** g), val) <- compileExpr' labelIn ctx expr
+    pure $ CRUUO (lbl ** g)
     
   -- If -----------------------------------------------------------------------
   compileInstrUU labelIn ctx instr@(If cond instrThen)
@@ -212,6 +215,10 @@ mutual
 
   -- Assign -------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx instr@(Assign var expr)
+    = jumpTo labelPost <$> compileInstrUU labelIn ctx instr
+  
+  -- Exec ---------------------------------------------------------------------
+  compileInstrUD labelIn labelPost ctx instr@(Exec expr)
     = jumpTo labelPost <$> compileInstrUU labelIn ctx instr
 
   -- Return -------------------------------------------------------------------
@@ -333,6 +340,10 @@ mutual
 
   -- Assign -------------------------------------------------------------------
   compileInstrDD pre labelIn labelPost ctxs instr@(Assign var expr)
+    = compileInstrDDViaUD pre labelIn labelPost ctxs instr
+  
+  -- Exec -------------------------------------------------------------------
+  compileInstrDD pre labelIn labelPost ctxs instr@(Exec expr)
     = compileInstrDDViaUD pre labelIn labelPost ctxs instr
 
   -- If -----------------------------------------------------------------------

@@ -8,10 +8,10 @@ import LLVM
 
 public export
 GetLLType : LNGType -> LLType
-GetLLType TInt = I32
-GetLLType TBool = I1
-GetLLType TString = ?hstring
-GetLLType TVoid = Void
+GetLLType TInt    = I32
+GetLLType TBool   = I1
+GetLLType TString = Ptr I8
+GetLLType TVoid   = Void
 
 public export
 FunVal : LNGType -> List LNGType -> Type
