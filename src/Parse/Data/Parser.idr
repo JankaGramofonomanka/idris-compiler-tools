@@ -42,7 +42,7 @@ parse parser s = case evalStateT s parser of
 
 export
 parse' : Parser' token a -> List token -> Maybe a
-parse' parser tokens = parse parser (MkPosition { line = 0, column = 0 }, tokens)
+parse' parser tokens = parse parser (MkPosition { line = 1, column = 1 }, tokens)
 
 export
 simpleParse : SimpleParser a -> String -> Maybe a
@@ -50,7 +50,7 @@ simpleParse parser s = parse' parser (unpack s)
 
 export
 posParse : PosParser token a -> List token -> Maybe a
-posParse parser tokens = (^^) <$> parse parser (MkPosition { line = 0, column = 0}, tokens)
+posParse parser tokens = (^^) <$> parse parser (MkPosition { line = 1, column = 1 }, tokens)
 
 export
 simplePosParse : SimplePosParser a -> String -> Maybe a
