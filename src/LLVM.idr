@@ -29,7 +29,12 @@ data LLType
     with struct name and then get the contents of the struct from a context
     or have the contents in the parameter?
     The latter aproach allows multiple structs with the same name
-    (or if 2 structs have the same structure, then they will be indistinghushible)
+    (or if 2 structs have the same structure, then they will be
+    indistinghushible)
+
+    Solution 1:
+      parametrize structs by the name and contents attached to the name or
+      parametrize the contents by the name.
   -} 
   -- | Struct ?
 
