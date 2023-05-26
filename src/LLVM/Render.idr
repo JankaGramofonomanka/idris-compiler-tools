@@ -8,8 +8,11 @@ import Data.The
 import Data.Typed
 import LLVM
 
+prtItems : List String -> String
+prtItems l = concat (intersperse ", " l)
+
 prtArgs : List String -> String
-prtArgs l = "(" ++ concat (intersperse ", " l) ++ ")"
+prtArgs l = "(" ++ prtItems l ++ ")"
 
 mkSentence : List String -> String
 mkSentence = concat . intersperse " "
@@ -103,6 +106,9 @@ implementation DocItem (LLExpr t) where
   
   prt (Call funPtr params)
     = mkSentence ["define", prtFun (prt $ retTypeOf funPtr) (prt funPtr) (undmap (prt @{typed}) params)]
+
+  prt (GetElementPtr {t, k} arr idx1 idx2)
+    = mkSentence ["getelementptr", prtItems [prt (Array t k), prt @{typed} arr, prt @{typed}idx1, prt @{typed} idx2 ]]
                           
   prt (ICMP cmp lhs rhs)
     = mkSentence ["icmp", prt cmp, prt @{typed} lhs ++ ",", prt rhs]

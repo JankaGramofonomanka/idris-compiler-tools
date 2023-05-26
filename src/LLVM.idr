@@ -217,6 +217,7 @@ data LLExpr : LLType -> Type where
 
   -- this does not express the ful functionality of the `getelementptr` instruction
   GetElementPtr : {t : LLType}
+               -> {k : Nat}
                -> LLValue (Ptr (Array t k))
                -> (idx1 : LLValue (I n))
                -> (idx2 : LLValue (I n))
