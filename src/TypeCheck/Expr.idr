@@ -30,9 +30,10 @@ getVarType id = do
 
 
 decideEq : (t, t' : TC.LNGType) -> Maybe (t = t')
-decideEq TInt   TInt  = Just Refl
-decideEq TBool  TBool = Just Refl
-decideEq TVoid  TVoid = Just Refl
+decideEq TInt     TInt    = Just Refl
+decideEq TBool    TBool   = Just Refl
+decideEq TVoid    TVoid   = Just Refl
+decideEq TString  TString = Just Refl
 decideEq _ _ = Nothing
 
 
