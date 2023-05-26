@@ -32,18 +32,18 @@ typeCheckFunDecl' decl = do
 
 findMain : (funcsPos : Pos)
         -> (funcs : List (^(t ** ts ** fun ** FunDecl t ts fun)))
-        -> TypeCheckM ( FunDecl TVoid [] (MkFunId "main")
+        -> TypeCheckM ( FunDecl TInt [] (MkFunId "main")
                       , List (t ** ts ** fun ** FunDecl t ts fun)
                       )
 findMain p Nil = throwError $ noMainFunction p
 findMain p ((funPos |^ (t ** ts ** fun ** decl)) :: funcs) = case fun of
   MkFunId "main" => case t of
   
-    TVoid => case ts of
+    TInt => case ts of
       [] => pure {f = TypeCheckM} (decl, map (^^) funcs)
       _ => throwError $ numParamsMismatch funPos 0 (length ts)
   
-    _ => throwError $ typeError funPos TVoid t
+    _ => throwError $ typeError funPos TInt t
   
   _ => do
     (main, funcs') <- findMain p funcs

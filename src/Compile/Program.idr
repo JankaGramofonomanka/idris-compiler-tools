@@ -36,11 +36,11 @@ export
 compileProgram : LNG.Program -> CompM LLVM.Program
 compileProgram (MkProgram { main, funcs }) = do
 
-  let funMap = mkFunMap ((TVoid ** [] ** MkFunId "main" ** main) :: funcs)
+  let funMap = mkFunMap ((TInt ** [] ** MkFunId "main" ** main) :: funcs)
   modify { funcs := funMap }
 
   mainDecl <- compileFunDecl main
   funcDecls <- traverse compileFunDecl' funcs
 
-  let mainDecl' = (Void ** [] ** mainDecl)
+  let mainDecl' = (I32 ** [] ** mainDecl)
   pure (MkProgram { funcs = (mainDecl' :: funcDecls) })

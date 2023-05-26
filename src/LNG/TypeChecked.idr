@@ -318,7 +318,7 @@ record FunDecl (retType : LNGType) (paramTypes : List LNGType) (funId : FunId re
 public export
 record Program where
   constructor MkProgram
-  main : FunDecl TVoid [] (MkFunId "main")
+  main : FunDecl TInt [] (MkFunId "main")
   funcs : List (t ** ts ** fun ** FunDecl t ts fun)
 
 
