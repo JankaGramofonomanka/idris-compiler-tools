@@ -10,10 +10,12 @@ import LNG.TypeChecked as LNG
 import Compile.Program
 import Compile.Data.CompM
 import Compile.Data.Context
+import Compile.Data.Error
 import Compile.Utils
 
 import Utils
 
+export
 compile : LNG.Program -> Either Error LLVM.Program
 compile = evalStateT initState . compileProgram where
   

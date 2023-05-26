@@ -15,6 +15,7 @@ import LNG.TypeChecked
 import LLVM
 import Compile.Data.CompM
 import Compile.Data.Context
+import Compile.Data.Error
 import Compile.Utils
 import CFG
 

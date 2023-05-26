@@ -20,6 +20,7 @@ import Compile.Data.CompileResult
 import Compile.Data.CompM
 import Compile.Data.Context
 import Compile.Data.Context.Utils
+import Compile.Data.Error
 import Compile.Expr
 import Compile.Utils
 

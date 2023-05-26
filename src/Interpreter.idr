@@ -6,7 +6,8 @@ import Control.Monad.State
 import Data.SortedMap
 
 import Data.Console
-import Interpreter.InterpreterT
+import Interpreter.Data.Error
+import Interpreter.Data.InterpreterT
 import Interpreter.Program
 import LNG.Parsed
 

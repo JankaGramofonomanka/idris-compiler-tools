@@ -5,8 +5,9 @@ import Control.Monad.State
 
 import Data.SortedMap
 
+import Interpreter.Data.Error
+import Interpreter.Data.InterpreterT
 import Interpreter.Expr
-import Interpreter.InterpreterT
 import Interpreter.Semantics
 import LNG.Parsed
 import Parse.Data.Position

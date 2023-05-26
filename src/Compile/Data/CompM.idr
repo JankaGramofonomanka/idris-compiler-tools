@@ -15,6 +15,7 @@ import LNG.TypeChecked
 
 import Compile.Data.CBlock
 import Compile.Data.Context
+import Compile.Data.Error
 import Compile.Utils
 import CFG
 
@@ -32,13 +33,6 @@ record CompState where
 export
 emptyState : CompState
 emptyState = MkCompST { funcs = empty, regCount = 0, lblCount = 0, strLits = empty, strLitCount = 0 }
-
-public export
-data Error : Type where
-  NoSuchVariable : Variable t -> Error
-  NoSuchFunction : FunId t ts -> Error
-  Impossible : String -> Error
-
 
 -- TODO: remove the `public` keyword
 public export

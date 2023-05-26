@@ -12,6 +12,7 @@ import LNG.Parsed as LNG
 import LNG.TypeChecked as TC
 import Parse.Data.Position
 import TypeCheck.Data.Context
+import TypeCheck.Data.Error
 import TypeCheck.Data.TypeCheckM
 import TypeCheck.Instr
 import TypeCheck.Utils
