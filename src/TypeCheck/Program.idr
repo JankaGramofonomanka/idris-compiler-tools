@@ -3,8 +3,6 @@ module TypeCheck.Program
 import Control.Monad.Either
 import Control.Monad.State
 
-import Data.SortedMap
-
 import LNG.Parsed                 as LNG
 import LNG.TypeChecked            as TC
 import Parse.Data.Position
@@ -56,6 +54,8 @@ typeCheckProgram : LNG.Program -> TypeCheckM TC.Program
 typeCheckProgram prog = do
 
   funMap <- mkFunMap (^^prog.funcs)
+
+  modify { funcs $= (`union` funMap)}
 
   funcs' <- traverse typeCheckFunDecl' (^^prog.funcs)
 

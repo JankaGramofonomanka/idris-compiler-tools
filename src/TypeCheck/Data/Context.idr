@@ -35,6 +35,10 @@ namespace FunCTX
   lookup : LNG.Ident -> FunCTX -> Maybe (DefPos, TC.LNGType, List TC.LNGType)
   lookup = SortedMap.lookup
 
+  export
+  union : FunCTX -> FunCTX -> FunCTX
+  union = mergeLeft
+
 namespace VarCTX
 
   export
