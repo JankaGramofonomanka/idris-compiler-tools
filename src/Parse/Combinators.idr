@@ -21,14 +21,14 @@ namespace Pos
   nil : PosParser token (List a)
   nil = do
     p <- currentPosition
-    pure (Between p p |^ Nil)
+    pure (between p p |^ Nil)
 
   export
   eof : PosParser token ()
   eof = do
     (p, Nil) <- get
               | (p, _ :: _) => empty
-    pure (Between p p |^ ())
+    pure (between p p |^ ())
 
   mutual
     export
@@ -96,8 +96,8 @@ namespace SimplePos
     (p, s) <- get
     case s of
       Nil => empty
-      '\n'  :: xs => put ({ line $= (+1), column := 0     } p, xs) >> pure (Between p p |^ '\n')
-      x     :: xs => put ({               column $= (+1)  } p, xs) >> pure (Between p p |^ x)
+      '\n'  :: xs => put ({ line $= (+1), column := 0     } p, xs) >> pure (between p p |^ '\n')
+      x     :: xs => put ({               column $= (+1)  } p, xs) >> pure (between p p |^ x)
   -}
   
   export

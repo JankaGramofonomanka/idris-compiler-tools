@@ -1,5 +1,7 @@
 module Parse.Data.Tokenize
 
+import Data.List
+
 import Parse.Data.Parser
 import Parse.Data.Position
 
@@ -16,12 +18,12 @@ export
 implementation Tokenize (Position, List Char) (^Char) where
   tokenize (p, s) = case s of
     Nil => empty
-    '\n'  :: xs => pure ((Between p p |^ '\n'), ({ line $= (+1), column := 0     } p, xs))
-    x     :: xs => pure ((Between p p |^ x), ({               column $= (+1)  } p, xs))
+    '\n'  :: xs => pure ((between p p |^ '\n'), ({ line $= (+1), column := 0     } p, xs))
+    x     :: xs => pure ((between p p |^ x), ({               column $= (+1)  } p, xs))
 
 export
 implementation Tokenize (Position, List (^a)) (^a) where
   tokenize (p, s) = case s of
     Nil => empty
-    x :: xs => pure (x, (end (pos x), xs))
+    x :: xs => pure (x, (maybe (pos x).to (from . pos) (head' xs), xs))
 

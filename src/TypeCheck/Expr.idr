@@ -75,13 +75,13 @@ tcUnOp _ _ = Nothing
 getBinOp : (binOpExprPos : Pos) -> ^BinOperator -> (lt, rt : TC.LNGType) -> TypeCheckM' (t ** TC.BinOperator lt rt t)
 getBinOp p op lt rt = do
   let Just op' = tcBinOp (^^op) lt rt
-               | Nothing => throwError $ binOpTypeError p lt rt
+               | Nothing => throwError $ binOpTypeError p (^^op) lt rt
   pure op'
 
 getUnOp : (unOpExprPos : Pos) -> ^UnOperator -> (t : TC.LNGType) -> TypeCheckM' (t' ** TC.UnOperator t t')
 getUnOp p op t = do
   let Just op' = tcUnOp (^^op) t
-               | Nothing => throwError $ unOpTypeError p t
+               | Nothing => throwError $ unOpTypeError p (^^op) t
   pure op'
 
 

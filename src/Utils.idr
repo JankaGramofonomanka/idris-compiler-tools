@@ -42,3 +42,7 @@ export
 foldl3 : Foldable t => (acc -> e1 -> e2 -> e3 -> acc) -> acc -> t (e1, e2, e3) -> acc
 foldl3 f = foldl (uncurry3 . f)
 
+export
+mkSentence : List String -> String
+mkSentence = concat . intersperse " "
+

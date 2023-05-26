@@ -27,18 +27,8 @@ SimplePosParser a = PosParser Char a
 
 
 export
-beginning : Pos -> Position
-beginning (Between l r) = l
-beginning (Fake _) = assert_total $ idris_crash "fake `Pos`"
-
-export
-end : Pos -> Position
-end (Between l r) = r
-end (Fake _) = assert_total $ idris_crash "fake `Pos`"
-
-export
 fromTo : Pos -> Pos -> Pos
-fromTo p1 p2 = Between (beginning p1) (end p2)
+fromTo p1 p2 = between p1.from p2.to
 
 export
 currentPosition : Parser' token Position
