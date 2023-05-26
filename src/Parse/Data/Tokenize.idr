@@ -18,8 +18,8 @@ export
 implementation Tokenize (Position, List Char) (^Char) where
   tokenize (p, s) = case s of
     Nil => empty
-    '\n'  :: xs => pure ((between p p |^ '\n'), ({ line $= (+1), column := 1     } p, xs))
-    x     :: xs => pure ((between p p |^ x),    ({               column $= (+1)  } p, xs))
+    '\n'  :: xs => pure ((between p (moveRight' p) |^ '\n'),  (nextLine    p, xs))
+    x     :: xs => pure ((between p (moveRight' p) |^ x),     (moveRight'  p, xs))
 
 export
 implementation Tokenize (Position, List (^a)) (^a) where

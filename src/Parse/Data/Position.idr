@@ -47,3 +47,31 @@ implementation DocItem Position where
 export
 implementation DocItem Pos where
   prt (MkPos { from, to }) = concat ["(", prt from, "--", prt to, ")"]
+
+export
+moveRight : Position -> Int -> Position
+moveRight p n = { column $= (+n) } p
+
+export
+moveRight' : Position -> Position
+moveRight' p = p `moveRight` 1
+
+export
+moveDown : Position -> Int -> Position
+moveDown p n = { line $= (+n) } p
+
+export
+moveDown' : Position -> Position
+moveDown' p = p `moveDown` 1
+
+export
+resetHorizontal : Position -> Position
+resetHorizontal p = { column := 1 } p
+
+export
+resetVertical : Position -> Position
+resetVertical p = { line := 1 } p
+
+export
+nextLine : Position -> Position
+nextLine = resetHorizontal . moveDown'
