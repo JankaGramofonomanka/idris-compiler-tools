@@ -41,7 +41,3 @@ implementation DocItem Literal where
 export
 implementation DocItem Ident where
   prt (MkId s) = s
-
-export
-implementation [ticks] (base : DocItem a) => DocItem a where
-  prt x = "`" ++ prt x @{base} ++ "`"

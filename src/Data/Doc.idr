@@ -71,3 +71,7 @@ render tabLength margin doc = unlines (render' 0 doc) where
     
     renderLine numTabs (Left doc') = render' (numTabs + 1) doc'
 
+export
+implementation [ticks] (base : DocItem a) => DocItem a where
+  prt x = "`" ++ prt x @{base} ++ "`"
+
