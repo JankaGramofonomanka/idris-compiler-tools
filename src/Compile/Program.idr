@@ -37,7 +37,7 @@ compileProgram : LNG.Program -> CompM LLVM.Program
 compileProgram (MkProgram { main, funcs }) = do
 
   let funMap = mkFunMap ((TInt ** [] ** MkFunId "main" ** main) :: funcs)
-  modify { funcs := funMap }
+  modify { funcs $= (`union` funMap) }
 
   mainDecl <- compileFunDecl main
   funcDecls <- traverse compileFunDecl' funcs

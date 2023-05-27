@@ -48,6 +48,10 @@ namespace FunCTX
   insert : Fun t ts -> FunVal t ts -> FunCTX -> FunCTX
   insert fun val ctx = DMap.insert {v = (t, ts)} fun val ctx
 
+  export
+  union : FunCTX -> FunCTX -> FunCTX
+  union = DMap.union
+
 namespace VarCTX
 
   export
