@@ -297,7 +297,7 @@ mutual
 
     let pre : CFG CBlock (Undefined labelIn) (Defined [labelIn ~> labelNodeIn])
         pre = SingleVertex {vouts = Just [labelNodeIn]}
-            $ emptyCBlock (detach ctxIn) <+| Branch labelNodeIn
+            $ emptyCBlock ctxIn <+| Branch labelNodeIn
 
     connectCRDDCRUD pre <$> compileInstrDD [labelIn] labelNodeIn labelPost (getContexts pre) instr
 

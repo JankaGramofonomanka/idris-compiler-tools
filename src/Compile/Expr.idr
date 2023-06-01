@@ -358,15 +358,13 @@ mutual
     labelPost <- lift freshLabel
     
     
-    let trueBLK : CBlock labelTrue (Just outsT) (Just [labelPost])
-        trueBLK = MkBB { theLabel = MkThe labelTrue, phis = [], body = [], term = Branch labelPost, ctx = empty}
+    trueBLK <- pure $ [] |++> emptyCBlock (attach labelTrue !get) <+| Branch labelPost
     
     let trueG : CFG CBlock (Defined $ outsT ~~> labelTrue) (Defined [labelTrue ~> labelPost])
         trueG = SingleVertex {vins = Just outsT, vouts = Just [labelPost]} trueBLK
     
     
-    let falseBLK : CBlock labelFalse (Just outsF) (Just [labelPost])
-        falseBLK = MkBB { theLabel = MkThe labelFalse, phis = [], body =  [], term = Branch labelPost, ctx = empty}
+    falseBLK <- pure $ [] |++> emptyCBlock (attach labelFalse !get) <+| Branch labelPost
 
     let falseG : CFG CBlock (Defined $ outsF ~~> labelFalse) (Defined [labelFalse ~> labelPost])
         falseG = SingleVertex {vins = Just outsF, vouts = Just [labelPost]} falseBLK

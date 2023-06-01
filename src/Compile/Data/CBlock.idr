@@ -45,27 +45,23 @@ record CBlock (label : BlockLabel) (ins : Neighbors BlockLabel) (outs : Neighbor
   term : MbTerm outs
   
   -- TODO: divide assignments between individual instructions
-  ctx : VarCTX
-
-export
-context : {lbl : BlockLabel} -> CBlock lbl ins Undefined -> lbl :~: VarCTX
-context {lbl} blk = attach lbl (ctx blk)
+  ctx : label :~: VarCTX
 
 export
 contexts : {0 lbl : BlockLabel}
         -> {outs : List BlockLabel}
         -> CBlock lbl ins (Just outs)
         -> DList (:~: VarCTX) (lbl ~>> outs)
-contexts {lbl, outs} blk = replicate' lblTo outs (\l => attach (lblTo l) (ctx blk)) where
+contexts {lbl, outs} blk = replicate' lblTo outs (\l => attach (lblTo l) (detach $ blk.ctx)) where
   0 lblTo : BlockLabel -> Edge BlockLabel
   lblTo v = lbl ~> v
   
 export
 initCBlock : {lbl : BlockLabel} -> CBlock lbl Undefined Undefined
-initCBlock {lbl} = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = (), ctx = empty}
+initCBlock {lbl} = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = (), ctx = attach lbl empty}
 
 export
-emptyCBlock : {lbl : BlockLabel} -> VarCTX -> CBlock lbl Undefined Undefined
+emptyCBlock : {lbl : BlockLabel} -> lbl :~: VarCTX -> CBlock lbl Undefined Undefined
 emptyCBlock {lbl} ctx = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = (), ctx}
 
 
@@ -100,7 +96,8 @@ export
     , phis
     , body = (body ++ body')
     , term = term'
-    , ctx = (ctx' `union` ctx {- `ctx'` takes precedence -})
+    --, ctx = (ctx' `union` ctx {- `ctx'` takes precedence -})
+    , ctx = ctx' -- This assumes `ctx'` contains `ctx`
     }
 
 export
@@ -152,7 +149,7 @@ export
 getContext : {lbl : BlockLabel}
           -> CFG CBlock ins (Undefined lbl)
           -> lbl :~: VarCTX
-getContext {lbl} cfg = attach lbl $ oget ctx cfg
+getContext {lbl} cfg = oget ctx cfg
 
 export
 getContexts : CFG CBlock ins (Defined outs)

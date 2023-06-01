@@ -197,7 +197,7 @@ collectOutsCR {lbl' = labelPost} (CRUDO (lbls ** (g, prf))) = do
   let ctxPost = ctx
 
   let post : CFG CBlock (Defined $ lbls ~~> labelPost) (Undefined labelPost)
-      post = SingleVertex {vins = Just lbls} $ phis |++> emptyCBlock (detach ctxPost)
+      post = SingleVertex {vins = Just lbls} $ phis |++> emptyCBlock ctxPost
   
   let final = Series {prf = nonempty_map prf} g post
 
