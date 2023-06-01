@@ -322,7 +322,9 @@ mutual
     SG ctx phis <- segregate ctxs
     res <- compileInstrUD labelIn labelPost ctx instr
 
-    collectInsCR pre phis ctx res
+    let preG = imap {ins = Just pre} (phis |++>) (emptyCFG ctx)
+          
+    pure $ connectCRUDCRDD preG res
 
 
   export

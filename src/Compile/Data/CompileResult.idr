@@ -204,18 +204,6 @@ collectOutsCR {lbl' = labelPost} (CRUDO (lbls ** (g, prf))) = do
   pure $ CRUUO (labelPost ** final)
 
 
-export
-collectInsCR : {lbl, lbl' : BlockLabel}
-            -> (ins : List BlockLabel)
-            -> (phis : List (PhiInstr $ MkInputs ins))
-            -> (ctx : lbl :~: VarCTX)
-            -> CompileResultUD lbl lbl' crt
-            -> CompM $ CompileResultDD (ins ~~> lbl) lbl' crt
-collectInsCR ins phis ctx res = do
-  let pre = imap {ins = Just ins} (phis |++>) (emptyCFG ctx)
-        
-  let res' = connectCRUDCRDD pre res
-  pure res'
 
 
 
