@@ -9,25 +9,25 @@ import Data.DList
 import Interpreter.Data.Error
 import Interpreter.Data.InterpreterT
 import Interpreter.Semantics
-import Interpreter.FunDecl
+import Interpreter.FunDef
 import LNG.Parsed
 import Parse.Data.Position
 
-addFunDecl : Monad m => ^FunDecl -> InterpreterT m ()
+addFunDecl : Monad m => ^FunDef -> InterpreterT m ()
 addFunDecl (p |^ decl)
   = modify
   $ the (InterpreterState m -> InterpreterState m)
   $ { funcs $= insert (^^decl.funId) (funInterpreter decl) }
     
 
-makeFunMap : Monad m => List (^FunDecl) -> InterpreterT m ()
+makeFunMap : Monad m => List (^FunDef) -> InterpreterT m ()
 makeFunMap Nil = pure ()
 makeFunMap (decl :: decls) = addFunDecl decl >> makeFunMap decls
 
-findMainAndMakeFunMap : Monad m => ^(List $ ^FunDecl) -> InterpreterT m FunDecl
+findMainAndMakeFunMap : Monad m => ^(List $ ^FunDef) -> InterpreterT m FunDef
 findMainAndMakeFunMap (p |^ funcs) = findMainAndMakeFunMap' p funcs where
 
-  findMainAndMakeFunMap' : Pos -> List (^FunDecl) -> InterpreterT m FunDecl
+  findMainAndMakeFunMap' : Pos -> List (^FunDef) -> InterpreterT m FunDef
   findMainAndMakeFunMap' p Nil = throwError $ noMainFunction p
   findMainAndMakeFunMap' p (decl :: decls) = case (^^decl).funId of
     (_ |^ MkId "main") => makeFunMap (decl :: decls) >> pure (^^decl)

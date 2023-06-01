@@ -1,4 +1,4 @@
-module Compile.FunDecl
+module Compile.FunDef
 
 import Control.Monad.State
 import Control.Monad.Either
@@ -32,8 +32,8 @@ compileBody labelIn ctx instr = do
   pure $ imap {ins = Just []} ([] |++>) g
 
 export
-compileFunDecl : FunDecl retType paramTypes funId
-              -> CompM $ FunDecl (GetLLType retType) (map GetLLType paramTypes)
+compileFunDecl : FunDef retType paramTypes funId
+              -> CompM $ FunDef (GetLLType retType) (map GetLLType paramTypes)
 compileFunDecl func {paramTypes} = do
   
   varRegPairs <- dtraverse getReg func.params
@@ -46,7 +46,7 @@ compileFunDecl func {paramTypes} = do
   let cfg' = vmap' toLLVM cfg
   
   let MkFunId name = unThe func.theId
-  pure $ LLVM.MkFunDecl { name, theRetType = The.map GetLLType func.theRetType, params = regs', body = cfg' }
+  pure $ LLVM.MkFunDef { name, theRetType = The.map GetLLType func.theRetType, params = regs', body = cfg' }
 
   where
 

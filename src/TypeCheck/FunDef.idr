@@ -1,4 +1,4 @@
-module TypeCheck.FunDecl
+module TypeCheck.FunDef
 
 import Control.Monad.State
 import Control.Monad.Either
@@ -23,7 +23,7 @@ mkVar' : (^LNG.LNGType, ^Ident) -> (t ** TC.Variable t)
 mkVar' (t, id) = (tc' t ** mkVar (tc' t) (^^id))
 
 export
-typeCheckFunDecl : ^LNG.FunDecl -> TypeCheckM (t ** ts ** fun ** TC.FunDecl t ts fun)
+typeCheckFunDecl : ^LNG.FunDef -> TypeCheckM (t ** ts ** fun ** TC.FunDef t ts fun)
 typeCheckFunDecl (_ |^ funDecl) = do
   
   let retType = tc' funDecl.retType
@@ -36,11 +36,11 @@ typeCheckFunDecl (_ |^ funDecl) = do
   let Returning retType = bk
                         | Simple => throwError $ missingReturnInstr (pos funDecl.body)
 
-  let decl = TC.MkFunDecl { theId       = MkThe funId
-                          , theRetType  = MkThe retType
-                          , params      = paramIds
-                          , body        = body
-                          }
+  let decl = TC.MkFunDef { theId      = MkThe funId
+                         , theRetType = MkThe retType
+                         , params     = paramIds
+                         , body       = body
+                         }
 
   pure (retType ** paramTypes ** funId ** decl)
   

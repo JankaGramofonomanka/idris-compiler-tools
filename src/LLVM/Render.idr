@@ -189,11 +189,11 @@ implementation Document (CFG BlockVertex (Defined ins) (Defined outs)) where
   print (IFlip cfg) = print cfg
   print (OFlip cfg) = print cfg
 
--- FunDecl --------------------------------------------------------------------
+-- FunDef ---------------------------------------------------------------------
 export
-implementation Document (FunDecl retT paramTs) where
+implementation Document (FunDef retT paramTs) where
 
-  print (MkFunDecl { theRetType, name, params, body }) = let
+  print (MkFunDef { theRetType, name, params, body }) = let
       header = simple $ mkSentence ["define", prtFun (prt theRetType) name (undmap (prt @{typed}) params)]
     in MkDoc { lines = [Right header, Left (print body)] }
 
@@ -202,7 +202,7 @@ export
 implementation Document Program where
   print (MkProgram { funcs }) = foldl append Doc.empty funcs where
 
-    append : Doc -> (t ** ts ** FunDecl t ts) -> Doc
+    append : Doc -> (t ** ts ** FunDef t ts) -> Doc
     append doc (t ** ts ** fun) = doc ++ blankLines 1 ++ (print fun)
     
 

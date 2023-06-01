@@ -1,4 +1,4 @@
-module Interpreter.FunDecl
+module Interpreter.FunDef
 
 import Control.Monad.Either
 import Control.Monad.State
@@ -41,12 +41,12 @@ interpretFunBody retT params args body = do
 
 export
 interpretFun : Monad m
-            => (decl : FunDecl)
+            => (decl : FunDef)
             -> DList Value (ParamTypes $ ^^decl.params)
             -> InterpreterT m $ Value (^^decl.retType)
 interpretFun decl args = interpretFunBody (^^decl.retType) (^^decl.params) args decl.body
 
 
 export
-funInterpreter : Monad m => FunDecl -> (t : LNGType ** ts : List LNGType ** Fun t ts (InterpreterT m))
+funInterpreter : Monad m => FunDef -> (t : LNGType ** ts : List LNGType ** Fun t ts (InterpreterT m))
 funInterpreter decl = (^^decl.retType ** ParamTypes (^^decl.params) ** interpretFun decl)

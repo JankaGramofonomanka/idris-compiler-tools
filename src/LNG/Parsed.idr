@@ -64,8 +64,8 @@ data Instr
   | RetVoid
 
 public export
-record FunDecl where
-  constructor MkFunDecl
+record FunDef where
+  constructor MkFunDef
   funId : (^Ident)
   retType : (^LNGType)
   params : ^(List (^LNGType, ^Ident))
@@ -74,6 +74,6 @@ record FunDecl where
 public export
 record Program where
   constructor MkProgram
-  funcs : ^(List (^FunDecl))
+  funcs : ^(List (^FunDef))
 
 

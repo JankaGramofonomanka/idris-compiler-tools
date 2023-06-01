@@ -305,11 +305,11 @@ BlockVertex lbl (Just ins) (Just []) = SimpleBlock lbl (MkInputs ins) Return
 BlockVertex lbl (Just ins) (Just (out :: outs))
   = SimpleBlock lbl (MkInputs ins) (Jump $ out :: outs)
 
--- FunDecl --------------------------------------------------------------------
+-- FunDef ---------------------------------------------------------------------
 public export
-record FunDecl (retT : LLType) (paramTs : List LLType) where
+record FunDef (retT : LLType) (paramTs : List LLType) where
 
-  constructor MkFunDecl
+  constructor MkFunDef
   -- TODO: consider making this parametrised by `retT` and `retTs`, like in `LNG`
   name : String
   
@@ -324,5 +324,5 @@ record FunDecl (retT : LLType) (paramTs : List LLType) where
 public export
 record Program where
   constructor MkProgram
-  funcs : List (retType ** paramTypes ** FunDecl retType paramTypes)
+  funcs : List (retType ** paramTypes ** FunDef retType paramTypes)
 

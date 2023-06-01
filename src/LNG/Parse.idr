@@ -221,7 +221,7 @@ mutual
   instruction : LNGParser Instr
   instruction = return <|> retvoid <|> declare <|> assign <|> ifthenelse <|> while <|> block <|> exec
 
--- FunDecl --------------------------------------------------------------------
+-- FunDef ---------------------------------------------------------------------
 singleParam : LNGParser (^LNGType, ^Ident)
 singleParam = do
   ty    <- lngType
@@ -231,13 +231,13 @@ singleParam = do
 funParams : LNGParser (List (^LNGType, ^Ident))
 funParams = map (map (^^)) <$> commaSeparated singleParam
 
-funDecl : LNGParser FunDecl
+funDecl : LNGParser FunDef
 funDecl = do
   retT    <- lngType
   funId   <- ident
   params  <- inBrackets funParams
   body    <- block
-  pure (fromTo (pos retT) (pos body) |^ MkFunDecl { funId, retType = retT, params, body })
+  pure (fromTo (pos retT) (pos body) |^ MkFunDef { funId, retType = retT, params, body })
 
 
 -- Program --------------------------------------------------------------------

@@ -308,8 +308,8 @@ mutual
     (::) : Instr Simple -> Instrs k -> Instrs k
 
 public export
-record FunDecl (retType : LNGType) (paramTypes : List LNGType) (funId : FunId retType paramTypes) where
-  constructor MkFunDecl
+record FunDef (retType : LNGType) (paramTypes : List LNGType) (funId : FunId retType paramTypes) where
+  constructor MkFunDef
   theId : The funId
   theRetType : The retType
   params : DList Variable paramTypes
@@ -318,7 +318,7 @@ record FunDecl (retType : LNGType) (paramTypes : List LNGType) (funId : FunId re
 public export
 record Program where
   constructor MkProgram
-  main : FunDecl TInt [] (MkFunId "main")
-  funcs : List (t ** ts ** fun ** FunDecl t ts fun)
+  main : FunDef TInt [] (MkFunId "main")
+  funcs : List (t ** ts ** fun ** FunDef t ts fun)
 
 

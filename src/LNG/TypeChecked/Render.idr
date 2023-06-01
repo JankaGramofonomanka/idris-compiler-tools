@@ -1,7 +1,10 @@
 module LNG.TypeChecked.Render
 
+import Data.String
+import Data.DList
 import Data.Doc
 import LNG.TypeChecked
+import Utils
 
 export
 implementation DocItem LNGType where
@@ -9,6 +12,28 @@ implementation DocItem LNGType where
   prt TBool   = "boolean"
   prt TString = "string"
   prt TVoid   = "void"
+
+export
+implementation DocItem (BinOperator t1 t2 t3) where
+  prt Add = "(+)"
+  prt Sub = "(-)"
+  prt Mul = "(*)"
+  prt Div = "(/)"
+  prt Mod = "(%)"
+  prt And = "(&&)"
+  prt Or = "(||)"
+  prt EQ = "(==)"
+  prt NE = "(!=)"
+  prt LE = "(<=)"
+  prt LT = "(<)"
+  prt GE = "(>=)"
+  prt GT = "(>)"
+  prt Concat = "(++)"
+
+export
+implementation DocItem (UnOperator t1 t2) where
+  prt Neg = "(-)"
+  prt Not = "(!)"
 
 export
 implementation DocItem (Literal t) where
@@ -32,3 +57,31 @@ export
 implementation DocItem (Fun t ts) where
   prt (MkFun t ts id) = prt id
 
+brkts : String -> String
+brkts s = "(" ++ s ++ ")"
+export
+implementation DocItem (Expr t) where
+  prt (Lit lit) = prt lit
+  prt (Var var) = prt var
+  prt (BinOperation op lhs rhs) = mkSentence [brkts (prt lhs), prt op, brkts (prt rhs)]
+  prt (UnOperation op expr) = mkSentence [prt op, brkts (prt expr)]
+  prt (Call fun args) = prt fun ++ brkts (concat . intersperse ", " $ undmap prt args)
+
+export
+implementation DocItem (Instr k) where
+
+  prt instr = case instr of
+    (Block instrs) => concat . intersperse "\n" $ ["{"] ++ map ("    " ++) (prt' instrs) ++ ["}"]
+    (Assign var expr) => mkSentence [prt var, "=", prt expr]
+    (Exec expr) => prt expr
+    (If cond thn) => mkSentence ["if" ++ brkts (prt cond), prt thn]
+    (IfElse cond thn els) => mkSentence ["if" ++ brkts (prt cond), prt thn, "else", prt els]
+    (While cond body) => mkSentence ["while" ++ brkts (prt cond), prt body]
+    (Return expr) => mkSentence ["return", prt expr]
+    RetVoid => "return"
+
+    where
+      prt' : Instrs k' -> List String
+      prt' Nil = Nil
+      prt' (TermSingleton instr) = [prt instr]
+      prt' (instr :: instrs) = prt instr :: prt' instrs
