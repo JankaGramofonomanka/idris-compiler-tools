@@ -142,16 +142,12 @@ finalize {ins, lbl} (SG' ctx) = foldlM handleItem (SG (attach lbl VarCTX.empty) 
       pure $ SG (map (DMap.insert key (Var reg)) ctx') (phi :: phis)
     
     
-{-
-TODO: add another case, the second parameter being [ctx]
-currently `addCTX` drops values that were not found in the accumulator which is
-empty at the beginning. Thus the entrie context will be empty
--}
 segregate' : {lbls : List BlockLabel}
           -> DList (:~: VarCTX) (lbls ~~> lbl)
           -> Segregated' lbl (MkInputs lbls)
-segregate' {lbls = Nil} Nil = SG' DMap.empty
-segregate' {lbls = l :: ls} (ctx :: ctxs) = addCTX ctx (segregate' ctxs)
+segregate' {lbls = Nil}       Nil           = SG' DMap.empty
+segregate' {lbls = l :: Nil}  (ctx :: Nil)  = SG' { ctx = map Right (detach ctx) }
+segregate' {lbls = l :: ls}   (ctx :: ctxs) = addCTX ctx (segregate' ctxs)
 
 
 
@@ -186,6 +182,7 @@ commonKeys ctxs = VarCTX.keys (intersection' ctxs) where
 
   intersection' : DList (:~: VarCTX) lbls' -> VarCTX
   intersection' Nil = VarCTX.empty
+  intersection' (ctx :: Nil) = detach ctx
   intersection' (ctx :: ctxs) = VarCTX.intersection (detach ctx) (intersection' ctxs)
 
   
