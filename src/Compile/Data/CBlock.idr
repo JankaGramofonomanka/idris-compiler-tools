@@ -60,6 +60,9 @@ export
 emptyCBlock : {lbl : BlockLabel} -> lbl :~: VarCTX -> CBlock lbl Undefined Undefined
 emptyCBlock {lbl} ctx = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = (), ctx}
 
+export
+assign : Variable t -> LLValue (GetLLType t) -> CBlock lbl ins Undefined -> CBlock lbl ins Undefined
+assign var reg = { ctx $= map (insert var reg) }
 
 
 

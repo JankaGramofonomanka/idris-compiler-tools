@@ -41,10 +41,6 @@ CompM : Type -> Type
 CompM = StateT CompState (Either Error)
 
 export
-assign : Variable t -> LLValue (GetLLType t) -> CBlock lbl ins Undefined -> CBlock lbl ins Undefined
-assign var reg = { ctx $= map (insert var reg) }
-
-export
 freshRegister : (t : LLType) -> CompM (Reg t)
 freshRegister t = do
   n <- gets regCount
