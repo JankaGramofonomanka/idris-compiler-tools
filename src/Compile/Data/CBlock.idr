@@ -57,10 +57,6 @@ contexts {lbl, outs} blk = replicate' lblTo outs (\l => attach (lblTo l) (detach
   lblTo v = lbl ~> v
   
 export
-initCBlock : {lbl : BlockLabel} -> CBlock lbl Undefined Undefined
-initCBlock {lbl} = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = (), ctx = attach lbl empty}
-
-export
 emptyCBlock : {lbl : BlockLabel} -> lbl :~: VarCTX -> CBlock lbl Undefined Undefined
 emptyCBlock {lbl} ctx = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = (), ctx}
 

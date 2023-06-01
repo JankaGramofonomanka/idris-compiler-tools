@@ -49,15 +49,15 @@ getValue var = do
 compileLiteral : (labelIn : BlockLabel)
               -> (literal : Literal t)
               -> CompM' ((lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl)), LLValue (GetLLType t))
-compileLiteral labelIn (LitBool b) = pure $ ((labelIn ** initCFG), ILitV (if b then 1 else 0))
-compileLiteral labelIn (LitInt i) = pure $ ((labelIn ** initCFG), ILitV i)
+compileLiteral labelIn (LitBool b) = pure $ ((labelIn ** emptyCFG (attach labelIn !get)), ILitV (if b then 1 else 0))
+compileLiteral labelIn (LitInt i) = pure $ ((labelIn ** emptyCFG (attach labelIn !get)), ILitV i)
 compileLiteral labelIn (LitString s) = do
 
   (k ** cst) <- lift (getStringLiteral s)
   reg <- lift $ freshRegister (Ptr I8)
   
   let expr = GetElementPtr {k} {n = 32} (ConstPtr cst) (ILitV 0) (ILitV 0)
-  let g = omap {outs = Undefined} (<+ Assign reg expr) initCFG
+  g <- pure $ omap {outs = Undefined} (<+ Assign reg expr) (emptyCFG $ attach labelIn !get)
   
   pure ((labelIn ** g), Var reg)
 
@@ -86,7 +86,7 @@ mutual
     
     val <- getValue var
 
-    pure ((labelIn ** initCFG), val)
+    pure ((labelIn ** emptyCFG (attach labelIn !get)), val)
 
   
 
@@ -152,7 +152,7 @@ mutual
               -> CompM' ( (lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl))
                         , DList LLValue (map GetLLType ts)
                         )
-  compileExprs labelIn [] = pure ((labelIn ** initCFG), [])
+  compileExprs labelIn [] = pure ((labelIn ** emptyCFG (attach labelIn !get)), [])
   compileExprs labelIn (expr :: exprs) = do
     ((lbl ** g), val) <- compileExpr labelIn expr
     ((lbl' ** g'), vals) <- compileExprs lbl exprs
@@ -379,8 +379,7 @@ mutual
     
     let postIns = MkInputs [labelTrue, labelFalse]
     
-    let postBLK : CBlock labelPost (Just [labelTrue, labelFalse]) Undefined
-        postBLK = phiAssignment |+> initCBlock
+    postBLK <- pure $ phiAssignment |+> emptyCBlock (attach labelPost !get)
 
     let postG : CFG CBlock (Defined [labelTrue ~> labelPost, labelFalse ~> labelPost]) (Undefined labelPost)
         postG = SingleVertex {vins = Just [labelTrue, labelFalse], vouts = Undefined} postBLK

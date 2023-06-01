@@ -23,8 +23,8 @@ import Theory
 
 
 export
-initCFG : {lbl : BlockLabel} -> CFG CBlock (Undefined lbl) (Undefined lbl)
-initCFG = initGraph initCBlock
+emptyCFG : {lbl : BlockLabel} -> lbl :~: VarCTX -> CFG CBlock (Undefined lbl) (Undefined lbl)
+emptyCFG = initGraph . emptyCBlock
 
 
 
@@ -109,12 +109,12 @@ unwrapCRDD (CRDDO (outs ** (g, prf))) = (outs ** g)
 
 
 export
-emptyCRUU : (lbl : BlockLabel) -> CompileResultUU lbl Open
-emptyCRUU lbl = CRUUO (lbl ** initCFG)
+emptyCRUU : (lbl : BlockLabel) -> lbl :~: VarCTX -> CompileResultUU lbl Open
+emptyCRUU lbl ctx = CRUUO (lbl ** emptyCFG ctx)
 
 export
-emptyCRUD : (lbl, lbl' : BlockLabel) -> CompileResultUD lbl lbl' Open
-emptyCRUD lbl lbl' = CRUDO ([lbl] ** (omap {outs = Just [lbl']} (<+| Branch lbl') initCFG, IsNonEmpty))
+emptyCRUD : (lbl, lbl' : BlockLabel) -> lbl :~: VarCTX -> CompileResultUD lbl lbl' Open
+emptyCRUD lbl lbl' ctx = CRUDO ([lbl] ** (omap {outs = Just [lbl']} (<+| Branch lbl') (emptyCFG ctx), IsNonEmpty))
 
 
 
@@ -211,8 +211,8 @@ collectInsCR : {lbl, lbl' : BlockLabel}
             -> (ctx : lbl :~: VarCTX)
             -> CompileResultUD lbl lbl' crt
             -> CompM $ CompileResultDD (ins ~~> lbl) lbl' crt
-collectInsCR ins phis ctxs res = do
-  let pre = imap {ins = Just ins} (phis |++>) initCFG
+collectInsCR ins phis ctx res = do
+  let pre = imap {ins = Just ins} (phis |++>) (emptyCFG ctx)
         
   let res' = connectCRUDCRDD pre res
   pure res'

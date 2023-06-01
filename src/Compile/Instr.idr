@@ -147,7 +147,7 @@ mutual
             -> (ctx : labelIn :~: VarCTX)
             -> (instrs : Instrs k)
             -> CompM (CompileResultUU labelIn (GetCRT k))
-    compile labelIn ctx Nil = pure (emptyCRUU labelIn)
+    compile labelIn ctx Nil = pure (emptyCRUU labelIn ctx)
     compile labelIn ctx (TermSingleton instr) = compileInstrUU labelIn ctx instr
     compile labelIn ctx (instr :: instrs) = do
       CRUUO (lbl ** g) <- compileInstrUU labelIn ctx instr
@@ -193,7 +193,7 @@ mutual
 
   -- RetVoid ------------------------------------------------------------------
   compileInstrUU labelIn ctx RetVoid = do
-    let g = omap {outs = Closed} (<+| RetVoid) initCFG
+    let g = omap {outs = Closed} (<+| RetVoid) (emptyCFG ctx)
     pure (CRUUC g)
 
 
@@ -243,7 +243,7 @@ mutual
              -> (ctx : labelIn :~: VarCTX)
              -> (instrs : Instrs k)
              -> CompM (CompileResultUD labelIn labelPost $ GetCRT k)
-      compile labelIn ctx Nil = pure (emptyCRUD labelIn labelPost)
+      compile labelIn ctx Nil = pure (emptyCRUD labelIn labelPost ctx)
       compile labelIn ctx (TermSingleton instr) = compileInstrUD labelIn labelPost ctx instr
       compile labelIn ctx (instr :: instrs) = do
         CRUUO (lbl ** g) <- compileInstrUU labelIn ctx instr
