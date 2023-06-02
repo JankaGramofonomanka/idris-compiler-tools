@@ -321,8 +321,7 @@ public export
 record FunDef (retT : LLType) (paramTs : List LLType) where
 
   constructor MkFunDef
-  -- TODO: consider making this parametrised by `retT` and `retTs`, like in `LNG`
-  name : String
+  name : Const (FunType retT paramTs)
   
   theRetType : The retT
   params : DList Reg paramTs
@@ -333,11 +332,12 @@ record FunDef (retT : LLType) (paramTs : List LLType) where
 
 -- FunDecl --------------------------------------------------------------------
 public export
-record FunDecl where
+record FunDecl (retT : LLType) (paramTs : List LLType) where
   constructor MkFunDecl
-  name : String
-  retT : LLType
-  paramTs : List LLType
+  name : Const (FunType retT paramTs)
+  
+  theRetType : The retT
+  theParamTypes : The paramTs
 
 -- ConstDef -------------------------------------------------------------------
 public export
@@ -349,7 +349,7 @@ data ConstDef : Type where
 public export
 record Program where
   constructor MkProgram
-  funDecls : List FunDecl
+  funDecls : List (retType ** paramTypes ** FunDecl retType paramTypes)
   constDefs : List ConstDef
   funcs : List (retType ** paramTypes ** FunDef retType paramTypes)
 

@@ -7,6 +7,7 @@ import Data.SortedMap
 
 import Data.Console
 import Data.DList
+import Data.The
 import LNG.Parsed as LNG
 import LNG.TypeChecked as TC
 import LLVM
@@ -98,13 +99,13 @@ namespace Compile
       ]
     
   export
-  builtInDecls : List FunDecl
+  builtInDecls : List (retType ** paramTypes ** LLVM.FunDecl retType paramTypes)
   builtInDecls
-    = [ MkFunDecl { name = printInt',     retT = Void,   paramTs = [I32]    }
-      , MkFunDecl { name = printString',  retT = Void,   paramTs = [Ptr I8] }
-      , MkFunDecl { name = error',        retT = Void,   paramTs = []       }
-      , MkFunDecl { name = readInt',      retT = I32,    paramTs = []       }
-      , MkFunDecl { name = readString',   retT = Ptr I8, paramTs = []       }
+    = [ (Void   ** [I32]    ** MkFunDecl { name = llPrintInt,     theRetType = MkThe Void,      theParamTypes = MkThe [I32]    })
+      , (Void   ** [Ptr I8] ** MkFunDecl { name = llPrintString,  theRetType = MkThe Void,      theParamTypes = MkThe [Ptr I8] })
+      , (Void   ** []       ** MkFunDecl { name = llError,        theRetType = MkThe Void,      theParamTypes = MkThe []       })
+      , (I32    ** []       ** MkFunDecl { name = llReadInt,      theRetType = MkThe I32,       theParamTypes = MkThe []       })
+      , (Ptr I8 ** []       ** MkFunDecl { name = llReadString,   theRetType = MkThe (Ptr I8),  theParamTypes = MkThe []       })
       ]
   
 

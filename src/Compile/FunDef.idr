@@ -32,7 +32,10 @@ compileBody labelIn ctx instr = do
   pure $ imap {ins = Just []} ([] |++>) g
 
 export
-compileFunDecl : FunDef retType paramTypes funId
+compileFunDecl : {retType : LNGType}
+              -> {paramTypes : List LNGType}
+              -> {funId : FunId retType paramTypes}
+              -> FunDef retType paramTypes funId
               -> CompM $ FunDef (GetLLType retType) (map GetLLType paramTypes)
 compileFunDecl func {paramTypes} = do
   
@@ -46,7 +49,8 @@ compileFunDecl func {paramTypes} = do
   let cfg' = vmap' toLLVM cfg
   
   let MkFunId name = unThe func.theId
-  pure $ LLVM.MkFunDef { name, theRetType = The.map GetLLType func.theRetType, params = regs', body = cfg' }
+  let llname = MkConst (FunType (GetLLType retType) (map GetLLType paramTypes)) (MkConstId name)
+  pure $ LLVM.MkFunDef { name = llname, theRetType = The.map GetLLType func.theRetType, params = regs', body = cfg' }
 
   where
 

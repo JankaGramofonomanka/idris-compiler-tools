@@ -214,13 +214,13 @@ export
 implementation Document (FunDef retT paramTs) where
 
   print (MkFunDef { theRetType, name, params, body }) = let
-      header = simple $ mkSentence ["define", prtFun (prt theRetType) name (undmap (prt @{typed}) params)]
+      header = simple $ mkSentence ["define", prtFun (prt theRetType) (prt name) (undmap (prt @{typed}) params)]
     in MkDoc { lines = [Right header, Left (print body)] }
 
 -- FunDecl --------------------------------------------------------------------
 export
-implementation DocItem FunDecl where
-  prt (MkFunDecl { name, retT, paramTs }) = mkSentence ["declare", prtFun (prt retT) name (map prt paramTs)]
+implementation DocItem (FunDecl retT paramTs) where
+  prt (MkFunDecl { name, theRetType, theParamTypes }) = mkSentence ["declare", prtFun (prt theRetType) (prt name) (map prt $ unThe theParamTypes)]
 
 -- ConstDef -------------------------------------------------------------------
 export
@@ -238,8 +238,8 @@ implementation Document Program where
     ++ foldl appendFunDef Doc.empty funcs
     
     where
-      appendFunDecl : Doc -> FunDecl -> Doc
-      appendFunDecl doc decl = doc ++ fromLines [simple (prt decl)]
+      appendFunDecl : Doc -> (t ** ts ** FunDecl t ts) -> Doc
+      appendFunDecl doc (t ** ts ** decl) = doc ++ fromLines [simple (prt decl)]
 
       appendConstDef : Doc -> ConstDef -> Doc
       appendConstDef doc def = doc ++ fromLines [simple (prt def)]
