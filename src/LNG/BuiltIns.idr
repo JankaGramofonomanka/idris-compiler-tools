@@ -97,15 +97,24 @@ namespace Compile
       , (TInt     ** []         ** (readInt,      ConstPtr llReadInt))
       , (TString  ** []         ** (readString,   ConstPtr llReadString))
       ]
-    
+  
+  
+  mkFunDecl : (t : LLType) -> (ts : List LLType) -> Const (FunType t ts) -> LLVM.FunDecl t ts
+  mkFunDecl t ts cst = MkFunDecl { name = cst, theRetType = MkThe t, theParamTypes = MkThe ts }
+
+  mkFunDecl' : (t : LLType) -> (ts : List LLType) -> Const (FunType t ts) -> (t ** ts ** LLVM.FunDecl t ts)
+  mkFunDecl' t ts cst = (t ** ts ** mkFunDecl t ts cst)
+
   export
   builtInDecls : List (retType ** paramTypes ** LLVM.FunDecl retType paramTypes)
   builtInDecls
-    = [ (Void   ** [I32]    ** MkFunDecl { name = llPrintInt,     theRetType = MkThe Void,      theParamTypes = MkThe [I32]    })
-      , (Void   ** [Ptr I8] ** MkFunDecl { name = llPrintString,  theRetType = MkThe Void,      theParamTypes = MkThe [Ptr I8] })
-      , (Void   ** []       ** MkFunDecl { name = llError,        theRetType = MkThe Void,      theParamTypes = MkThe []       })
-      , (I32    ** []       ** MkFunDecl { name = llReadInt,      theRetType = MkThe I32,       theParamTypes = MkThe []       })
-      , (Ptr I8 ** []       ** MkFunDecl { name = llReadString,   theRetType = MkThe (Ptr I8),  theParamTypes = MkThe []       })
+    = [ mkFunDecl' Void     [I32]             llPrintInt
+      , mkFunDecl' Void     [Ptr I8]          llPrintString
+      , mkFunDecl' Void     []                llError
+      , mkFunDecl' I32      []                llReadInt
+      , mkFunDecl' (Ptr I8) []                llReadString
+      , mkFunDecl' (Ptr I8) [Ptr I8, Ptr I8]  strconcat
+      , mkFunDecl' I1       [Ptr I8, Ptr I8]  strcompare
       ]
   
 
