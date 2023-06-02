@@ -4,6 +4,7 @@ import Control.Monad.State
 import Control.Monad.Either
 
 import Data.SortedMap
+import Data.Vect
 
 import Data.Attached
 import Data.GCompare
@@ -28,7 +29,7 @@ record CompState where
   funcs : FunCTX
   regCount : Int
   lblCount : Int
-  strLits : SortedMap String (n ** Const (Array I8 n))
+  strLits : SortedMap String (n ** (Const (Array I8 n), LLValue (Array I8 n)))
   strLitCount : Int
 
 export
@@ -73,21 +74,18 @@ freshStrConst n = do
   modify { strLitCount $= (+1) }
   pure $ MkConst (Array I8 n) (MkConstId $ "s" ++ show k)
 
-strConstLength : String -> Nat
-strConstLength s = length s + 1
-
 export
 getStringLiteral : String -> CompM (n ** Const (Array I8 n))
 getStringLiteral s = do
 
   Nothing <- lookup s <$> gets strLits
-           | Just cst => pure cst
+           | Just (n ** (cst, arr)) => pure (n ** cst)
 
-  let cstLength = strConstLength s
-  cst <- freshStrConst cstLength
-  modify { strLits $= insert s (cstLength ** cst) }
+  let (cstLength ** chars) = stringToCharVect s
+  cst <- freshStrConst (S cstLength)
+  modify { strLits $= insert s (S cstLength ** (cst, Lit $ CharArrLit chars)) }
 
-  pure (cstLength ** cst)
+  pure (S cstLength ** cst)
 
 
 

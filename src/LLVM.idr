@@ -1,6 +1,7 @@
 module LLVM
 
 import Data.List
+import Data.Vect
 
 import Data.DList
 import Data.Some
@@ -118,14 +119,24 @@ implementation Typed Const where
 public export
 data LLLiteral : LLType -> Type where
   ILit : {n : Nat} -> Integer -> LLLiteral (I n)
+  CharArrLit : {n : Nat} -> Vect n Char -> LLLiteral (Array I8 (S n))
+
+export
+stringToCharVect : String -> (n ** Vect n Char)
+stringToCharVect s = go (unpack s) where
+  go : List Char -> (n ** Vect n Char)
+  go Nil = (Z ** Nil)
+  go (ch :: chs) = let (n ** chars) = go chs in (S n ** ch :: chars)
 
 export
 implementation Eq (LLLiteral t) where
   ILit i == ILit i' = i == i'
+  CharArrLit s == CharArrLit s' = s == s'
 
 export
 implementation Typed LLLiteral where
   typeOf (ILit {n} _) = MkThe (I n)
+  typeOf (CharArrLit {n} chars) = MkThe (Array I8 (S n))
 
 -- LLValue --------------------------------------------------------------------
 public export
@@ -320,9 +331,25 @@ record FunDef (retT : LLType) (paramTs : List LLType) where
   -- TODO: enforce correct return types
   body : CFG BlockVertex (Defined []) (Defined [])
 
+-- FunDecl --------------------------------------------------------------------
+public export
+record FunDecl where
+  constructor MkFunDecl
+  name : String
+  retT : LLType
+  paramTs : List LLType
+
+-- ConstDef -------------------------------------------------------------------
+public export
+data ConstDef : Type where
+  DefineConst : (t : LLType) -> Const t -> LLValue t -> ConstDef
+
+
 -- Program --------------------------------------------------------------------
 public export
 record Program where
   constructor MkProgram
+  funDecls : List FunDecl
+  constDefs : List ConstDef
   funcs : List (retType ** paramTypes ** FunDef retType paramTypes)
 

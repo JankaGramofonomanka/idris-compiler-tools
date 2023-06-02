@@ -1,5 +1,7 @@
 module LLVM.Render
 
+import Data.Vect
+
 import CFG
 import Data.DList
 import Data.Doc
@@ -57,6 +59,24 @@ implementation DocItem (Const t) where
 export
 implementation DocItem (LLLiteral t) where
   prt (ILit i) = show i
+  prt (CharArrLit chars) = "c\"" ++ concat (map encode chars) ++ "\"" where
+    encode : Char -> String
+    
+    -- based on this
+    -- https://en.wikipedia.org/wiki/Escape_sequences_in_C
+    encode '\a' = "\\07"
+    encode '\b' = "\\08"
+    encode '\e' = "\\1B"
+    encode '\f' = "\\0C"
+    encode '\n' = "\\0A"
+    encode '\r' = "\\0D"
+    encode '\t' = "\\09"
+    encode '\v' = "\\0B"
+    encode '\\' = "\\5C"
+    encode '\'' = "\\27"
+    encode '\"' = "\\22"
+    encode '\?' = "\\3F"
+    encode ch   = pack [ch]
 
 -- LLValue --------------------------------------------------------------------
 prtValue : LLValue t -> String
@@ -197,12 +217,34 @@ implementation Document (FunDef retT paramTs) where
       header = simple $ mkSentence ["define", prtFun (prt theRetType) name (undmap (prt @{typed}) params)]
     in MkDoc { lines = [Right header, Left (print body)] }
 
+-- FunDecl --------------------------------------------------------------------
+export
+implementation DocItem FunDecl where
+  prt (MkFunDecl { name, retT, paramTs }) = mkSentence ["declare", prtFun (prt retT) name (map prt paramTs)]
+
+-- ConstDef -------------------------------------------------------------------
+export
+implementation DocItem ConstDef where
+  prt (DefineConst t cst val) = mkSentence [prt cst, "=", "internal", "constant", prt t, prt val]
+
 -- Program --------------------------------------------------------------------
 export
 implementation Document Program where
-  print (MkProgram { funcs }) = foldl append Doc.empty funcs where
-
-    append : Doc -> (t ** ts ** FunDef t ts) -> Doc
-    append doc (t ** ts ** fun) = doc ++ blankLines 1 ++ (print fun)
+  print (MkProgram { funDecls, constDefs, funcs })
+     = foldl appendFunDecl Doc.empty funDecls
+    ++ blankLines 4
+    ++ foldl appendConstDef Doc.empty constDefs
+    ++ blankLines 4
+    ++ foldl appendFunDef Doc.empty funcs
     
+    where
+      appendFunDecl : Doc -> FunDecl -> Doc
+      appendFunDecl doc decl = doc ++ fromLines [simple (prt decl)]
+
+      appendConstDef : Doc -> ConstDef -> Doc
+      appendConstDef doc def = doc ++ fromLines [simple (prt def)]
+
+      appendFunDef : Doc -> (t ** ts ** FunDef t ts) -> Doc
+      appendFunDef doc (t ** ts ** fun) = doc ++ blankLines 1 ++ (print fun)
+      
 

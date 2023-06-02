@@ -96,6 +96,16 @@ namespace Compile
       , (TInt     ** []         ** (readInt,      ConstPtr llReadInt))
       , (TString  ** []         ** (readString,   ConstPtr llReadString))
       ]
+    
+  export
+  builtInDecls : List FunDecl
+  builtInDecls
+    = [ MkFunDecl { name = printInt',     retT = Void,   paramTs = [I32]    }
+      , MkFunDecl { name = printString',  retT = Void,   paramTs = [Ptr I8] }
+      , MkFunDecl { name = error',        retT = Void,   paramTs = []       }
+      , MkFunDecl { name = readInt',      retT = I32,    paramTs = []       }
+      , MkFunDecl { name = readString',   retT = Ptr I8, paramTs = []       }
+      ]
   
 
   
