@@ -128,8 +128,19 @@ string' = do
         '\\' => do
           p' |^ ch' <- the (Tokenizer Char) item
           case ch' of
-            '"' => p <<^> map ('"' ::) <$> stopOnRQuote
-            ch' => p <<^> map (\l => ch :: ch' :: l) <$> stopOnRQuote
+            'a'   => p <<^> map ('\a' ::) <$> stopOnRQuote
+            'b'   => p <<^> map ('\b' ::) <$> stopOnRQuote
+            'e'   => p <<^> map ('\e' ::) <$> stopOnRQuote
+            'f'   => p <<^> map ('\f' ::) <$> stopOnRQuote
+            'n'   => p <<^> map ('\n' ::) <$> stopOnRQuote
+            'r'   => p <<^> map ('\r' ::) <$> stopOnRQuote
+            't'   => p <<^> map ('\t' ::) <$> stopOnRQuote
+            'v'   => p <<^> map ('\v' ::) <$> stopOnRQuote
+            '\\'  => p <<^> map ('\\' ::) <$> stopOnRQuote
+            '\''  => p <<^> map ('\'' ::) <$> stopOnRQuote
+            '"'   => p <<^> map ('\"' ::) <$> stopOnRQuote
+            '?'   => p <<^> map ('\?' ::) <$> stopOnRQuote
+            ch'   => p <<^> map (ch'  ::) <$> stopOnRQuote
           
         '"'   => pure (p |^ Nil)
         ch    => p <<^> map (ch ::) <$> stopOnRQuote
