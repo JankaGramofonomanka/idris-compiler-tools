@@ -439,13 +439,13 @@ insert kx x = evalState False . go
         sizeChange <- get
         -- originally pointer equality was used to see if the tree was modified
         if sizeChange then pure (balance ky y l' r)
-                      else pure t
+                      else pure (Bin sz ky y l' r)
       GGT => do
         r' <- go r
         sizeChange <- get
         -- as above
         if sizeChange then pure (balance ky y l r')
-                      else pure t
+                      else pure (Bin sz ky y l r')
       GEQ => pure (Bin sz kx x l r)
 
 -- | /O(log n)/. Insert a new key and value in the map if the key
@@ -457,18 +457,18 @@ insertR kx x = go
     where
         go : DMap k f -> DMap k f
         go Tip = singleton kx x
-        go t@(Bin sz ky y l r) = case gcompare kx ky @{impl} of
+        go (Bin sz ky y l r) = case gcompare kx ky @{impl} of
             GLT => let l' = go l
                    -- ponter equality used before on trees
                    in if size l' == size l
-                      then t
+                      then Bin sz ky y l' r
                       else balance ky y l' r
             GGT => let r' = go r
                    -- as above
                    in if size r' == size r
-                   then t
+                   then Bin sz ky y l r'
                    else balance ky y l r'
-            GEQ => t
+            GEQ => Bin sz kx x l r
 
 -- | /O(log n)/. Insert with a function, combining key, new value and old value.
 -- @'insertWithKey' f key value mp@
@@ -1043,12 +1043,12 @@ filterWithKey p = go
   where
     go : DMap k f -> DMap k f
     go Tip = Tip
-    go t@(Bin _ kx x l r)
+    go t@(Bin sz kx x l r)
       = let
           l' = go l
           r' = go r
         in if p kx x then if size l' == size l && size r' == size r
-                          then t
+                          then Bin sz kx x l' r'
                           else combine kx x l' r'
                      else merge l' r'
 
