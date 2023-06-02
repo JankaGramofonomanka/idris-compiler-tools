@@ -6,6 +6,9 @@ import Data.Doc
 import LNG.TypeChecked
 import Utils
 
+brkts : String -> String
+brkts s = "(" ++ s ++ ")"
+
 export
 implementation DocItem LNGType where
   prt TInt    = "int"
@@ -14,26 +17,35 @@ implementation DocItem LNGType where
   prt TVoid   = "void"
 
 export
+implementation [infixx] DocItem (BinOperator t1 t2 t3) where
+  prt Add = "+"
+  prt Sub = "-"
+  prt Mul = "*"
+  prt Div = "/"
+  prt Mod = "%"
+  prt And = "&&"
+  prt Or = "||"
+  prt EQ = "=="
+  prt NE = "!="
+  prt LE = "<="
+  prt LT = "<"
+  prt GE = ">="
+  prt GT = ">"
+  prt Concat = "++"
+
+export
 implementation DocItem (BinOperator t1 t2 t3) where
-  prt Add = "(+)"
-  prt Sub = "(-)"
-  prt Mul = "(*)"
-  prt Div = "(/)"
-  prt Mod = "(%)"
-  prt And = "(&&)"
-  prt Or = "(||)"
-  prt EQ = "(==)"
-  prt NE = "(!=)"
-  prt LE = "(<=)"
-  prt LT = "(<)"
-  prt GE = "(>=)"
-  prt GT = "(>)"
-  prt Concat = "(++)"
+  prt op = brkts (prt @{infixx} op)
+
+export
+implementation [prefixx] DocItem (UnOperator t1 t2) where
+  prt Neg = "-"
+  prt Not = "!"
 
 export
 implementation DocItem (UnOperator t1 t2) where
-  prt Neg = "(-)"
-  prt Not = "(!)"
+  prt op = brkts (prt @{prefixx} op)
+
 
 export
 implementation DocItem (Literal t) where
@@ -57,14 +69,12 @@ export
 implementation DocItem (Fun t ts) where
   prt (MkFun t ts id) = prt id
 
-brkts : String -> String
-brkts s = "(" ++ s ++ ")"
 export
 implementation DocItem (Expr t) where
   prt (Lit lit) = prt lit
   prt (Var var) = prt var
-  prt (BinOperation op lhs rhs) = mkSentence [brkts (prt lhs), prt op, brkts (prt rhs)]
-  prt (UnOperation op expr) = mkSentence [prt op, brkts (prt expr)]
+  prt (BinOperation op lhs rhs) = mkSentence [brkts (prt lhs), prt op @{infixx}, brkts (prt rhs)]
+  prt (UnOperation op expr) = prt op @{prefixx} ++ brkts (prt expr)
   prt (Call fun args) = prt fun ++ brkts (concat . intersperse ", " $ undmap prt args)
 
 export
