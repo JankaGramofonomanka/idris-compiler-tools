@@ -138,7 +138,7 @@ implementation DocItem (LLExpr t) where
     = mkSentence [prt op, prt (resType op), prt lhs ++ ",", prt rhs]
   
   prt (Call funPtr params)
-    = mkSentence ["define", prtFun (prt $ retTypeOf funPtr) (prt funPtr) (undmap (prt @{typed}) params)]
+    = mkSentence ["call", prtFun (prt $ retTypeOf funPtr) (prt funPtr) (undmap (prt @{typed}) params)]
 
   prt (GetElementPtr {t, k} arr idx1 idx2)
     = mkSentence ["getelementptr", prtItems [prt (Array t k), prt @{typed} arr, prt @{typed}idx1, prt @{typed} idx2 ]]
