@@ -214,8 +214,8 @@ export
 implementation Document (FunDef retT paramTs) where
 
   print (MkFunDef { theRetType, name, params, body }) = let
-      header = simple $ mkSentence ["define", prtFun (prt theRetType) (prt name) (undmap (prt @{typed}) params)]
-    in MkDoc { lines = [Right header, Left (print body)] }
+      header = simple $ mkSentence ["define", prtFun (prt theRetType) (prt name) (undmap (prt @{typed}) params), "{"]
+    in MkDoc { lines = [Right header, Left (print body), Right (simple "}")] }
 
 -- FunDecl --------------------------------------------------------------------
 export
