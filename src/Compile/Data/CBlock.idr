@@ -1,23 +1,28 @@
 module Compile.Data.CBlock
 
 import Data.Attached
+import Data.Doc
 import Data.DList
 import Data.GCompare
 import Data.The
 
 import LLVM
+import LLVM.Render
 import LNG.TypeChecked
+import LNG.TypeChecked.Render
 
 import Compile.Data.Context
 import Compile.Utils
 import CFG
+
+import Utils
 
 -- TODO: `MbPhis Undefined = List [t ** Variable t]` - list of variables that need a phi assignment
 
 public export
 MbPhis : Neighbors BlockLabel -> Type
 MbPhis Nothing = ()
-MbPhis (Just ins) = List (PhiInstr $ MkInputs ins)
+MbPhis (Just ins) = List (PhiInstr $ MkInputs ins, Maybe String)
 
 
 public export
@@ -41,11 +46,14 @@ record CBlock (label : BlockLabel) (ins : Neighbors BlockLabel) (outs : Neighbor
   theLabel : The label
 
   phis : MbPhis ins
-  body : List STInstr
+  body : List (STInstr, Maybe String)
   term : MbTerm outs
   
   -- TODO: divide assignments between individual instructions
   ctx : label :~: VarCTX
+
+noComment : instr -> (instr, Maybe String)
+noComment instr = (instr, Nothing)
 
 export
 contexts : {0 lbl : BlockLabel}
@@ -62,13 +70,13 @@ emptyCBlock {lbl} ctx = MkBB { theLabel = MkThe lbl, phis = (), body = [], term 
 
 export
 assign : Variable t -> LLValue (GetLLType t) -> CBlock lbl ins Undefined -> CBlock lbl ins Undefined
-assign var reg = { ctx $= map (insert var reg) }
+assign var reg = { ctx $= map (insert var reg), body $= (++ [(LLVM.Empty, Just $ mkSentence [prt var, "~", prt reg])]) }
 
 
 
 
-infixr 7 <++, <+
-infixr 6 <+|, |+>, |++>
+infixr 7 <++, <+, <+:, <:
+infixr 6 <+|, |+>, |++>, |+:>, |++:>
 infixr 5 +|, ++|
 
 export
@@ -102,21 +110,42 @@ export
 export
 (<++) : CBlock lbl ins Undefined -> List STInstr -> CBlock lbl ins Undefined
 (MkBB { theLabel, phis , body , term = (), ctx }) <++ instrs
-  = MkBB { theLabel, phis, body = (body ++ instrs), term = (), ctx}
+  = MkBB { theLabel, phis, body = (body ++ map noComment instrs), term = (), ctx}
 
 export
 (<+) : CBlock lbl ins Undefined -> STInstr -> CBlock lbl ins Undefined
 blk <+ instr = blk <++ [instr]
 
 export
+(<+:) : CBlock lbl ins Undefined -> (STInstr, Maybe String) -> CBlock lbl ins Undefined
+(MkBB { theLabel, phis , body , term = (), ctx }) <+: instr
+  = MkBB { theLabel, phis, body = (body ++ [instr]), term = (), ctx}
+
+export
+(<:) : CBlock lbl ins Undefined -> String -> CBlock lbl ins Undefined
+blk <: cmt = blk <+: (Empty, Just cmt)
+
+export
 (<+|) : CBlock lbl ins Undefined -> CFInstr (toCFK outs) -> CBlock lbl ins (Just outs)
 MkBB { theLabel, phis, body, term = (), ctx } <+| term = MkBB { theLabel, phis, body, term, ctx }
+
+export
+(|++:>) : List (PhiInstr (MkInputs inputs), Maybe String)
+       -> CBlock lbl Undefined outs
+       -> CBlock lbl (Just inputs) outs
+phis |++:> MkBB { theLabel, phis = (), body, term, ctx } = MkBB { theLabel, phis, body, term, ctx }
+
+export
+(|+:>) : (PhiInstr (MkInputs inputs), Maybe String)
+      -> CBlock lbl Undefined outs
+      -> CBlock lbl (Just inputs) outs
+instr |+:> blk = [instr] |++:> blk
 
 export
 (|++>) : List (PhiInstr (MkInputs inputs))
       -> CBlock lbl Undefined outs
       -> CBlock lbl (Just inputs) outs
-phis |++> MkBB { theLabel, phis = (), body, term, ctx } = MkBB { theLabel, phis, body, term, ctx }
+phis |++> blk = (map noComment phis) |++:> blk
 
 export
 (|+>) : PhiInstr (MkInputs inputs)
@@ -128,7 +157,7 @@ export
 (+|) : PhiInstr (MkInputs inputs)
     -> CBlock lbl (Just inputs) outs
     -> CBlock lbl (Just inputs) outs
-instr +| MkBB { theLabel, phis, body, term, ctx } = MkBB { theLabel, phis = (instr :: phis), body, term, ctx }
+instr +| MkBB { theLabel, phis, body, term, ctx } = MkBB { theLabel, phis = ((instr, Nothing) :: phis), body, term, ctx }
 
 export
 (++|) : List (PhiInstr (MkInputs inputs))

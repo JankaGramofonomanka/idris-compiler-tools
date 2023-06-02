@@ -7,12 +7,14 @@ import Control.Monad.Either
 
 import Data.Some
 import Data.Attached
+import Data.Doc
 import Data.DList
 import Data.DSum
 import Data.The
 import Data.Typed
 
 import LNG.TypeChecked
+import LNG.TypeChecked.Render
 import LLVM
 
 import Compile.Data.CBlock
@@ -155,14 +157,13 @@ mutual
       pure $ connectCRUU g res
 
   -- Assign -------------------------------------------------------------------
-  compileInstrUU labelIn ctx (Assign var expr) = do
+  compileInstrUU labelIn ctx instr@(Assign var expr) = do
 
     -- TODO: consider having attached context in the state
     ((lbl ** g), val) <- compileExpr' labelIn ctx expr
     
-    let g' = omap {outs = Undefined} (assign var val) g
+    let g' = omap {outs = Undefined} (assign var val . (<: prt instr)) g
 
-    let ctx' = getContext g'
     pure $ CRUUO (lbl ** g')
     
   -- Exec ---------------------------------------------------------------------
@@ -322,7 +323,7 @@ mutual
     SG ctx phis <- segregate ctxs
     res <- compileInstrUD labelIn labelPost ctx instr
 
-    let preG = imap {ins = Just pre} (phis |++>) (emptyCFG ctx)
+    let preG = imap {ins = Just pre} (phis |++:>) (emptyCFG ctx)
           
     pure $ connectCRUDCRDD preG res
 
@@ -345,7 +346,7 @@ mutual
   compileInstrDD pre labelIn labelPost ctxs instr@(Assign var expr)
     = compileInstrDDViaUD pre labelIn labelPost ctxs instr
   
-  -- Exec -------------------------------------------------------------------
+  -- Exec ---------------------------------------------------------------------
   compileInstrDD pre labelIn labelPost ctxs instr@(Exec expr)
     = compileInstrDDViaUD pre labelIn labelPost ctxs instr
 
@@ -404,12 +405,12 @@ mutual
       mkPhis : VarCTX'
             -> {lbls : List BlockLabel}
             -> DList (:~: VarCTX) (lbls ~~> lbl)
-            -> CompM $ List (PhiInstr (MkInputs lbls))
+            -> CompM $ List (PhiInstr (MkInputs lbls), Maybe String)
       
       mkPhis ctx {lbls} ctxs = traverse mkPhi' (toList ctx) where
         
         mkPhi' : (DSum Variable (Reg . GetLLType))
-              -> CompM $ PhiInstr (MkInputs lbls)
+              -> CompM (PhiInstr (MkInputs lbls), Maybe String)
 
         mkPhi' (key :=> reg) = do
 
@@ -417,7 +418,7 @@ mutual
 
           let vals' = phiFromDList (map GetLLType $ typeOf key) lbls vals
           
-          pure $ AssignPhi reg vals'
+          pure $ (AssignPhi reg vals', Just $ prt key)
 
           where
 
@@ -444,7 +445,7 @@ mutual
 
         phis <- mkPhis (detach ctxNode) ctxsIn
         
-        let node' = imap {ins = Just pre} (phis |++>) node
+        let node' = imap {ins = Just pre} (phis |++:>) node
         let final = LBranch node' loop
         
         pure final
@@ -461,7 +462,7 @@ mutual
 
         let node' : CFG CBlock (Defined $ pre ~~> nodeIn ++ loopOuts ~~> nodeIn) (Defined $ (nodeOut ~>> [labelLoop, labelPost]))
             node' = rewrite revEq $ collect_concat nodeIn pre loopOuts
-                     in imap {ins = Just $ pre ++ loopOuts} (phis |++>) node
+                     in imap {ins = Just $ pre ++ loopOuts} (phis |++:>) node
         
         let final = Cycle node' loop
         

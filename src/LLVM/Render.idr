@@ -164,6 +164,7 @@ implementation DocItem STInstr where
   prt (Assign reg expr) = mkSentence [prt reg, "=", prt expr]
   prt (Exec expr) = prt expr
   prt (Store val ptr) = mkSentence ["store", prt val @{typed} ++ ",", prt ptr @{typed}]
+  prt Empty = ""
 
 export
 implementation DocItem (CFInstr cfk) where
@@ -184,8 +185,8 @@ implementation Document (SimpleBlock label inputs cfkind) where
     = MkDoc { lines = [ Right (simple $ prt label @{blockEntry})
                       , Left ( fromLines
                             -- TODO: Add comments to `SimpleBlock`
-                             $ map (simple . prt) phis
-                            ++ map (simple . prt) body
+                             $ map (uncurry (MkLine . prt)) phis
+                            ++ map (uncurry (MkLine . prt)) body
                             ++ map (simple . prt) [term]
                              )
                       ] 

@@ -6,12 +6,14 @@ import Control.Monad.State
 import Data.Attached
 import Data.DMap
 import Data.DList
+import Data.Doc
 import Data.DSum
 import Data.GCompare
 import Data.Some
 import Data.The
 import Data.Typed
 import LNG.TypeChecked
+import LNG.TypeChecked.Render
 import LLVM
 import Compile.Data.CompM
 import Compile.Data.Context
@@ -24,7 +26,7 @@ public export
 record Segregated (lbl : BlockLabel) (ins : Inputs) where
   constructor SG
   ctx : lbl :~: VarCTX
-  phis : List (PhiInstr ins)
+  phis : List (PhiInstr ins, Maybe String)
 
 
 -- TODO: Consider rewriting `PhiExpr` so that it equals to this type
@@ -139,7 +141,7 @@ finalize {ins, lbl} (SG' ctx) = foldlM handleItem (SG (attach lbl VarCTX.empty) 
       reg <- freshRegister' (typeOf phi) 
       let phi = AssignPhi reg (toPhi phi)
       
-      pure $ SG (map (DMap.insert key (Var reg)) ctx') (phi :: phis)
+      pure $ SG (map (DMap.insert key (Var reg)) ctx') ((phi, Just $ prt key) :: phis)
     
     
 segregate' : {lbls : List BlockLabel}

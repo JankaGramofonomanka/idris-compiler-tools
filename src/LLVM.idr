@@ -278,6 +278,7 @@ data STInstr : Type where
   Assign : Reg t -> LLExpr t -> STInstr
   Exec : LLExpr Void -> STInstr
   Store : LLValue t -> LLValue (Ptr t) -> STInstr
+  Empty : STInstr
 
 public export
 data CFInstr : CFKind -> Type where
@@ -302,8 +303,8 @@ record SimpleBlock
 where
   constructor MkSimpleBlock
   theLabel  : The label
-  phis      : List (PhiInstr inputs)
-  body      : List STInstr
+  phis      : List (PhiInstr inputs, Maybe String)
+  body      : List (STInstr, Maybe String)
   term      : CFInstr cfkind
 
 
