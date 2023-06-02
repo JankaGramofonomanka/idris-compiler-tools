@@ -154,7 +154,7 @@ implementation DocItem (LLExpr t) where
 
 export
 implementation DocItem (PhiExpr ins t) where
-  prt (Phi t l) = mkSentence $ ["phi", prt t] ++ map prtPair l where
+  prt (Phi t l) = mkSentence $ ["phi", prt t, prtItems (map prtPair l)] where
     prtPair : (BlockLabel, LLValue t) -> String
     prtPair (lbl, val) = "[" ++ prt val ++ ", " ++ prt lbl ++ "]"
 
@@ -168,7 +168,7 @@ implementation DocItem STInstr where
 export
 implementation DocItem (CFInstr cfk) where
   prt (Branch lbl) = mkSentence ["br", prt @{branch} lbl]
-  prt (CondBranch cond thn els) = mkSentence ["br", prt @{typed} cond ++ ",", prt @{branch} thn, prt @{branch} els]
+  prt (CondBranch cond thn els) = mkSentence ["br", prtItems [prt @{typed} cond, prt @{branch} thn, prt @{branch} els]]
   prt (Ret val) = mkSentence ["ret", prt @{typed} val]
   prt RetVoid = "ret void"
 
