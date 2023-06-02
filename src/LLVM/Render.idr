@@ -64,19 +64,19 @@ implementation DocItem (LLLiteral t) where
     
     -- based on this
     -- https://en.wikipedia.org/wiki/Escape_sequences_in_C
-    encode '\a' = "\\07"
-    encode '\b' = "\\08"
-    encode '\e' = "\\1B"
-    encode '\f' = "\\0C"
-    encode '\n' = "\\0A"
-    encode '\r' = "\\0D"
-    encode '\t' = "\\09"
-    encode '\v' = "\\0B"
-    encode '\\' = "\\5C"
-    encode '\'' = "\\27"
-    encode '\"' = "\\22"
-    encode '\?' = "\\3F"
-    encode ch   = pack [ch]
+    encode '\a'   = "\\07"
+    encode '\b'   = "\\08"
+    encode '\ESC' = "\\1B"
+    encode '\f'   = "\\0C"
+    encode '\n'   = "\\0A"
+    encode '\r'   = "\\0D"
+    encode '\t'   = "\\09"
+    encode '\v'   = "\\0B"
+    encode '\\'   = "\\5C"
+    encode '\''   = "\\27"
+    encode '\"'   = "\\22"
+    encode '\?'   = "\\3F"
+    encode ch     = pack [ch]
 
 -- LLValue --------------------------------------------------------------------
 prtValue : LLValue t -> String
