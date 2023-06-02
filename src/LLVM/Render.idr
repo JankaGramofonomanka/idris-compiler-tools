@@ -59,7 +59,7 @@ implementation DocItem (Const t) where
 export
 implementation DocItem (LLLiteral t) where
   prt (ILit i) = show i
-  prt (CharArrLit chars) = "c\"" ++ concat (map encode chars) ++ "\"" where
+  prt (CharArrLit chars) = "c\"" ++ concat (map encode chars) ++ "\\00\"" where
     encode : Char -> String
     
     -- based on this
