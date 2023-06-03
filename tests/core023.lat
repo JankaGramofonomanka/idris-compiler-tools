@@ -1,0 +1,26 @@
+int main() {
+  int a=1;
+  int b=2;
+  int c=1;
+  int d=2;
+  int e=1;
+  int f=2;
+  int g=1;
+  int h=2;
+  int i=1;
+  int j=2;
+  int k=1;
+  int l=2;
+  int m=1;
+  int n=2;
+  return foo(a,b,c,d,e,f,g,h,i,j,k,l,m,n);
+}
+
+
+int foo(int a,int b,int c,int d,int e,int f,int g,
+        int h,int i,int j,int k,int l,int m, int n) {
+	
+  int r = (2*a+b/2+c+d+e+f+g+h+i+j/2+k+l+m+n)%10;
+  printInt(r);
+  return r;
+}

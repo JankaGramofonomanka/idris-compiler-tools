@@ -1,0 +1,23 @@
+
+int f () {
+   if (true)
+     return 0;
+   else
+     {return 1;}
+}
+
+int g () {
+  if (false) 
+      {}
+  else
+      return 0;
+  return 1;
+}
+
+void p () {return;}
+  
+
+int main() {
+  p();
+  return 0;
+}

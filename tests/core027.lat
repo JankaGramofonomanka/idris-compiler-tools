@@ -1,0 +1,10 @@
+int main() {
+  f("bad");
+  return 0;
+}
+
+void f(string arg) {
+  arg = "good";
+  printString(arg);
+  return;
+}

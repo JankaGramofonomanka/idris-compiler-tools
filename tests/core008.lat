@@ -1,0 +1,10 @@
+
+int main() {
+ int x = 0;
+ int y = 7;
+ x = -1234234;
+ printInt(x);
+ printInt(y);
+ return 0 ;
+
+}

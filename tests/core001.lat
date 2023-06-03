@@ -1,0 +1,76 @@
+int main() {
+	printInt(fac(10));
+	printInt(rfac(10));
+	printInt(mfac(10));
+        printInt(i_fac(10));
+        string r = "" ; 
+	{
+	  int n = 10;
+	  int r1 = 1;
+	  while (n>0) {
+	    r1 = r1 * n;
+	    n =  n - 1;
+	  }
+	  printInt(r1);
+	}
+	printString (repStr("=",60));
+	printString ("hello */");
+        printString ("/* world") ;
+        return 0 ;
+}
+
+int fac(int a) {
+	int r = 0;
+	int n = 0;
+
+	r = 1;
+	n = a;
+	while (n > 0) {
+	  r = r * n;
+	  n = n - 1;
+	}
+	return r;
+}
+
+int rfac(int n) {
+	if (n == 0)
+	  return 1;
+	else
+	  return n * rfac(n-1);
+}
+
+int mfac(int n) {
+	if (n == 0)
+	  return 1;
+	else
+	  return n * nfac(n-1);
+}
+
+int nfac(int n) {
+	if (n != 0)
+	  return mfac(n-1) * n;
+	else
+	  return 1;
+}
+
+int i_fac(int n) { return i_fac2f(1,n); }
+
+int i_fac2f(int l, int h) {
+        if (l == h)
+          return l;
+        if (l > h)
+          return 1;
+        int m = 0;
+        m = (l + h) / 2;
+        return i_fac2f(l,m) * i_fac2f(m+1,h);
+}
+
+string repStr(string s, int n) {
+  string r = "";
+  int i = 0;
+  while(i<n) {
+    r = r ++ s;
+    i = i + 1;
+  }
+ return r;
+}
