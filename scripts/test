@@ -1,0 +1,32 @@
+#!/bin/bash
+
+for file in ./tests/*.ll
+do
+    echo ""
+    echo $file
+
+    dir="$(dirname $file)"
+    filename="$(basename $file .ll)"
+    
+    execfile="$dir/$filename.bc"
+    input="$dir/$filename.input"
+    expected_output="$dir/$filename.output"
+    output="$dir/$filename.out"
+    
+    llvm-link -o $execfile $file lib.ll
+
+    if test -f $output
+    then
+        rm $output
+    fi
+
+    if test -f $input
+    then
+        (cat $input | lli $execfile) >> $output
+    else
+        lli $execfile >> $output
+    fi
+    python3 scripts/compare.py $output $expected_output
+    
+    
+done

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+for source in ./tests/*.lat
+do
+    echo $source
+    dir="$(dirname $source)"
+    filename="$(basename $source .lat)"
+    dest="$dir/$filename.ll"
+
+    ./build/exec/compile $source $dest
+done
