@@ -314,7 +314,7 @@ namespace Graph
   
 
   export
-  initGraph : {vertex : Vertex a}
+  initGraph : {0 vertex : Vertex a}
            -> vertex v Undefined Undefined
            -> CFG vertex (Undefined v) (Undefined v)
   initGraph v = SingleVertex v

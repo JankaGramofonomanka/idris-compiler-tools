@@ -39,27 +39,27 @@ TODO: Figure out how to reduce the number of attachments and detachments
 -- Utils ----------------------------------------------------------------------
 --* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 jumpTo : (labelPost : BlockLabel)
-      -> (labelOut ** CFG CBlock (Undefined labelIn) (Undefined labelOut))
-      -> CompileResultUD labelIn labelPost Open
+      -> (labelOut ** CFG (CBlock rt) (Undefined labelIn) (Undefined labelOut))
+      -> CompileResultUD rt labelIn labelPost Open
 jumpTo labelPost (lbl ** g) = let
   g' = omap {outs = Just [labelPost]} (<+| Branch labelPost) g
   in CRUDO ([lbl] ** g')
 
-jumpFrom : (lbl : BlockLabel) -> CompileResultUD lbl' lbl'' crt -> CompileResultDD [lbl ~> lbl'] lbl'' crt
+jumpFrom : (lbl : BlockLabel) -> CompileResultUD rt lbl' lbl'' crt -> CompileResultDD rt [lbl ~> lbl'] lbl'' crt
 jumpFrom labelPre (CRUDC g) = CRDDC $ imap {ins = Just [labelPre]} ([] |++>) g
 jumpFrom labelPre (CRUDO (lbls ** g)) = let
   g' = imap {ins = Just [labelPre]} ([] |++>) g
   in CRDDO (lbls ** g')
 
 collectOuts : {labelPost : BlockLabel}
-  -> (lbls ** CFG CBlock (Undefined labelIn) (Defined $ lbls ~~> labelPost))
-  -> CompM $ (labelOut **  CFG CBlock (Undefined labelIn) (Undefined labelOut))
+  -> (lbls ** CFG (CBlock rt) (Undefined labelIn) (Defined $ lbls ~~> labelPost))
+  -> CompM $ (labelOut **  CFG (CBlock rt) (Undefined labelIn) (Undefined labelOut))
 collectOuts {labelPost} (lbls ** g) = do
   SG ctx phis <- segregate (getContexts g)
 
   let ctxPost = ctx
 
-  let post : CFG CBlock (Defined $ lbls ~~> labelPost) (Undefined labelPost)
+  let post : CFG (CBlock rt) (Defined $ lbls ~~> labelPost) (Undefined labelPost)
       post = SingleVertex {vins = Just lbls} $ phis |++:> emptyCBlock ctxPost
   
   let final = Series g post
@@ -72,7 +72,7 @@ ifology' : (labelIn : BlockLabel)
         -> (expr : Expr TBool)
         -> (lblT : BlockLabel)
         -> (lblF : BlockLabel)
-        -> CompM  ( outsT ** outsF ** CFG CBlock
+        -> CompM  ( outsT ** outsF ** CFG (CBlock rt)
                                           (Undefined labelIn)
                                           (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
                   )
@@ -83,7 +83,7 @@ ifology' labelIn ctx expr lblT lblF = evalStateT (detach ctx) $ ifology labelIn 
 compileExpr' : (labelIn : BlockLabel)
             -> (ctx : labelIn :~: VarCTX)
             -> (expr : Expr t)
-            -> CompM  ( (lbl ** CFG CBlock (Undefined labelIn) (Undefined lbl))
+            -> CompM  ( (lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl))
                       , LLValue (GetLLType t)
                       )
 compileExpr' labelIn ctx expr = evalStateT (detach ctx) $ compileExpr labelIn expr
@@ -149,7 +149,7 @@ mutual
   compileInstrUU : (labelIn : BlockLabel)
                 -> (ctx : labelIn :~: VarCTX)
                 -> (instr : Instr rt Simple)
-                -> CompM (labelOut ** CFG CBlock (Undefined labelIn) (Undefined labelOut))
+                -> CompM (labelOut ** CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Undefined labelOut))
 
 
 
@@ -160,7 +160,7 @@ mutual
     compile : (labelIn : BlockLabel)
            -> (ctx : labelIn :~: VarCTX)
            -> (instrs : Instrs rt Simple)
-           -> CompM (labelOut **  CFG CBlock (Undefined labelIn) (Undefined labelOut))
+           -> CompM (labelOut **  CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Undefined labelOut))
     compile labelIn ctx Nil = pure (labelIn ** emptyCFG ctx)
     compile labelIn ctx (instr :: instrs) = do
       (lbl ** g) <- compileInstrUU labelIn ctx instr
@@ -214,14 +214,14 @@ mutual
   compileInstrUD' : (labelIn, labelPost : BlockLabel)
                  -> (ctx : labelIn :~: VarCTX)
                  -> (instr : Instr rt kind)
-                 -> CompM (lbls ** CFG CBlock (Undefined labelIn) (Defined $ lbls ~~> labelPost))
+                 -> CompM (lbls ** CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Defined $ lbls ~~> labelPost))
   compileInstrUD' labelIn labelPost ctx instr = unwrapCRUD <$> compileInstrUD labelIn labelPost ctx instr
 
   export
   compileInstrUD : (labelIn, labelPost : BlockLabel)
                 -> (ctx : labelIn :~: VarCTX)
                 -> (instr : Instr rt kind)
-                -> CompM (CompileResultUD labelIn labelPost $ GetCRT kind)
+                -> CompM (CompileResultUD (GetLLType rt) labelIn labelPost $ GetCRT kind)
 
   -- Assign -------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx instr@(Assign var expr)
@@ -255,7 +255,7 @@ mutual
       compile : (labelIn : BlockLabel)
              -> (ctx : labelIn :~: VarCTX)
              -> (instrs : Instrs rt k)
-             -> CompM (CompileResultUD labelIn labelPost $ GetCRT k)
+             -> CompM (CompileResultUD (GetLLType rt) labelIn labelPost $ GetCRT k)
       compile labelIn ctx Nil = pure (emptyCRUD labelIn labelPost ctx)
       compile labelIn ctx (TermSingleton instr) = compileInstrUD labelIn labelPost ctx instr
       compile labelIn ctx (instr :: instrs) = do
@@ -273,7 +273,7 @@ mutual
     
     (branchOuts ** thenG) <- compileInstrDD' outsT labelThen labelPost ctxsT instrThen
     
-    let final : CFG CBlock (Undefined labelIn) (Defined $ (branchOuts ++ outsF) ~~> labelPost)
+    let final : CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Defined $ (branchOuts ++ outsF) ~~> labelPost)
         final = rewrite collect_concat labelPost branchOuts outsF
                 in LBranch condG thenG
     
@@ -293,7 +293,7 @@ mutual
     thenRes <- compileInstrDD outsT labelThen labelPost ctxsT instrThen
     elseRes <- compileInstrDD outsF labelElse labelPost ctxsF instrElse
 
-    let branches : CompileResultDD (outsT ~~> labelThen ++ outsF ~~> labelElse) labelPost (GetCRT $ BrKind k k')
+    let branches : CompileResultDD (GetLLType rt) (outsT ~~> labelThen ++ outsF ~~> labelElse) labelPost (GetCRT $ BrKind k k')
         branches = rewrite thmGetCRT k k'
                    in parallelCR thenRes elseRes
 
@@ -307,7 +307,7 @@ mutual
   
     labelNodeIn <- freshLabel
 
-    let pre : CFG CBlock (Undefined labelIn) (Defined [labelIn ~> labelNodeIn])
+    let pre : CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Defined [labelIn ~> labelNodeIn])
         pre = SingleVertex {vouts = Just [labelNodeIn]}
             $ emptyCBlock ctxIn <+| Branch labelNodeIn
 
@@ -328,7 +328,7 @@ mutual
                      -> (labelIn, labelPost : BlockLabel)
                      -> (ctxs : DList (:~: VarCTX) (pre ~~> labelIn))
                      -> (instr : Instr rt kind)
-                     -> CompM (CompileResultDD (pre ~~> labelIn) labelPost $ GetCRT kind)
+                     -> CompM (CompileResultDD (GetLLType rt) (pre ~~> labelIn) labelPost $ GetCRT kind)
   
   compileInstrDDViaUD pre labelIn labelPost ctxs instr = do
     SG ctx phis <- segregate ctxs
@@ -344,7 +344,7 @@ mutual
                  -> (labelIn, labelPost : BlockLabel)
                  -> (ctxs : DList (:~: VarCTX) (pre ~~> labelIn))
                  -> (instr : Instr rt kind)
-                 -> CompM (lbls ** CFG CBlock (Defined $ pre ~~> labelIn) (Defined $ lbls ~~> labelPost))
+                 -> CompM (lbls ** CFG (CBlock $ GetLLType rt) (Defined $ pre ~~> labelIn) (Defined $ lbls ~~> labelPost))
   compileInstrDD' pre labelIn labelPost ctxs instr = unwrapCRDD <$> compileInstrDD pre labelIn labelPost ctxs instr
 
   export
@@ -352,7 +352,7 @@ mutual
                 -> (labelIn, labelPost : BlockLabel)
                 -> (ctxs : DList (:~: VarCTX) (pre ~~> labelIn))
                 -> (instr : Instr rt kind)
-                -> CompM (CompileResultDD (pre ~~> labelIn) labelPost $ GetCRT kind)
+                -> CompM (CompileResultDD (GetLLType rt) (pre ~~> labelIn) labelPost $ GetCRT kind)
 
 
 
@@ -412,7 +412,7 @@ mutual
 
     phis <- mkPhis (detach ctxNode') ctxs
 
-    let node' : CFG CBlock
+    let node' : CFG (CBlock $ GetLLType rt)
                     (Defined $ pre ~~> labelNodeIn ++ loopOuts ~~> labelNodeIn)
                     (Defined $ (labelNodeOut ~>> [labelLoop, labelPost]))
         node' = rewrite revEq $ collect_concat labelNodeIn pre loopOuts

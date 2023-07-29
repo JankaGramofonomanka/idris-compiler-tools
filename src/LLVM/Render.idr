@@ -167,7 +167,7 @@ implementation DocItem STInstr where
   prt Empty = ""
 
 export
-implementation DocItem (CFInstr cfk) where
+implementation DocItem (CFInstr rt cfk) where
   prt (Branch lbl) = mkSentence ["br", prt @{branch} lbl]
   prt (CondBranch cond thn els) = mkSentence ["br", prtItems [prt @{typed} cond, prt @{branch} thn, prt @{branch} els]]
   prt (Ret val) = mkSentence ["ret", prt @{typed} val]
@@ -180,7 +180,7 @@ implementation DocItem (PhiInstr ins) where
 
 -- SimpleBlock ----------------------------------------------------------------
 export
-implementation Document (SimpleBlock label inputs cfkind) where
+implementation Document (SimpleBlock rt label inputs cfkind) where
   print (MkSimpleBlock { theLabel = MkThe label, phis, body, term })
     = MkDoc { lines = [ Right (simple $ prt label @{blockEntry})
                       , Left ( fromLines
@@ -192,23 +192,31 @@ implementation Document (SimpleBlock label inputs cfkind) where
                       ] 
             }
 
+printCFG : CFG (BlockVertex rt) (Defined ins) (Defined outs) -> Doc
+printCFG (SingleVertex {vins = Just ins, vouts = Just []} v) = print v
+printCFG (SingleVertex {vins = Just ins, vouts = Just (out :: outs)} v) = print v
+printCFG (Cycle node loop) = printCFG node ++ printCFG loop
+printCFG (Series first second) = printCFG first ++ printCFG second
+
+printCFG (LBranch  node branch) = printCFG node ++ printCFG branch
+printCFG (RBranch  node branch) = printCFG node ++ printCFG branch
+printCFG (LMerge   branch node) = printCFG branch ++ printCFG node
+printCFG (RMerge   branch node) = printCFG branch ++ printCFG node
+
+printCFG (Parallel left right) = printCFG left ++ printCFG right
+
+printCFG (IFlip cfg) = printCFG cfg
+printCFG (OFlip cfg) = printCFG cfg
+
+implementation [cfg] Document (CFG (BlockVertex rt) (Defined ins) (Defined outs)) where
+  print = printCFG where
+
+-- TODO for some reason idris can't find this implementation,
+-- therefore I had to add the `cfg` implementation and the `printCFG` function
 export
-implementation Document (CFG BlockVertex (Defined ins) (Defined outs)) where
+implementation Document (CFG (BlockVertex rt) (Defined ins) (Defined outs)) where
 
-  print (SingleVertex {vins = Just ins, vouts = Just []} v) = print v
-  print (SingleVertex {vins = Just ins, vouts = Just (out :: outs)} v) = print v
-  print (Cycle node loop) = print node ++ print loop
-  print (Series first second) = print first ++ print second
-  
-  print (LBranch  node branch) = print node ++ print branch
-  print (RBranch  node branch) = print node ++ print branch
-  print (LMerge   branch node) = print branch ++ print node
-  print (RMerge   branch node) = print branch ++ print node
-
-  print (Parallel left right) = print left ++ print right
-
-  print (IFlip cfg) = print cfg
-  print (OFlip cfg) = print cfg
+  print = print @{cfg}
 
 -- FunDef ---------------------------------------------------------------------
 export
@@ -216,7 +224,7 @@ implementation Document (FunDef retT paramTs) where
 
   print (MkFunDef { theRetType, name, params, body }) = let
       header = simple $ mkSentence ["define", prtFun (prt theRetType) (prt name) (undmap (prt @{typed}) params), "{"]
-    in MkDoc { lines = [Right header, Left (print body), Right (simple "}")] }
+    in MkDoc { lines = [Right header, Left (print @{cfg} body), Right (simple "}")] }
 
 -- FunDecl --------------------------------------------------------------------
 export

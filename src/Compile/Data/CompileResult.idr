@@ -23,7 +23,7 @@ import Theory
 
 
 export
-emptyCFG : {lbl : BlockLabel} -> lbl :~: VarCTX -> CFG CBlock (Undefined lbl) (Undefined lbl)
+emptyCFG : {lbl : BlockLabel} -> lbl :~: VarCTX -> CFG (CBlock rt) (Undefined lbl) (Undefined lbl)
 emptyCFG = initGraph . emptyCBlock
 
 
@@ -67,31 +67,31 @@ toCRType (Just _) = Open
 
 
 public export
-data CompileResultUD : BlockLabel -> BlockLabel -> CRType -> Type where
-  CRUDC : CFG CBlock (Undefined lbl) Closed -> CompileResultUD lbl lbl' Closed
-  CRUDO : (lbls ** CFG CBlock (Undefined lbl) (Defined $ lbls ~~> lbl'))
-       -> CompileResultUD lbl lbl' Open
+data CompileResultUD : LLType -> BlockLabel -> BlockLabel -> CRType -> Type where
+  CRUDC : CFG (CBlock rt) (Undefined lbl) Closed -> CompileResultUD rt lbl lbl' Closed
+  CRUDO : (lbls ** CFG (CBlock rt) (Undefined lbl) (Defined $ lbls ~~> lbl'))
+       -> CompileResultUD rt lbl lbl' Open
 
 
 
 public export
-data CompileResultDD : List (Edge BlockLabel) -> BlockLabel -> CRType -> Type where
-  CRDDC : CFG CBlock (Defined edges) Closed -> CompileResultDD edges lbl Closed
-  CRDDO : (lbls ** CFG CBlock (Defined edges) (Defined $ lbls ~~> lbl))
-       -> CompileResultDD edges lbl Open
+data CompileResultDD : LLType -> List (Edge BlockLabel) -> BlockLabel -> CRType -> Type where
+  CRDDC : CFG (CBlock rt) (Defined edges) Closed -> CompileResultDD rt edges lbl Closed
+  CRDDO : (lbls ** CFG (CBlock rt) (Defined edges) (Defined $ lbls ~~> lbl))
+       -> CompileResultDD rt edges lbl Open
 
 
 
 
 export
-unwrapCRUD : CompileResultUD lbl lbl' crt
-          -> (outs ** CFG CBlock (Undefined lbl) (Defined $ outs ~~> lbl'))
+unwrapCRUD : CompileResultUD rt lbl lbl' crt
+          -> (outs ** CFG (CBlock rt) (Undefined lbl) (Defined $ outs ~~> lbl'))
 unwrapCRUD (CRUDC g) = ([] ** g)
 unwrapCRUD (CRUDO (outs ** g)) = (outs ** g)
 
 export
-unwrapCRDD : CompileResultDD edges lbl crt
-          -> (outs ** CFG CBlock (Defined edges) (Defined $ outs ~~> lbl))
+unwrapCRDD : CompileResultDD rt edges lbl crt
+          -> (outs ** CFG (CBlock rt) (Defined edges) (Defined $ outs ~~> lbl))
 unwrapCRDD (CRDDC g) = ([] ** (g))
 unwrapCRDD (CRDDO (outs ** g)) = (outs ** g)
 
@@ -101,7 +101,7 @@ unwrapCRDD (CRDDO (outs ** g)) = (outs ** g)
 
 
 export
-emptyCRUD : (lbl, lbl' : BlockLabel) -> lbl :~: VarCTX -> CompileResultUD lbl lbl' Open
+emptyCRUD : (lbl, lbl' : BlockLabel) -> lbl :~: VarCTX -> CompileResultUD rt lbl lbl' Open
 emptyCRUD lbl lbl' ctx = CRUDO ([lbl] ** omap {outs = Just [lbl']} (<+| Branch lbl') (emptyCFG ctx))
 
 
@@ -112,25 +112,25 @@ emptyCRUD lbl lbl' ctx = CRUDO ([lbl] ** omap {outs = Just [lbl']} (<+| Branch l
 
 
 export
-connectCRUD : CFG CBlock (Undefined lbl) (Undefined lbl')
-           -> CompileResultUD lbl' lbl'' os
-           -> CompileResultUD lbl lbl'' os
+connectCRUD : CFG (CBlock rt) (Undefined lbl) (Undefined lbl')
+           -> CompileResultUD rt lbl' lbl'' os
+           -> CompileResultUD rt lbl lbl'' os
 connectCRUD g (CRUDC g') = CRUDC $ connect g g'
 connectCRUD g (CRUDO (lbls ** g')) = CRUDO $ (lbls ** connect g g')
 
 
 export
-connectCRDDCRUD : CFG CBlock (Undefined lbl) (Defined edges)
-               -> CompileResultDD edges lbl' crt
-               -> CompileResultUD lbl lbl' crt
+connectCRDDCRUD : CFG (CBlock rt) (Undefined lbl) (Defined edges)
+               -> CompileResultDD rt edges lbl' crt
+               -> CompileResultUD rt lbl lbl' crt
 
 connectCRDDCRUD pre (CRDDC g) = CRUDC (Series pre g)
 connectCRDDCRUD pre (CRDDO (lbls ** g)) = let g' = Series pre g in CRUDO (lbls ** g')
 
 export
-connectCRUDCRDD : CFG CBlock (Defined edges) (Undefined lbl)
-               -> CompileResultUD lbl lbl' crt
-               -> CompileResultDD edges lbl' crt
+connectCRUDCRDD : CFG (CBlock rt) (Defined edges) (Undefined lbl)
+               -> CompileResultUD rt lbl lbl' crt
+               -> CompileResultDD rt edges lbl' crt
 connectCRUDCRDD pre (CRUDC g) = CRDDC (connect pre g)
 connectCRUDCRDD pre (CRUDO (lbls ** g)) = let g' = connect pre g in CRDDO (lbls ** g')
 
@@ -139,10 +139,10 @@ connectCRUDCRDD pre (CRUDO (lbls ** g)) = let g' = connect pre g in CRDDO (lbls 
 
 export
 parallelCR : {lbl : BlockLabel}
-          -> (lres : CompileResultDD ledges lbl lcrt)
-          -> (rres : CompileResultDD redges lbl rcrt)
+          -> (lres : CompileResultDD rt ledges lbl lcrt)
+          -> (rres : CompileResultDD rt redges lbl rcrt)
           
-          -> CompileResultDD (ledges ++ redges) lbl (CRParallel lcrt rcrt)
+          -> CompileResultDD rt (ledges ++ redges) lbl (CRParallel lcrt rcrt)
 
 parallelCR {lbl} (CRDDC lg) (CRDDC rg) = CRDDC $ Parallel lg rg
 

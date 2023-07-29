@@ -281,13 +281,13 @@ data STInstr : Type where
   Empty : STInstr
 
 public export
-data CFInstr : CFKind -> Type where
+data CFInstr : (returnType : LLType) -> (kind : CFKind) -> Type where
   
-  Branch : (l : BlockLabel) -> CFInstr (Jump [l])
-  CondBranch : LLValue I1 -> (l1 : BlockLabel) -> (l2 : BlockLabel) -> CFInstr (Jump [l1, l2])
+  Branch : (l : BlockLabel) -> CFInstr rt (Jump [l])
+  CondBranch : LLValue I1 -> (l1 : BlockLabel) -> (l2 : BlockLabel) -> CFInstr rt (Jump [l1, l2])
 
-  Ret : LLValue t -> CFInstr Return
-  RetVoid : CFInstr Return
+  Ret : LLValue t -> CFInstr t Return
+  RetVoid : CFInstr Void Return
 
 public export
 data PhiInstr : Inputs -> Type where
@@ -297,6 +297,7 @@ data PhiInstr : Inputs -> Type where
 -- SimpleBlock ----------------------------------------------------------------
 public export
 record SimpleBlock
+  (retT : LLType)
   (label : BlockLabel)
   (inputs : Inputs)
   (cfkind : CFKind)
@@ -305,17 +306,17 @@ where
   theLabel  : The label
   phis      : List (PhiInstr inputs, Maybe String)
   body      : List (STInstr, Maybe String)
-  term      : CFInstr cfkind
+  term      : CFInstr retT cfkind
 
 
 
 public export
-BlockVertex : Vertex BlockLabel
-BlockVertex lbl Nothing _ = Void
-BlockVertex lbl _ Nothing = Void
-BlockVertex lbl (Just ins) (Just []) = SimpleBlock lbl (MkInputs ins) Return
-BlockVertex lbl (Just ins) (Just (out :: outs))
-  = SimpleBlock lbl (MkInputs ins) (Jump $ out :: outs)
+BlockVertex : (returnType : LLType) -> Vertex BlockLabel
+BlockVertex rt lbl Nothing _ = Void
+BlockVertex rt lbl _ Nothing = Void
+BlockVertex rt lbl (Just ins) (Just []) = SimpleBlock rt lbl (MkInputs ins) Return
+BlockVertex rt lbl (Just ins) (Just (out :: outs))
+  = SimpleBlock rt lbl (MkInputs ins) (Jump $ out :: outs)
 
 -- FunDef ---------------------------------------------------------------------
 public export
@@ -329,7 +330,7 @@ record FunDef (retT : LLType) (paramTs : List LLType) where
 
   -- TODO: enforce the existence of an entry block
   -- TODO: enforce correct return types
-  body : CFG BlockVertex (Defined []) (Defined [])
+  body : CFG (BlockVertex retT) (Defined []) (Defined [])
 
 -- FunDecl --------------------------------------------------------------------
 public export

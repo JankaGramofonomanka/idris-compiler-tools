@@ -23,7 +23,7 @@ import Compile.Utils
 compileBody : (labelIn : BlockLabel)
            -> (ctx : labelIn :~: VarCTX)
            -> (instr : Instr rt Returning)
-           -> CompM (CFG CBlock Closed Closed)
+           -> CompM (CFG (CBlock $ GetLLType rt) Closed Closed)
 
 compileBody labelIn ctx instr = do
   -- TODO get rid of this "" hack
@@ -68,8 +68,8 @@ compileFunDecl func {paramTypes} = do
       insert' (k, v) = insert k (Var v)
     
     toLLVM : {ins, outs : List BlockLabel}
-          -> CBlock lbl (Just ins) (Just outs)
-          -> BlockVertex lbl (Just ins) (Just outs)
+          -> (CBlock rt) lbl (Just ins) (Just outs)
+          -> BlockVertex rt lbl (Just ins) (Just outs)
     
     toLLVM {outs = []} (MkBB { theLabel, phis, body, term = Ret val, ctx })
       = MkSimpleBlock { theLabel, phis, body, term = Ret val }
