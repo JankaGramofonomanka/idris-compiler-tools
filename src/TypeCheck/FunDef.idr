@@ -33,8 +33,8 @@ typeCheckFunDecl (_ |^ funDecl) = do
   let initCtx = foldr (uncurry $ VarCTX.declare . tc') empty (^^funDecl.params)
 
   (_, (bk ** body)) <- typeCheckInstr retType initCtx funDecl.body
-  let Returning retType = bk
-                        | Simple => throwError $ missingReturnInstr (pos funDecl.body)
+  let Returning = bk
+                | Simple => throwError $ missingReturnInstr (pos funDecl.body)
 
   let decl = TC.MkFunDef { theId      = MkThe funId
                          , theRetType = MkThe retType

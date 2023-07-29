@@ -92,19 +92,19 @@ pair (lbls ** CFG _ ins (Defined $ lbls ~~> lbl))
 or (maybeLBL ** CFG _ ins (fromMaybe Closed $ map Undefined maybeLBL))
 -}
 public export
-GetCRT : InstrKind t -> CRType
-GetCRT Simple = Open
-GetCRT (Returning t) = Closed
+GetCRT : InstrKind -> CRType
+GetCRT Simple    = Open
+GetCRT Returning = Closed
 
 private
-thmGetCRT : (k, k' : InstrKind t) -> GetCRT (BrKind k k') = CRParallel (GetCRT k) (GetCRT k')
-thmGetCRT Simple        Simple          = Refl
-thmGetCRT Simple        (Returning t')  = Refl
-thmGetCRT (Returning t) Simple          = Refl
-thmGetCRT (Returning t) (Returning t)   = Refl
+thmGetCRT : (k, k' : InstrKind) -> GetCRT (BrKind k k') = CRParallel (GetCRT k) (GetCRT k')
+thmGetCRT Simple    Simple    = Refl
+thmGetCRT Simple    Returning = Refl
+thmGetCRT Returning Simple    = Refl
+thmGetCRT Returning Returning = Refl
 
 private
-thmGetCRT' : {k, k' : InstrKind t} -> GetCRT (BrKind k k') = CRParallel (GetCRT k) (GetCRT k')
+thmGetCRT' : {k, k' : InstrKind} -> GetCRT (BrKind k k') = CRParallel (GetCRT k) (GetCRT k')
 thmGetCRT' {k, k'} = thmGetCRT k k'
 
 
@@ -136,7 +136,7 @@ mutual
   export
   compileInstrUU : (labelIn : BlockLabel)
                 -> (ctx : labelIn :~: VarCTX)
-                -> (instr : Instr kind)
+                -> (instr : Instr rt kind)
                 -> CompM (CompileResultUU labelIn $ GetCRT kind)
 
 
@@ -147,7 +147,7 @@ mutual
 
     compile : (labelIn : BlockLabel)
             -> (ctx : labelIn :~: VarCTX)
-            -> (instrs : Instrs k)
+            -> (instrs : Instrs rt k)
             -> CompM (CompileResultUU labelIn (GetCRT k))
     compile labelIn ctx Nil = pure (emptyCRUU labelIn ctx)
     compile labelIn ctx (TermSingleton instr) = compileInstrUU labelIn ctx instr
@@ -212,7 +212,7 @@ mutual
   export
   compileInstrUD : (labelIn, labelPost : BlockLabel)
                 -> (ctx : labelIn :~: VarCTX)
-                -> (instr : Instr kind)
+                -> (instr : Instr rt kind)
                 -> CompM (CompileResultUD labelIn labelPost $ GetCRT kind)
 
   -- Assign -------------------------------------------------------------------
@@ -242,7 +242,7 @@ mutual
 
       compile : (labelIn : BlockLabel)
              -> (ctx : labelIn :~: VarCTX)
-             -> (instrs : Instrs k)
+             -> (instrs : Instrs rt k)
              -> CompM (CompileResultUD labelIn labelPost $ GetCRT k)
       compile labelIn ctx Nil = pure (emptyCRUD labelIn labelPost ctx)
       compile labelIn ctx (TermSingleton instr) = compileInstrUD labelIn labelPost ctx instr
@@ -316,7 +316,7 @@ mutual
   compileInstrDDViaUD : (pre : List BlockLabel)
                      -> (labelIn, labelPost : BlockLabel)
                      -> (ctxs : DList (:~: VarCTX) (pre ~~> labelIn))
-                     -> (instr : Instr kind)
+                     -> (instr : Instr rt kind)
                      -> CompM (CompileResultDD (pre ~~> labelIn) labelPost $ GetCRT kind)
   
   compileInstrDDViaUD pre labelIn labelPost ctxs instr = do
@@ -332,7 +332,7 @@ mutual
   compileInstrDD : (pre : List BlockLabel)
                 -> (labelIn, labelPost : BlockLabel)
                 -> (ctxs : DList (:~: VarCTX) (pre ~~> labelIn))
-                -> (instr : Instr kind)
+                -> (instr : Instr rt kind)
                 -> CompM (CompileResultDD (pre ~~> labelIn) labelPost $ GetCRT kind)
 
 

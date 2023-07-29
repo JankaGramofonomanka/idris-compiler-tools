@@ -22,7 +22,7 @@ import Compile.Utils
 
 compileBody : (labelIn : BlockLabel)
            -> (ctx : labelIn :~: VarCTX)
-           -> (instr : Instr (Returning t))
+           -> (instr : Instr rt Returning)
            -> CompM (CFG CBlock Closed Closed)
 
 compileBody labelIn ctx instr = do

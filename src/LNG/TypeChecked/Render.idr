@@ -78,7 +78,7 @@ implementation DocItem (Expr t) where
   prt (Call fun args) = prt fun ++ brkts (concat . intersperse ", " $ undmap prt args)
 
 export
-implementation DocItem (Instr k) where
+implementation DocItem (Instr rt k) where
 
   prt instr = case instr of
     (Block instrs) => concat . intersperse "\n" $ ["{"] ++ map ("    " ++) (prt' instrs) ++ ["}"]
@@ -91,7 +91,7 @@ implementation DocItem (Instr k) where
     RetVoid => "return"
 
     where
-      prt' : Instrs k' -> List String
+      prt' : Instrs rt k' -> List String
       prt' Nil = Nil
       prt' (TermSingleton instr) = [prt instr]
       prt' (instr :: instrs) = prt instr :: prt' instrs

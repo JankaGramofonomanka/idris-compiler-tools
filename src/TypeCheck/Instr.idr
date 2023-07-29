@@ -23,7 +23,7 @@ typeCheckExprOfType' t ctx expr = evalStateT ctx $ typeCheckExprOfType t expr
 -- TODO: try `typeCheckInstrOfKind`
 -- TODO: try linear context
 export
-typeCheckInstr : (t : TC.LNGType) -> VarCTX -> ^Instr -> TypeCheckM (VarCTX, (kind : InstrKind t ** TC.Instr kind))
+typeCheckInstr : (rt : TC.LNGType) -> VarCTX -> ^Instr -> TypeCheckM (VarCTX, (kind : InstrKind ** TC.Instr rt kind))
 
 typeCheckInstr t ctx (_ |^ Block instrs) = do
   (ctx', (k ** instrs')) <- typeCheck' t ctx (^^instrs)
@@ -31,10 +31,10 @@ typeCheckInstr t ctx (_ |^ Block instrs) = do
   
   where
     
-    typeCheck' : (t : TC.LNGType)
+    typeCheck' : (rt : TC.LNGType)
               -> VarCTX
               -> List (^Instr)
-              -> TypeCheckM (VarCTX, (kind : InstrKind t ** TC.Instrs kind))
+              -> TypeCheckM (VarCTX, (kind : InstrKind ** TC.Instrs rt kind))
     
     typeCheck' t ctx Nil = pure (ctx, (Simple ** []))
     
@@ -44,7 +44,7 @@ typeCheckInstr t ctx (_ |^ Block instrs) = do
         Simple => pure (ctx', (Simple ** [instr']))
         
         -- idris knows the `t` here is the same
-        Returning t => pure (ctx', (Returning t ** TC.TermSingleton instr'))
+        Returning => pure (ctx', (Returning ** TC.TermSingleton instr'))
     
     typeCheck' t ctx (instr1 :: instr2 :: instrs) = do
       (ctx', (k' ** instr1')) <- typeCheckInstr t ctx instr1
@@ -53,7 +53,7 @@ typeCheckInstr t ctx (_ |^ Block instrs) = do
           (ctx'', (k'' ** instrs')) <- typeCheck' t ctx' (instr2 :: instrs)
           pure (ctx'', (k'' ** (instr1' :: instrs')))
         
-        Returning t => throwError $ returnPrecedingInstructions (pos instr2)
+        Returning => throwError $ returnPrecedingInstructions (pos instr2)
 
 typeCheckInstr t ctx (_ |^ Declare ty id expr) = do
   case VarCTX.lookup (^^id) ctx of
@@ -94,10 +94,10 @@ typeCheckInstr t ctx (_ |^ While cond body) = do
 
 typeCheckInstr t ctx (_ |^ Return expr) = do
   expr' <- typeCheckExprOfType' t ctx expr
-  pure (ctx, (Returning t ** TC.Return expr'))
+  pure (ctx, (Returning ** TC.Return expr'))
 
 typeCheckInstr t ctx (p |^ RetVoid) = case t of
-  TVoid => pure (ctx, (TC.Returning TC.TVoid ** TC.RetVoid))
+  TVoid => pure (ctx, (TC.Returning ** TC.RetVoid))
   t => throwError $ typeError p t TVoid
 
 

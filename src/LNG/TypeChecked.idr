@@ -277,35 +277,33 @@ implementation Typed Expr where
   typeOf (Call fun args) = retTypeOf fun
 
 public export
-data InstrKind : LNGType -> Type where
-  Simple : InstrKind t
-  Returning : (t : LNGType) -> InstrKind t
+data InstrKind = Simple | Returning
 
 public export
-BrKind : InstrKind t -> InstrKind t -> InstrKind t
-BrKind Simple         Simple          = Simple
-BrKind Simple         (Returning t')  = Simple
-BrKind (Returning t)  Simple          = Simple
-BrKind (Returning t)  (Returning t)   = Returning t
+BrKind : InstrKind -> InstrKind -> InstrKind
+BrKind Simple     Simple    = Simple
+BrKind Simple     Returning = Simple
+BrKind Returning  Simple    = Simple
+BrKind Returning  Returning = Returning
 
 mutual
   public export
-  data Instr : InstrKind t -> Type where
-    Block : Instrs k -> Instr k
-    Assign : Variable t -> Expr t -> Instr Simple
-    Exec : Expr TVoid -> Instr Simple
-    If : Expr TBool -> Instr k -> Instr Simple
-    IfElse : Expr TBool -> Instr k -> Instr k' -> Instr (BrKind k k')
-    While : Expr TBool -> Instr k -> Instr Simple
-    Return : Expr t -> Instr (Returning t)
-    RetVoid : Instr (Returning TVoid)
+  data Instr : (returnType : LNGType) -> (kind : InstrKind) -> Type where
+    Block : Instrs rt k -> Instr rt k
+    Assign : Variable t -> Expr t -> Instr rt Simple
+    Exec : Expr TVoid -> Instr rt Simple
+    If : Expr TBool -> Instr rt k -> Instr rt Simple
+    IfElse : Expr TBool -> Instr rt k -> Instr rt k' -> Instr rt (BrKind k k')
+    While : Expr TBool -> Instr rt k -> Instr rt Simple
+    Return : Expr t -> Instr t Returning
+    RetVoid : Instr TVoid Returning
     -- TODO: Add `WhileTrue`
 
   public export
-  data Instrs : InstrKind t -> Type where
-    Nil : Instrs Simple
-    TermSingleton : Instr (Returning t) -> Instrs (Returning t)
-    (::) : Instr Simple -> Instrs k -> Instrs k
+  data Instrs : (returnType : LNGType) -> (kind : InstrKind) -> Type where
+    Nil : Instrs rt Simple
+    TermSingleton : Instr rt Returning -> Instrs rt Returning
+    (::) : Instr rt Simple -> Instrs rt k -> Instrs rt k
 
 public export
 record FunDef (retType : LNGType) (paramTypes : List LNGType) (funId : FunId retType paramTypes) where
@@ -313,7 +311,7 @@ record FunDef (retType : LNGType) (paramTypes : List LNGType) (funId : FunId ret
   theId : The funId
   theRetType : The retType
   params : DList Variable paramTypes
-  body : Instr (Returning retType)
+  body : Instr retType Returning
 
 public export
 record Program where
