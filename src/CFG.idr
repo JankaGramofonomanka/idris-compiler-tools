@@ -164,8 +164,9 @@ namespace Graph
                 -> vertex v vins vouts
                 -> CFG vertex (fromVIn vins v) (fromVOut v vouts)
     
-    Cycle : (node : CFG vertex (Defined $ ins ++ ins' ~~> vin) (Defined $ (vout ~> w) :: outs))
-         -> (loop : CFG vertex (Single vout w) (Defined $ ins' ~~> vin))
+    Cycle : {ins, outs, loopIns, loopOuts : List (Edge a)}
+         -> (node : CFG vertex (Defined $ ins ++ loopOuts) (Defined $ loopIns ++ outs))
+         -> (loop : CFG vertex (Defined loopIns) (Defined loopOuts))
          -> CFG vertex (Defined ins) (Defined outs)
 
     
@@ -367,7 +368,7 @@ namespace Graph
   oget' f (SingleVertex {vouts = Nothing} v)      impossible
 
   oget' f (SingleVertex {v, vouts = Just outs} w) = f w
-  oget' f (Cycle node loop)                       = tail (oget' f node)
+  oget' f (Cycle node loop)                       = snd . split $ oget' f node
   oget' f (Series g g')                           = oget' f g'
 
   oget' f (LBranch g g')                          = let (lhs, rhs) = split (oget' f g)
