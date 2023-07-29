@@ -1,7 +1,5 @@
 module CFG
 
-import Data.List
-
 import Data.DList
 import Theory
 
@@ -171,8 +169,7 @@ namespace Graph
          -> CFG vertex (Defined ins) (Defined outs)
 
     
-    Series : {auto 0 prf : NonEmpty edges}
-          -> CFG vertex ins (Defined edges)
+    Series : CFG vertex ins (Defined edges)
           -> CFG vertex (Defined edges) outs
           -> CFG vertex ins outs
     
@@ -217,7 +214,6 @@ namespace Graph
   prepend : {0 vertex : Vertex a}
          -> {vins : Neighbors a}
          -> {vouts : List a}
-         -> {auto 0 prf : NonEmpty (v ~>> vouts)}
          -> vertex v vins (Just vouts)
          -> CFG vertex (Defined $ v ~>> vouts) gouts
          -> CFG vertex (fromVIn vins v) gouts
@@ -226,7 +222,6 @@ namespace Graph
   public export
   append : {vins : List a}
         -> {vouts : Neighbors a}
-        -> {auto 0 prf : NonEmpty (vins ~~> v)}
         
         -> CFG vertex gins (Defined $ vins ~~> v)
         -> vertex v (Just vins) vouts

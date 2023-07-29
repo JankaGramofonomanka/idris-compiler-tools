@@ -42,14 +42,14 @@ jumpTo : (lbl' : BlockLabel) -> CompileResultUU lbl crt -> CompileResultUD lbl l
 jumpTo labelPost (CRUUC g) = CRUDC g
 jumpTo labelPost (CRUUO (lbl ** g)) = let
   g' = omap {outs = Just [labelPost]} (<+| Branch labelPost) g
-  in CRUDO ([lbl] ** (g', IsNonEmpty))
+  in CRUDO ([lbl] ** g')
 
 
 jumpFrom : (lbl : BlockLabel) -> CompileResultUD lbl' lbl'' crt -> CompileResultDD [lbl ~> lbl'] lbl'' crt
 jumpFrom labelPre (CRUDC g) = CRDDC $ imap {ins = Just [labelPre]} ([] |++>) g
-jumpFrom labelPre (CRUDO (lbls ** (g, prf))) = let
+jumpFrom labelPre (CRUDO (lbls ** g)) = let
   g' = imap {ins = Just [labelPre]} ([] |++>) g
-  in CRDDO (lbls ** (g', prf))
+  in CRDDO (lbls ** g')
 
 
 ifology' : (labelIn : BlockLabel)
@@ -57,12 +57,9 @@ ifology' : (labelIn : BlockLabel)
         -> (expr : Expr TBool)
         -> (lblT : BlockLabel)
         -> (lblF : BlockLabel)
-        -> CompM  ( outsT ** outsF ** ( CFG CBlock
-                                            (Undefined labelIn)
-                                            (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
-                                      , NonEmpty outsT
-                                      , NonEmpty outsF
-                                      )
+        -> CompM  ( outsT ** outsF ** CFG CBlock
+                                          (Undefined labelIn)
+                                          (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
                   )
 ifology' labelIn ctx expr lblT lblF = evalStateT (detach ctx) $ ifology labelIn expr lblT lblF
 
@@ -256,7 +253,7 @@ mutual
   compileInstrUD labelIn labelPost ctx (If cond instrThen) = do
 
     labelThen <- freshLabel
-    (outsT ** outsF ** (condG, prfT, prfF)) <- ifology' labelIn ctx cond labelThen labelPost
+    (outsT ** outsF ** condG) <- ifology' labelIn ctx cond labelThen labelPost
     let (ctxsT, ctxsF) = split (getContexts condG)
     
     thenRes <- compileInstrDD outsT labelThen labelPost ctxsT instrThen
@@ -266,7 +263,7 @@ mutual
         final = rewrite collect_concat labelPost branchOuts outsF
                 in LBranch condG thenG
     
-    pure $ CRUDO (branchOuts ++ outsF ** (final, plusplus_nonempty prfF))
+    pure $ CRUDO (branchOuts ++ outsF ** final)
     
 
 
@@ -276,7 +273,7 @@ mutual
 
     labelThen <- freshLabel
     labelElse <- freshLabel
-    (outsT ** outsF ** (condG, prfT, prfF)) <- ifology' labelIn ctx cond labelThen labelElse
+    (outsT ** outsF ** condG) <- ifology' labelIn ctx cond labelThen labelElse
     let (ctxsT, ctxsF) = split (getContexts condG)
 
     thenRes <- compileInstrDD outsT labelThen labelPost ctxsT instrThen
@@ -286,7 +283,7 @@ mutual
         branches = rewrite thmGetCRT k k'
                    in parallelCR thenRes elseRes
 
-    pure $ connectCRDDCRUD {prf = nonempty_cmap_cmap $ nonempty_plusplus prfT} condG branches
+    pure $ connectCRDDCRUD condG branches
 
 
 
@@ -386,7 +383,7 @@ mutual
     
     final <- handleLoopResult ctxNode' ctxsIn nodeG' loopRes
 
-    pure $ CRDDO ([labelNodeOut] ** (final, IsNonEmpty))
+    pure $ CRDDO ([labelNodeOut] ** final)
     
     where
 
@@ -450,7 +447,7 @@ mutual
         
         pure final
 
-      handleLoopResult {pre, nodeIn, nodeOut} ctxNode ctxsIn node (CRDDO (loopOuts ** (loop, prfLoop))) = do
+      handleLoopResult {pre, nodeIn, nodeOut} ctxNode ctxsIn node (CRDDO (loopOuts ** loop)) = do
 
         let ctxsLoopOut = getContexts loop
         
