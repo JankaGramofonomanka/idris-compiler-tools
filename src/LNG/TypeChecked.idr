@@ -293,7 +293,7 @@ mutual
     Assign : Variable t -> Expr t -> Instr rt Simple
     Exec : Expr TVoid -> Instr rt Simple
     If : Expr TBool -> Instr rt k -> Instr rt Simple
-    IfElse : Expr TBool -> Instr rt k -> Instr rt k' -> Instr rt (BrKind k k')
+    IfElse : {k, k' : InstrKind} -> Expr TBool -> Instr rt k -> Instr rt k' -> Instr rt (BrKind k k')
     While : Expr TBool -> Instr rt k -> Instr rt Simple
     Return : Expr t -> Instr t Returning
     RetVoid : Instr TVoid Returning

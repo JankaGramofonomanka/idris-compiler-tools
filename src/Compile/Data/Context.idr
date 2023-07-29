@@ -29,7 +29,7 @@ VarCTX : Type
 VarCTX = DMap Variable (LLValue . GetLLType)
 
 -- Same as `VarCTX` but every value is in a register
-public export
+export
 VarCTX' : Type
 VarCTX' = DMap Variable (Reg . GetLLType)
 

@@ -67,14 +67,6 @@ toCRType (Just _) = Open
 
 
 public export
-data CompileResultUU : BlockLabel -> CRType -> Type where
-  CRUUC : CFG CBlock (Undefined lbl) Closed -> CompileResultUU lbl Closed
-  CRUUO : (lbl' **  CFG CBlock (Undefined lbl) (Undefined lbl'))
-       -> CompileResultUU lbl Open
-
-
-
-public export
 data CompileResultUD : BlockLabel -> BlockLabel -> CRType -> Type where
   CRUDC : CFG CBlock (Undefined lbl) Closed -> CompileResultUD lbl lbl' Closed
   CRUDO : (lbls ** CFG CBlock (Undefined lbl) (Defined $ lbls ~~> lbl'))
@@ -109,10 +101,6 @@ unwrapCRDD (CRDDO (outs ** g)) = (outs ** g)
 
 
 export
-emptyCRUU : (lbl : BlockLabel) -> lbl :~: VarCTX -> CompileResultUU lbl Open
-emptyCRUU lbl ctx = CRUUO (lbl ** emptyCFG ctx)
-
-export
 emptyCRUD : (lbl, lbl' : BlockLabel) -> lbl :~: VarCTX -> CompileResultUD lbl lbl' Open
 emptyCRUD lbl lbl' ctx = CRUDO ([lbl] ** omap {outs = Just [lbl']} (<+| Branch lbl') (emptyCFG ctx))
 
@@ -121,12 +109,6 @@ emptyCRUD lbl lbl' ctx = CRUDO ([lbl] ** omap {outs = Just [lbl']} (<+| Branch l
 
 
 
-
-
-export
-connectCRUU : CFG CBlock (Undefined lbl) (Undefined lbl') -> CompileResultUU lbl' os -> CompileResultUU lbl os
-connectCRUU g (CRUUC g') = CRUUC $ connect g g'
-connectCRUU g (CRUUO (lbl'' ** g')) = CRUUO $ (lbl'' ** connect g g')
 
 
 export
@@ -179,35 +161,6 @@ parallelCR {lbl} (CRDDO (louts ** lg)) (CRDDO (routs ** rg)) = let
       in Parallel lg rg
 
   in CRDDO (louts ++ routs ** g)
-
-
-
-
-
-
-
-
-export
-collectOutsCR : {lbl' : BlockLabel} -> CompileResultUD lbl lbl' crt -> CompM $ CompileResultUU lbl crt
-collectOutsCR {lbl' = labelPost} (CRUDC g) = pure $ CRUUC g
-collectOutsCR {lbl' = labelPost} (CRUDO (lbls ** g)) = do
-  SG ctx phis <- segregate (getContexts g)
-
-  let ctxPost = ctx
-
-  let post : CFG CBlock (Defined $ lbls ~~> labelPost) (Undefined labelPost)
-      post = SingleVertex {vins = Just lbls} $ phis |++:> emptyCBlock ctxPost
-  
-  let final = Series g post
-
-  pure $ CRUUO (labelPost ** final)
-
-
-
-
-
-
-
 
 
 
