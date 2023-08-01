@@ -67,104 +67,66 @@ toCRType (Just _) = Open
 
 
 public export
-data CompileResultUD : LLType -> BlockLabel -> BlockLabel -> CRType -> Type where
-  CRUDC : CFG (CBlock rt) (Undefined lbl) Closed -> CompileResultUD rt lbl lbl' Closed
-  CRUDO : (lbls ** CFG (CBlock rt) (Undefined lbl) (Defined $ lbls ~~> lbl'))
-       -> CompileResultUD rt lbl lbl' Open
+data CompileResult : LLType -> Edges BlockLabel -> BlockLabel -> CRType -> Type where
+  CRC : CFG (CBlock rt) ins Closed -> CompileResult rt ins lbl Closed
+  CRO : (lbls ** CFG (CBlock rt) ins (Defined $ lbls ~~> lbl))
+     -> CompileResult rt ins lbl Open
 
 
+export
+unwrapCR : CompileResult rt ins lbl crt
+          -> (outs ** CFG (CBlock rt) ins (Defined $ outs ~~> lbl))
+unwrapCR (CRC g) = ([] ** g)
+unwrapCR (CRO (outs ** g)) = (outs ** g)
 
-public export
-data CompileResultDD : LLType -> List (Edge BlockLabel) -> BlockLabel -> CRType -> Type where
-  CRDDC : CFG (CBlock rt) (Defined edges) Closed -> CompileResultDD rt edges lbl Closed
-  CRDDO : (lbls ** CFG (CBlock rt) (Defined edges) (Defined $ lbls ~~> lbl))
-       -> CompileResultDD rt edges lbl Open
-
+export
+emptyCR : (lbl, lbl' : BlockLabel) -> lbl :~: VarCTX -> CompileResult rt (Undefined lbl) lbl' Open
+emptyCR lbl lbl' ctx = CRO ([lbl] ** omap {outs = Just [lbl']} (<+| Branch lbl') (emptyCFG ctx))
 
 
 
 export
-unwrapCRUD : CompileResultUD rt lbl lbl' crt
-          -> (outs ** CFG (CBlock rt) (Undefined lbl) (Defined $ outs ~~> lbl'))
-unwrapCRUD (CRUDC g) = ([] ** g)
-unwrapCRUD (CRUDO (outs ** g)) = (outs ** g)
+connectCR : CFG (CBlock rt) ins (Undefined lbl)
+         -> CompileResult rt (Undefined lbl) lbl' crt
+         -> CompileResult rt ins lbl' crt
+connectCR g (CRC g') = CRC $ connect g g'
+connectCR g (CRO (lbls ** g')) = CRO $ (lbls ** connect g g')
 
 export
-unwrapCRDD : CompileResultDD rt edges lbl crt
-          -> (outs ** CFG (CBlock rt) (Defined edges) (Defined $ outs ~~> lbl))
-unwrapCRDD (CRDDC g) = ([] ** (g))
-unwrapCRDD (CRDDO (outs ** g)) = (outs ** g)
-
-
-
-
-
-
-export
-emptyCRUD : (lbl, lbl' : BlockLabel) -> lbl :~: VarCTX -> CompileResultUD rt lbl lbl' Open
-emptyCRUD lbl lbl' ctx = CRUDO ([lbl] ** omap {outs = Just [lbl']} (<+| Branch lbl') (emptyCFG ctx))
-
-
-
-
-
-
-
-
-export
-connectCRUD : CFG (CBlock rt) (Undefined lbl) (Undefined lbl')
-           -> CompileResultUD rt lbl' lbl'' os
-           -> CompileResultUD rt lbl lbl'' os
-connectCRUD g (CRUDC g') = CRUDC $ connect g g'
-connectCRUD g (CRUDO (lbls ** g')) = CRUDO $ (lbls ** connect g g')
-
-
-export
-connectCRDDCRUD : CFG (CBlock rt) (Undefined lbl) (Defined edges)
-               -> CompileResultDD rt edges lbl' crt
-               -> CompileResultUD rt lbl lbl' crt
-
-connectCRDDCRUD pre (CRDDC g) = CRUDC (Series pre g)
-connectCRDDCRUD pre (CRDDO (lbls ** g)) = let g' = Series pre g in CRUDO (lbls ** g')
-
-export
-connectCRUDCRDD : CFG (CBlock rt) (Defined edges) (Undefined lbl)
-               -> CompileResultUD rt lbl lbl' crt
-               -> CompileResultDD rt edges lbl' crt
-connectCRUDCRDD pre (CRUDC g) = CRDDC (connect pre g)
-connectCRUDCRDD pre (CRUDO (lbls ** g)) = let g' = connect pre g in CRDDO (lbls ** g')
-
-
+seriesCR : CFG (CBlock rt) ins (Defined outs)
+        -> CompileResult rt (Defined outs) lbl' crt
+        -> CompileResult rt ins lbl' crt
+seriesCR g (CRC g') = CRC $ Series g g'
+seriesCR g (CRO (lbls ** g')) = CRO $ (lbls ** Series g g')
 
 
 export
 parallelCR : {lbl : BlockLabel}
-          -> (lres : CompileResultDD rt ledges lbl lcrt)
-          -> (rres : CompileResultDD rt redges lbl rcrt)
+          -> (lres : CompileResult rt (Defined ledges) lbl lcrt)
+          -> (rres : CompileResult rt (Defined redges) lbl rcrt)
           
-          -> CompileResultDD rt (ledges ++ redges) lbl (CRParallel lcrt rcrt)
+          -> CompileResult rt (Defined $ ledges ++ redges) lbl (CRParallel lcrt rcrt)
 
-parallelCR {lbl} (CRDDC lg) (CRDDC rg) = CRDDC $ Parallel lg rg
+parallelCR {lbl} (CRC lg) (CRC rg) = CRC $ Parallel lg rg
 
-parallelCR {lbl} (CRDDC lg) (CRDDO (routs ** rg)) = CRDDO (routs ** Parallel lg rg)
+-- Without the "case of" pattern match idris thinks the function is not covering
+--parallelCR {lbl} (CRC lg) (CRO (routs ** rg)) = CRO (routs ** Parallel lg rg)
+parallelCR {lbl} (CRC lg) (CRO dp) = case dp of
+  (routs ** rg) => CRO (routs ** Parallel lg rg)
 
-parallelCR {lbl} (CRDDO (louts ** lg)) (CRDDC rg) = let
+parallelCR {lbl} (CRO (louts ** lg)) (CRC rg) = let
 
   g = rewrite revEq $ concat_nil (louts ~~> lbl)
       in Parallel lg rg
 
-  in CRDDO (louts ** g)
+  in CRO (louts ** g)
 
-parallelCR {lbl} (CRDDO (louts ** lg)) (CRDDO (routs ** rg)) = let
+parallelCR {lbl} (CRO (louts ** lg)) (CRO (routs ** rg)) = let
 
   g = rewrite collect_concat lbl louts routs
       in Parallel lg rg
 
-  in CRDDO (louts ++ routs ** g)
-
-
-
-
+  in CRO (louts ++ routs ** g)
 
 
 

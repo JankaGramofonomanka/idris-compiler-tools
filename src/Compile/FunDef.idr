@@ -28,7 +28,7 @@ compileBody : (labelIn : BlockLabel)
 compileBody labelIn ctx instr = do
   -- TODO get rid of this "" hack
   -- TODO consider using `compileInstrDD`
-  CRUDC g <- compileInstrUD labelIn (MkBlockLabel "") ctx instr
+  CRC g <- compileInstrUD labelIn (MkBlockLabel "") ctx instr
   pure $ imap {ins = Just []} ([] |++>) g
 
 export
