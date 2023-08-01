@@ -16,7 +16,6 @@ import LNG.TypeChecked
 import LLVM
 
 import Compile.Data.CBlock
-import Compile.Data.CompileResult
 import Compile.Data.CompM
 import Compile.Data.Context
 import Compile.Data.Error

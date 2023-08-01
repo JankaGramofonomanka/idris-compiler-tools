@@ -22,14 +22,6 @@ import CFG
 import Theory
 
 
-export
-emptyCFG : {lbl : BlockLabel} -> lbl :~: VarCTX -> CFG (CBlock rt) (Undefined lbl) (Undefined lbl)
-emptyCFG = initGraph . emptyCBlock
-
-
-
-
-
 public export
 data CRType = Open | Closed
 

@@ -184,3 +184,8 @@ getContexts : CFG (CBlock rt) ins (Defined outs)
            -> DList (:~: VarCTX) outs
 getContexts cfg = oget' contexts cfg
 
+
+
+export
+emptyCFG : {lbl : BlockLabel} -> lbl :~: VarCTX -> CFG (CBlock rt) (Undefined lbl) (Undefined lbl)
+emptyCFG = initGraph . emptyCBlock
