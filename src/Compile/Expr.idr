@@ -224,6 +224,7 @@ mutual
     MkThe TString => do
       ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
 
+      -- TODO here the `eqType` is discarded and the code acts as if it is `EQ'`
       reg <- lift $ freshRegister I1
       let g' = omap {outs = Undefined} (<+ Assign reg (Call (ConstPtr strcompare) [lhs', rhs'])) g
 
