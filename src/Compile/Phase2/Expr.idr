@@ -10,50 +10,49 @@ import Compile.Data.CBlock
 import Compile.Data.Error
 import Compile.Data.LLVM
 import Compile.Phase2.Data.VarContext
+import Compile.Phase2.Data.CompM'
 import Compile.Utils
 import LLVM
 import LLVM.Generalized
 import Utils
 
-genRegsVal : VarCTX -> LLValue Reg' t -> CompM (LLValue Reg t)
-genRegsVal ctx (Var (R reg)) = pure (Var reg)
-genRegsVal ctx (Var (Placeholder var)) = do
-  let Just val = VarCTX.lookup var ctx
-               | Nothing => throwError (NoSuchVariable var)
-  pure val
+export
+genRegsVal : LLValue Reg' t -> CompM' (LLValue Reg t)
+genRegsVal (Var (R reg)) = pure (Var reg)
+genRegsVal (Var (Placeholder var)) = getValue var
 
-genRegsVal ctx (Lit lit)      = pure (Lit lit)
-genRegsVal ctx (ConstPtr cst) = pure (ConstPtr cst)
-genRegsVal ctx (Null t)       = pure (Null t)
+genRegsVal (Lit lit)      = pure (Lit lit)
+genRegsVal (ConstPtr cst) = pure (ConstPtr cst)
+genRegsVal (Null t)       = pure (Null t)
   
+export
+genRegsExpr : LLExpr Reg' t -> CompM' (LLExpr Reg t)
 
-genRegsExpr : VarCTX -> LLExpr Reg' t -> CompM (LLExpr Reg t)
+genRegsExpr (BinOperation op lhs rhs)
+  = BinOperation op <$> genRegsVal lhs <*> genRegsVal rhs
 
-genRegsExpr ctx (BinOperation op lhs rhs)
-  = BinOperation op <$> genRegsVal ctx lhs <*> genRegsVal ctx rhs
+genRegsExpr (Call fun args)
+  = Call <$> genRegsVal fun <*> dtraverse (genRegsVal) args
 
-genRegsExpr ctx (Call fun args)
-  = Call <$> genRegsVal ctx fun <*> dtraverse (genRegsVal ctx) args
+genRegsExpr (GetElementPtr arr idx1 idx2)
+  = GetElementPtr <$> genRegsVal arr <*> genRegsVal idx1 <*> genRegsVal idx2
 
-genRegsExpr ctx (GetElementPtr arr idx1 idx2)
-  = GetElementPtr <$> genRegsVal ctx arr <*> genRegsVal ctx idx1 <*> genRegsVal ctx idx2
+genRegsExpr (ICMP cmp lhs rhs)
+  = ICMP cmp <$> genRegsVal lhs <*> genRegsVal rhs
 
-genRegsExpr ctx (ICMP cmp lhs rhs)
-  = ICMP cmp <$> genRegsVal ctx lhs <*> genRegsVal ctx rhs
+genRegsExpr (Load ptr)
+  = Load <$> genRegsVal ptr
 
-genRegsExpr ctx (Load ptr)
-  = Load <$> genRegsVal ctx ptr
-
-genRegsExpr ctx (BitCast val t2) = do
-  val' <- genRegsVal ctx val
+genRegsExpr (BitCast val t2) = do
+  val' <- genRegsVal val
   pure (BitCast val' t2)
 
+export
+genRegsPhiExpr : PhiExpr Reg' ins t -> CompM' (PhiExpr Reg ins t)
+genRegsPhiExpr (Phi t Nil) = pure (Phi t Nil)
+genRegsPhiExpr (Phi t ((lbl, val) :: kvs)) = do
 
-genRegsPhiExpr : VarCTX -> PhiExpr Reg' ins t -> CompM (PhiExpr Reg ins t)
-genRegsPhiExpr ctx (Phi t Nil) = pure (Phi t Nil)
-genRegsPhiExpr ctx (Phi t ((lbl, val) :: kvs)) = do
-
-  val' <- genRegsVal ctx val
-  phi <- genRegsPhiExpr ctx (Phi t kvs)
+  val' <- genRegsVal val
+  phi <- genRegsPhiExpr (Phi t kvs)
   
   pure (addInput lbl val' phi)
