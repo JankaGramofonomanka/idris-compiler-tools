@@ -140,18 +140,18 @@ implementation Typed LLLiteral where
 
 -- LLValue --------------------------------------------------------------------
 public export
-data LLValue : LLType -> Type where
-  Var : Reg t -> LLValue t
-  Lit : LLLiteral t -> LLValue t
-  ConstPtr : Const t -> LLValue (Ptr t)
-  Null : (t : LLType) -> LLValue (Ptr t)
+data LLValue : (LLType -> Type) -> LLType -> Type where
+  Var : var t -> LLValue var t
+  Lit : LLLiteral t -> LLValue var t
+  ConstPtr : Const t -> LLValue var (Ptr t)
+  Null : (t : LLType) -> LLValue var (Ptr t)
 
 public export
-ILitV : {n : Nat} -> Integer -> LLValue (I n)
+ILitV : {n : Nat} -> Integer -> LLValue var (I n)
 ILitV i = Lit (ILit i)
 
 export
-implementation Eq (LLValue t) where
+implementation Eq (var t) => Eq (LLValue var t) where
   Var reg       == Var reg'       = reg   == reg'
   Lit i         == Lit i'         = i     == i'
   ConstPtr cnst == ConstPtr cnst' = cnst  == cnst'
@@ -159,19 +159,19 @@ implementation Eq (LLValue t) where
   _             == _              = False
 
 export
-implementation Typed LLValue where
+implementation Typed var => Typed (LLValue var) where
   typeOf (Var reg) = typeOf reg
   typeOf (Lit lit) = typeOf lit
   typeOf (ConstPtr cst) = The.map Ptr (typeOf cst)
   typeOf (Null t) = MkThe (Ptr t)
 
 public export
-LLFun : LLType -> List LLType -> Type
-LLFun t ts = LLValue (Ptr $ FunType t ts)
+LLFun : (LLType -> Type) -> LLType -> List LLType -> Type
+LLFun var t ts = LLValue var (Ptr $ FunType t ts)
 
 public export
-LLFun' : (LLType, List LLType) -> Type
-LLFun' (t, ts) = LLFun t ts
+LLFun' : (LLType -> Type) -> (LLType, List LLType) -> Type
+LLFun' var (t, ts) = LLFun var t ts
 
 
 
@@ -222,25 +222,25 @@ MkInputs labels ++ MkInputs labels' = MkInputs (labels ++ labels')
 
 -- Expr -----------------------------------------------------------------------
 public export
-data LLExpr : LLType -> Type where
-  BinOperation : BinOperator tl tr t -> LLValue tl -> LLValue tr -> LLExpr t
-  Call : LLValue (Ptr (FunType t ts)) -> DList LLValue ts -> LLExpr t
+data LLExpr : (LLType -> Type) -> LLType -> Type where
+  BinOperation : BinOperator tl tr t -> LLValue var tl -> LLValue var tr -> LLExpr var t
+  Call : LLValue var (Ptr (FunType t ts)) -> DList (LLValue var) ts -> LLExpr var t
 
   -- this does not express the ful functionality of the `getelementptr` instruction
   GetElementPtr : {t : LLType}
                -> {k : Nat}
-               -> LLValue (Ptr (Array t k))
-               -> (idx1 : LLValue (I n))
-               -> (idx2 : LLValue (I n))
-               -> LLExpr (Ptr t)
+               -> LLValue var (Ptr (Array t k))
+               -> (idx1 : LLValue var (I n))
+               -> (idx2 : LLValue var (I n))
+               -> LLExpr var (Ptr t)
 
   -- TODO what about pointers
   -- TODO fcmp, dcmp? what else?
-  ICMP : CMPKind -> LLValue (I n) -> LLValue (I n) -> LLExpr (I 1)
+  ICMP : CMPKind -> LLValue var (I n) -> LLValue var (I n) -> LLExpr var (I 1)
 
-  Load : LLValue (Ptr t) -> LLExpr t
+  Load : LLValue var (Ptr t) -> LLExpr var t
 
-  BitCast : LLValue t1 -> (t2 : LLType) -> LLExpr t2
+  BitCast : LLValue var t1 -> (t2 : LLType) -> LLExpr var t2
 
 export
 unPtr : The (LLVM.Ptr t) -> The t
@@ -251,11 +251,11 @@ unFun : The (FunType t ts) -> The t
 unFun (MkThe (FunType t ts)) = MkThe t
 
 export
-retTypeOf : LLValue (Ptr (FunType t ts)) -> The t
+retTypeOf : Typed var => LLValue var (Ptr (FunType t ts)) -> The t
 retTypeOf = unFun . unPtr . typeOf
 
 export
-implementation Typed LLExpr where
+implementation Typed var => Typed (LLExpr var) where
   typeOf (BinOperation op lhs rhs) = resType op
   typeOf (Call fun args) = retTypeOf fun
   typeOf (GetElementPtr {t} arr idx1 idx2) = MkThe (Ptr t)
@@ -264,39 +264,40 @@ implementation Typed LLExpr where
   typeOf (BitCast val t) = MkThe t
 
 public export
-data PhiExpr : Inputs -> LLType -> Type where
+data PhiExpr : (LLType -> Type) -> Inputs -> LLType -> Type where
   -- TODO: the `t` is here in case the list is empty but I think an empty list is invalid
-  Phi : (t : LLType) -> (l : List (BlockLabel, LLValue t)) -> PhiExpr (MkInputs $ map (\t => fst t) l) t
+  Phi : (t : LLType) -> (l : List (BlockLabel, LLValue var t)) -> PhiExpr var (MkInputs $ map (\t => fst t) l) t
 
 export
-implementation Typed (PhiExpr inputs) where
+implementation Typed var => Typed (PhiExpr var inputs) where
   typeOf (Phi t l) = MkThe t
 
 -- Isntr ----------------------------------------------------------------------
 public export
-data STInstr : Type where
-  Assign : Reg t -> LLExpr t -> STInstr
-  Exec : LLExpr Void -> STInstr
-  Store : LLValue t -> LLValue (Ptr t) -> STInstr
-  Empty : STInstr
+data STInstr : (LLType -> Type) -> Type where
+  Assign : var t -> LLExpr var t -> STInstr var
+  Exec : LLExpr var Void -> STInstr var
+  Store : LLValue var t -> LLValue var (Ptr t) -> STInstr var
+  Empty : STInstr var
 
 public export
-data CFInstr : (returnType : LLType) -> (kind : CFKind) -> Type where
+data CFInstr : (LLType -> Type) -> (returnType : LLType) -> (kind : CFKind) -> Type where
   
-  Branch : (l : BlockLabel) -> CFInstr rt (Jump [l])
-  CondBranch : LLValue I1 -> (l1 : BlockLabel) -> (l2 : BlockLabel) -> CFInstr rt (Jump [l1, l2])
+  Branch : (l : BlockLabel) -> CFInstr var rt (Jump [l])
+  CondBranch : LLValue var I1 -> (l1 : BlockLabel) -> (l2 : BlockLabel) -> CFInstr var rt (Jump [l1, l2])
 
-  Ret : LLValue t -> CFInstr t Return
-  RetVoid : CFInstr Void Return
+  Ret : LLValue var t -> CFInstr var t Return
+  RetVoid : CFInstr var Void Return
 
 public export
-data PhiInstr : Inputs -> Type where
-  AssignPhi : Reg t -> PhiExpr inputs t -> PhiInstr inputs
+data PhiInstr : (LLType -> Type) -> Inputs -> Type where
+  AssignPhi : var t -> PhiExpr var inputs t -> PhiInstr var inputs
 
 
 -- SimpleBlock ----------------------------------------------------------------
 public export
 record SimpleBlock
+  (var : LLType -> Type)
   (retT : LLType)
   (label : BlockLabel)
   (inputs : Inputs)
@@ -304,33 +305,33 @@ record SimpleBlock
 where
   constructor MkSimpleBlock
   theLabel  : The label
-  phis      : List (PhiInstr inputs, Maybe String)
-  body      : List (STInstr, Maybe String)
-  term      : CFInstr retT cfkind
+  phis      : List (PhiInstr var inputs, Maybe String)
+  body      : List (STInstr var, Maybe String)
+  term      : CFInstr var retT cfkind
 
 
 
 public export
-BlockVertex : (returnType : LLType) -> Vertex BlockLabel
-BlockVertex rt lbl Nothing _ = Void
-BlockVertex rt lbl _ Nothing = Void
-BlockVertex rt lbl (Just ins) (Just []) = SimpleBlock rt lbl (MkInputs ins) Return
-BlockVertex rt lbl (Just ins) (Just (out :: outs))
-  = SimpleBlock rt lbl (MkInputs ins) (Jump $ out :: outs)
+BlockVertex : (var : LLType -> Type) -> (returnType : LLType) -> Vertex BlockLabel
+BlockVertex var rt lbl Nothing _ = Void
+BlockVertex var rt lbl _ Nothing = Void
+BlockVertex var rt lbl (Just ins) (Just []) = SimpleBlock var rt lbl (MkInputs ins) Return
+BlockVertex var rt lbl (Just ins) (Just (out :: outs))
+  = SimpleBlock var rt lbl (MkInputs ins) (Jump $ out :: outs)
 
 -- FunDef ---------------------------------------------------------------------
 public export
-record FunDef (retT : LLType) (paramTs : List LLType) where
+record FunDef (var : LLType -> Type) (retT : LLType) (paramTs : List LLType) where
 
   constructor MkFunDef
   name : Const (FunType retT paramTs)
   
   theRetType : The retT
-  params : DList Reg paramTs
+  params : DList var paramTs
 
   -- TODO: enforce the existence of an entry block
   -- TODO: enforce correct return types
-  body : CFG (BlockVertex retT) (Defined []) (Defined [])
+  body : CFG (BlockVertex var retT) (Defined []) (Defined [])
 
 -- FunDecl --------------------------------------------------------------------
 public export
@@ -343,15 +344,15 @@ record FunDecl (retT : LLType) (paramTs : List LLType) where
 
 -- ConstDef -------------------------------------------------------------------
 public export
-data ConstDef : Type where
-  DefineConst : (t : LLType) -> Const t -> LLValue t -> ConstDef
+data ConstDef : (LLType -> Type) -> Type where
+  DefineConst : (t : LLType) -> Const t -> LLValue var t -> ConstDef var
 
 
 -- Program --------------------------------------------------------------------
 public export
-record Program where
+record Program (var : LLType -> Type) where
   constructor MkProgram
   funDecls : List (retType ** paramTypes ** FunDecl retType paramTypes)
-  constDefs : List ConstDef
-  funcs : List (retType ** paramTypes ** FunDef retType paramTypes)
+  constDefs : List (ConstDef var)
+  funcs : List (retType ** paramTypes ** FunDef var retType paramTypes)
 
