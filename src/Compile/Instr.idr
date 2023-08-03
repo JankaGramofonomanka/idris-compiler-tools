@@ -295,15 +295,16 @@ mutual
     thenRes <- compileInstrDD outsT labelThen labelPost ctxsT instrThen
     elseRes <- compileInstrDD outsF labelElse labelPost ctxsF instrElse
 
-    let branches
-          : CompileResult (GetLLType rt)
-                          (Defined $ outsT ~~> labelThen ++ outsF ~~> labelElse)
-                          labelPost
-                          (GetCRT $ BrKind k k')
-        branches = rewrite thmGetCRT k k'
-                   in parallelCR thenRes elseRes
+    let branches = parallelCR thenRes elseRes
 
-    pure $ seriesCR condG branches
+    let final : CompileResult (GetLLType rt)
+                              (Undefined labelIn)
+                              labelPost
+                              (GetCRT $ BrKind k k')
+        final = rewrite thmGetCRT k k'
+                in seriesCR condG branches
+
+    pure final
 
 
 
