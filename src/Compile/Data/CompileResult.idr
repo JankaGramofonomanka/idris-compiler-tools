@@ -8,15 +8,13 @@ import Data.DMap
 import Data.DList
 import Data.Attached
 
-import LLVM
 import LLVM.Generalized
 import LNG.TypeChecked
 
 import Compile.Data.CBlock
 import Compile.Data.CompM
-import Compile.Data.Context
-import Compile.Data.Context.Utils
 import Compile.Data.Error
+import Compile.Data.LLVM
 import Compile.Utils
 import CFG
 
@@ -73,8 +71,8 @@ unwrapCR (CRC g) = ([] ** g)
 unwrapCR (CRO (outs ** g)) = (outs ** g)
 
 export
-emptyCR : (lbl, lbl' : BlockLabel) -> lbl :~: VarCTX -> CompileResult rt (Undefined lbl) lbl' Open
-emptyCR lbl lbl' ctx = CRO ([lbl] ** omap {outs = Just [lbl']} (<+| Branch lbl') (emptyCFG ctx))
+emptyCR : (lbl, lbl' : BlockLabel) -> CompileResult rt (Undefined lbl) lbl' Open
+emptyCR lbl lbl' = CRO ([lbl] ** omap {outs = Just [lbl']} (<+| Branch lbl') emptyCFG)
 
 
 

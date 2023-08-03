@@ -13,13 +13,12 @@ import Data.Typed
 
 import LNG.BuiltIns
 import LNG.TypeChecked
-import LLVM
 import LLVM.Generalized
 
 import Compile.Data.CBlock
 import Compile.Data.CompM
-import Compile.Data.Context
 import Compile.Data.Error
+import Compile.Data.LLVM
 import Compile.Utils
 import CFG
 
@@ -34,30 +33,23 @@ cmpKind EQ' = EQ
 cmpKind NE' = NE
 
 
-
-public export
-CompM' : Type -> Type
-CompM' = StateT VarCTX CompM
-
-getValue : Variable t -> CompM' (LLValue (GetLLType t))
-getValue var = do
-  Just val <- gets (lookup var) | Nothing => lift $ throwError (NoSuchVariable var)
-  pure val
+getValue : Variable t -> CompM (LLValue $ GetLLType t)
+getValue var = pure (Var $ Placeholder var)
 
 
 
 compileLiteral : (labelIn : BlockLabel)
               -> (literal : Literal t)
-              -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue (GetLLType t))
-compileLiteral labelIn (LitBool b) = pure $ ((labelIn ** emptyCFG (attach labelIn !get)), ILitV (if b then 1 else 0))
-compileLiteral labelIn (LitInt i) = pure $ ((labelIn ** emptyCFG (attach labelIn !get)), ILitV i)
+              -> CompM ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue (GetLLType t))
+compileLiteral labelIn (LitBool b) = pure $ ((labelIn ** emptyCFG), ILitV (if b then 1 else 0))
+compileLiteral labelIn (LitInt i) = pure $ ((labelIn ** emptyCFG), ILitV i)
 compileLiteral labelIn (LitString s) = do
 
-  (k ** cst) <- lift (getStringLiteral s)
-  reg <- lift $ freshRegister (Ptr I8)
+  (k ** cst) <- getStringLiteral s
+  reg <- freshRegister (Ptr I8)
   
   let expr = GetElementPtr {k} {n = 32} (ConstPtr cst) (ILitV 0) (ILitV 0)
-  g <- pure $ omap {outs = Undefined} (<+ Assign reg expr) (emptyCFG $ attach labelIn !get)
+  g <- pure $ omap {outs = Undefined} (<+ Assign reg expr) emptyCFG
   
   pure ((labelIn ** g), Var reg)
 
@@ -76,7 +68,7 @@ mutual
   export
   compileExpr : (labelIn : BlockLabel)
              -> (expr : Expr t)
-             -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue (GetLLType t))
+             -> CompM ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue (GetLLType t))
 
 
 
@@ -86,7 +78,7 @@ mutual
     
     val <- getValue var
 
-    pure ((labelIn ** emptyCFG (attach labelIn !get)), val)
+    pure ((labelIn ** emptyCFG), val)
 
   
 
@@ -111,7 +103,7 @@ mutual
     Concat => do
       ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
 
-      reg <- lift $ freshRegister (Ptr I8)
+      reg <- freshRegister (Ptr I8)
       let g' = omap {outs = Undefined} (<+ Assign reg (Call (ConstPtr strconcat) [lhs', rhs'])) g
 
       pure ((lbl ** g'), Var reg)
@@ -123,7 +115,7 @@ mutual
     Neg => do
 
       ((lbl ** g), val) <- compileExpr labelIn expr
-      reg <- lift (freshRegister I32)
+      reg <- freshRegister I32
 
       -- TODO: Is this OK or is it a hack?
       let g' = omap {outs = Undefined} (<+ Assign reg (BinOperation SUB (ILitV 0) val)) g
@@ -134,11 +126,11 @@ mutual
 
   
   compileExpr labelIn (Call fun args) = do
-    funPtr <- lift $ getFunPtr fun
+    funPtr <- getFunPtr fun
 
     ((lbl ** g), args') <- compileExprs labelIn args
 
-    reg <- lift (freshRegister' $ (unFun . unPtr) (typeOf funPtr))
+    reg <- freshRegister' $ (unFun . unPtr) (typeOf funPtr)
 
     let instr = assignIfNonVoid (typeOf reg) reg (Call funPtr args')
     let g' = omap {outs = Undefined} (<+ instr) g
@@ -147,7 +139,7 @@ mutual
   
     where
       -- TODO: this should be enforced by the structure of `LLVM`
-      assignIfNonVoid : {0 t : LLType} -> The t -> Reg t -> LLExpr t -> STInstr
+      assignIfNonVoid : {0 t : LLType} -> The t -> Reg' t -> LLExpr t -> STInstr
       assignIfNonVoid (MkThe Void) reg expr = Exec expr
       assignIfNonVoid (MkThe t) reg expr = Assign reg expr
 
@@ -156,10 +148,10 @@ mutual
   -----------------------------------------------------------------------------
   compileExprs : (labelIn : BlockLabel)
               -> DList Expr ts
-              -> CompM' ( (lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl))
+              -> CompM ( (lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl))
                         , DList LLValue (map GetLLType ts)
                         )
-  compileExprs labelIn [] = pure ((labelIn ** emptyCFG (attach labelIn !get)), [])
+  compileExprs labelIn [] = pure ((labelIn ** emptyCFG), [])
   compileExprs labelIn (expr :: exprs) = do
     ((lbl ** g), val) <- compileExpr labelIn expr
     ((lbl' ** g'), vals) <- compileExprs lbl exprs
@@ -175,7 +167,7 @@ mutual
   compileOperands : (labelIn : BlockLabel)
                  -> Expr t
                  -> Expr t'
-                 -> CompM' ( (lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl))
+                 -> CompM ( (lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl))
                            , LLValue (GetLLType t)
                            , LLValue (GetLLType t')
                            )
@@ -197,11 +189,11 @@ mutual
                 -> BinOperator I32 I32 I32
                 -> Expr TInt
                 -> Expr TInt
-                -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I32)
+                -> CompM ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I32)
   compileAritmOp labelIn op lhs rhs = do
     ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
     
-    reg <- lift (freshRegister I32)
+    reg <- freshRegister I32
     let g' = omap {outs = Undefined} (<+ Assign reg (BinOperation op lhs' rhs')) g
 
     pure ((lbl ** g'), Var reg)
@@ -215,7 +207,7 @@ mutual
                      -> EQType
                      -> Expr t
                      -> Expr t
-                     -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1)
+                     -> CompM ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1)
   compileEqComparison labelIn eqType lhs rhs = case typeOf {f = Expr} lhs of
     
     MkThe TInt    => compileIntComparison labelIn (cmpKind eqType) lhs rhs
@@ -226,14 +218,14 @@ mutual
       ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
 
       -- TODO here the `eqType` is discarded and the code acts as if it is `EQ'`
-      reg <- lift $ freshRegister I1
+      reg <- freshRegister I1
       let g' = omap {outs = Undefined} (<+ Assign reg (Call (ConstPtr strcompare) [lhs', rhs'])) g
 
       pure ((lbl ** g'), Var reg)
 
     MkThe TVoid   => let
     
-        0 impossiblePrf : (CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1) = ())
+        0 impossiblePrf : (CompM ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1) = ())
         impossiblePrf = exfalso (voidNotEqComparable prf)
 
       in rewrite impossiblePrf in ()
@@ -243,7 +235,7 @@ mutual
                       -> CMPKind
                       -> Expr TInt
                       -> Expr TInt
-                      -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1)
+                      -> CompM ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1)
   compileIntComparison labelIn cmpKind lhs rhs = do
     ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
 
@@ -255,7 +247,7 @@ mutual
                        -> CMPKind
                        -> Expr TBool
                        -> Expr TBool
-                       -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1)
+                       -> CompM ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1)
   compileBoolComparison labelIn cmpKind lhs rhs = do
     ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
 
@@ -270,9 +262,9 @@ mutual
          -> CFG (CBlock rt) ins (Undefined labelOut)
          -> LLValue (I k)
          -> LLValue (I k)
-         -> CompM' (CFG (CBlock rt) ins (Undefined labelOut), LLValue I1)
+         -> CompM (CFG (CBlock rt) ins (Undefined labelOut), LLValue I1)
   addICMP {k} cmpKind g lhs rhs = do
-    reg <- lift (freshRegister I1)
+    reg <- freshRegister I1
     let g' = omap {outs = Undefined} (<+ Assign reg (ICMP cmpKind lhs rhs)) g
     
     pure (g', Var reg)
@@ -290,7 +282,7 @@ mutual
          -> (expr : Expr TBool)
          -> (lblT : BlockLabel)
          -> (lblF : BlockLabel)
-         -> CompM'  ( outsT ** outsF ** CFG (CBlock rt)
+         -> CompM  ( outsT ** outsF ** CFG (CBlock rt)
                                             (Undefined labelIn)
                                             (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
                     )
@@ -298,7 +290,7 @@ mutual
   
   ifology labelIn (BinOperation And lhs rhs) lblT lblF = do
 
-    lblM <- lift freshLabel
+    lblM <- freshLabel
     (outsM ** outsF   ** gl) <- ifology labelIn lhs lblM lblF
     (outsT ** outsF'  ** gr) <- ifology lblM    rhs lblT lblF
 
@@ -316,7 +308,7 @@ mutual
 
   ifology labelIn (BinOperation Or lhs rhs) lblT lblF = do
 
-    lblM <- lift freshLabel
+    lblM <- freshLabel
     (outsT  ** outsM ** gl) <- ifology labelIn  lhs lblT lblM
     (outsT' ** outsF ** gr) <- ifology lblM     rhs lblT lblF
 
@@ -353,29 +345,29 @@ mutual
 
   compileBoolExpr : (labelIn : BlockLabel)
                  -> Expr TBool
-                 -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1)
+                 -> CompM ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1)
 
   compileBoolExpr labelIn expr = do
-    labelTrue <- lift freshLabel
-    labelFalse <- lift freshLabel
+    labelTrue <- freshLabel
+    labelFalse <- freshLabel
     (outsT ** outsF ** ifologyG) <- ifology labelIn expr labelTrue labelFalse
     
-    labelPost <- lift freshLabel
+    labelPost <- freshLabel
     
     
-    trueBLK <- pure $ [] |++> emptyCBlock (attach labelTrue !get) <+| Branch labelPost
+    trueBLK <- pure $ [] |++> emptyCBlock <+| Branch labelPost
     
     let trueG : CFG (CBlock rt) (Defined $ outsT ~~> labelTrue) (Defined [labelTrue ~> labelPost])
         trueG = SingleVertex {vins = Just outsT, vouts = Just [labelPost]} trueBLK
     
     
-    falseBLK <- pure $ [] |++> emptyCBlock (attach labelFalse !get) <+| Branch labelPost
+    falseBLK <- pure $ [] |++> emptyCBlock <+| Branch labelPost
 
     let falseG : CFG (CBlock rt) (Defined $ outsF ~~> labelFalse) (Defined [labelFalse ~> labelPost])
         falseG = SingleVertex {vins = Just outsF, vouts = Just [labelPost]} falseBLK
     
     
-    reg <- lift (freshRegister I1)
+    reg <- freshRegister I1
 
     let phi : PhiExpr (MkInputs [labelTrue, labelFalse]) I1
         phi = Phi I1 [(labelTrue, ILitV 1), (labelFalse, ILitV 0)]
@@ -384,7 +376,7 @@ mutual
     
     let postIns = MkInputs [labelTrue, labelFalse]
     
-    postBLK <- pure $ phiAssignment |+> emptyCBlock (attach labelPost !get)
+    postBLK <- pure $ phiAssignment |+> emptyCBlock
 
     let postG : CFG (CBlock rt) (Defined [labelTrue ~> labelPost, labelFalse ~> labelPost]) (Undefined labelPost)
         postG = SingleVertex {vins = Just [labelTrue, labelFalse], vouts = Undefined} postBLK

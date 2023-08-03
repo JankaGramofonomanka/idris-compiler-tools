@@ -5,23 +5,23 @@ import Control.Monad.State
 import Data.SortedMap
 
 import Data.DList
-import Data.DMap
 import Data.GCompare
 import LNG.BuiltIns
 import LNG.TypeChecked as LNG
-import LLVM
 import LLVM.Generalized as LLVM.G
 import Compile.FunDef
 import Compile.Data.CompM
-import Compile.Data.Context
+import Compile.Data.FunContext
 import Compile.Data.Error
+import Compile.Data.LLVM
+import Compile.Data.LLVM.Utils
 import Compile.Utils
 
 
 mkFunMap : List (t ** ts ** fun ** LNG.FunDef t ts fun) -> FunCTX
 mkFunMap l = foldr insertFun empty l where
 
-  mkFunPtr : Fun t ts -> LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))
+  mkFunPtr : Fun t ts -> FunVal t ts
   -- TODO: was there any requirement about how to name functions in LLVM?
   mkFunPtr (MkFun t ts (MkFunId funId)) = ConstPtr (MkConst (FunType (GetLLType t) (map GetLLType ts)) (MkConstId funId))
 

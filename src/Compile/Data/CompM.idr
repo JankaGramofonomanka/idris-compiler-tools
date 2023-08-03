@@ -12,13 +12,14 @@ import Data.GEq
 import Data.The
 import Data.Typed
 
-import LLVM
 import LLVM.Generalized
 import LNG.TypeChecked
 
 import Compile.Data.CBlock
-import Compile.Data.Context
+import Compile.Data.FunContext
 import Compile.Data.Error
+import Compile.Data.LLVM
+import Compile.Data.LLVM.Utils
 import Compile.Utils
 import CFG
 
@@ -43,14 +44,22 @@ CompM : Type -> Type
 CompM = StateT CompState (Either Error)
 
 export
-freshRegister : (t : LLType) -> CompM (Reg t)
-freshRegister t = do
+freshReg : (t : LLType) -> CompM (Reg t)
+freshReg t = do
   n <- gets regCount
   modify { regCount := n + 1 }
   pure $ MkReg t (MkRegId $ "r" ++ show n)
 
 export
-freshRegister' : The t -> CompM (Reg t)
+freshReg' : The t -> CompM (Reg t)
+freshReg' (MkThe t) = freshReg t
+
+export
+freshRegister : (t : LLType) -> CompM (Reg' t)
+freshRegister t = R <$> freshReg t
+
+export
+freshRegister' : The t -> CompM (Reg' t)
 freshRegister' (MkThe t) = freshRegister t
 
 export

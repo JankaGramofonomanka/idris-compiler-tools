@@ -1,4 +1,4 @@
-module Compile.Data.Context.Utils
+module Compile.Data.VarContext.Utils
 
 
 import Control.Monad.State
@@ -17,7 +17,7 @@ import LNG.TypeChecked.Render
 import LLVM
 import LLVM.Generalized
 import Compile.Data.CompM
-import Compile.Data.Context
+import Compile.Data.VarContext
 import Compile.Data.Error
 import Compile.Utils
 import CFG
@@ -28,7 +28,6 @@ record Segregated (lbl : BlockLabel) (ins : Inputs) where
   constructor SG
   ctx : lbl :~: VarCTX
   phis : List (PhiInstr ins, Maybe String)
-
 
 -- TODO: Consider rewriting `PhiExpr` so that it equals to this type
 data Phi' : BlockLabel -> Inputs -> LLType -> Type where
@@ -136,20 +135,20 @@ finalize {ins, lbl} (SG' ctx) = foldlM handleItem (SG (attach lbl VarCTX.empty) 
   
   handleItem (SG ctx' phis) (key :=> vp) = case vp of
     
-    Right val => pure $ SG (map (DMap.insert key val) ctx') phis
+    Right val => pure $ SG (map (insert key val) ctx') phis
 
     Left phi => do
-      reg <- freshRegister' (typeOf phi) 
+      reg <- freshReg' (typeOf phi) 
       let phi = AssignPhi reg (toPhi phi)
       
-      pure $ SG (map (DMap.insert key (Var reg)) ctx') ((phi, Just $ prt key) :: phis)
+      pure $ SG (map (insert key (Var reg)) ctx') ((phi, Just $ prt key) :: phis)
     
     
 segregate' : {lbls : List BlockLabel}
           -> DList (:~: VarCTX) (lbls ~~> lbl)
           -> Segregated' lbl (MkInputs lbls)
 segregate' {lbls = Nil}       Nil           = SG' DMap.empty
-segregate' {lbls = l :: Nil}  (ctx :: Nil)  = SG' { ctx = map Right (detach ctx) }
+segregate' {lbls = l :: Nil}  (ctx :: Nil)  = SG' { ctx = map Right (toDMap $ detach ctx) }
 segregate' {lbls = l :: ls}   (ctx :: ctxs) = addCTX ctx (segregate' ctxs)
 
 
@@ -168,7 +167,7 @@ segregate ctxs = finalize (segregate' ctxs)
 
 export
 newRegForAll : List (t ** Variable t) -> CompM VarCTX'
-newRegForAll vars = foldlM addNewReg DMap.empty vars
+newRegForAll vars = foldlM addNewReg VarCTX'.empty vars
 
   where
     
@@ -176,7 +175,7 @@ newRegForAll vars = foldlM addNewReg DMap.empty vars
              -> (t ** Variable t)
              -> CompM VarCTX'
     
-    addNewReg ctx (t ** var) = pure (VarCTX'.insert var !(freshRegister $ GetLLType t) ctx)
+    addNewReg ctx (t ** var) = pure (VarCTX'.insert var !(freshReg $ GetLLType t) ctx)
 
 
 export
@@ -187,7 +186,6 @@ commonKeys ctxs = VarCTX.keys (intersection' ctxs) where
   intersection' Nil = VarCTX.empty
   intersection' (ctx :: Nil) = detach ctx
   intersection' (ctx :: ctxs) = VarCTX.intersection (detach ctx) (intersection' ctxs)
-
   
 
 

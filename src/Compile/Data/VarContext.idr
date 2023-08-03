@@ -1,10 +1,6 @@
-module Compile.Data.Context
+module Compile.Data.VarContext
 
-import Control.Monad.State
-
-import Data.Attached
 import Data.DMap
-import Data.DList
 import Data.DSum
 import Data.GCompare
 import Data.Some
@@ -12,14 +8,9 @@ import Data.The
 import Data.Typed
 import LNG.TypeChecked
 import LLVM
-import LLVM.Generalized
-import Compile.Utils
-import CFG
+import LLVM.Generalized as LLVM.G
 import Compile.Utils
 
-export
-FunCTX : Type
-FunCTX = DMap Fun' FunVal'
 
 {-
 A map, that stores the values of variables in a particular place in the control
@@ -33,25 +24,6 @@ VarCTX = DMap Variable (LLValue . GetLLType)
 export
 VarCTX' : Type
 VarCTX' = DMap Variable (Reg . GetLLType)
-
-
-namespace FunCTX
-
-  export
-  empty : FunCTX
-  empty = DMap.empty
-
-  export
-  lookup : Fun t ts -> FunCTX -> Maybe (FunVal t ts)
-  lookup {t, ts} fun ctx = DMap.lookup {v = (t, ts)} fun ctx
-
-  export
-  insert : Fun t ts -> FunVal t ts -> FunCTX -> FunCTX
-  insert fun val ctx = DMap.insert {v = (t, ts)} fun val ctx
-
-  export
-  union : FunCTX -> FunCTX -> FunCTX
-  union = DMap.union
 
 namespace VarCTX
 
@@ -87,6 +59,10 @@ namespace VarCTX
     toDPair (MkSome var) = case typeOf {f = Variable} var of
       MkThe t => (t ** var)
   
+  export
+  toDMap : VarCTX -> DMap Variable (LLValue . GetLLType)
+  toDMap = id
+
 namespace VarCTX'
 
   export

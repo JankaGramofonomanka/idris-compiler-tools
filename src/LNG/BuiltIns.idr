@@ -89,7 +89,7 @@ namespace Compile
 
 
   export
-  builtIns : List (t ** ts ** (Fun t ts, FunVal t ts))
+  builtIns : List (t ** ts ** (Fun t ts, LLFun (GetLLType t) (map GetLLType ts)))
   builtIns
     -- TODO: the imported names of function constants might be different
     = [ (TVoid    ** [TInt]     ** (printInt,     ConstPtr llPrintInt))
