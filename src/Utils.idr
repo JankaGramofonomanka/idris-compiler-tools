@@ -25,6 +25,18 @@ export
 onSecond : (b -> c) -> (a, b) -> (a, c)
 onSecond f (x, y) = (x, f y)
 
+export
+onFirstM : Monad f => (a -> f b) -> (a, c) -> f (b, c)
+onFirstM f (x, y) = do
+  fx <- f x
+  pure (fx, y)
+
+export
+onSecondM : Monad f => (b -> f c) -> (a, b) -> f (a, c)
+onSecondM f (x, y) = do
+  fy <- f y
+  pure (x, fy)
+
 
 export
 curry3 : ((a, b, c) -> d) -> a -> b -> c -> d
