@@ -1,4 +1,4 @@
-module Compile.Data.CompileResult
+module Compile.Phase1.Data.CompileResult
 
 import Data.List
 
@@ -15,6 +15,7 @@ import Compile.Data.CBlock
 import Compile.Data.CompM
 import Compile.Data.Error
 import Compile.Data.LLVM
+import Compile.Phase1.Data.CBlock
 import Compile.Utils
 import CFG
 

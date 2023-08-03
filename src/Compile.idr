@@ -7,7 +7,7 @@ import Data.DList
 import LLVM
 import LNG.BuiltIns
 import LNG.TypeChecked as LNG
-import Compile.Program
+import Compile.Phase1.Program
 import Compile.Data.CompM
 import Compile.Data.Context
 import Compile.Data.Error

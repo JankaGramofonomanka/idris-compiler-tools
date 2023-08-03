@@ -1,4 +1,4 @@
-module Compile.Instr
+module Compile.Phase1.Instr
 
 import Data.List
 
@@ -18,11 +18,12 @@ import LNG.TypeChecked.Render
 import LLVM.Generalized
 
 import Compile.Data.CBlock
-import Compile.Data.CompileResult
 import Compile.Data.CompM
 import Compile.Data.Error
 import Compile.Data.LLVM
-import Compile.Expr
+import Compile.Phase1.Data.CBlock
+import Compile.Phase1.Data.CompileResult
+import Compile.Phase1.Expr
 import Compile.Utils
 
 import CFG

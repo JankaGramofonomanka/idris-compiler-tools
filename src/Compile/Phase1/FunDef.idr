@@ -1,4 +1,4 @@
-module Compile.FunDef
+module Compile.Phase1.FunDef
 
 import Control.Monad.State
 import Control.Monad.Either
@@ -11,12 +11,13 @@ import Data.Typed
 import LLVM.Generalized as LLVM.G
 import LNG.TypeChecked as LNG
 import CFG
-import Compile.Instr
 import Compile.Data.CBlock
 import Compile.Data.CompM
-import Compile.Data.CompileResult
 import Compile.Data.Error
 import Compile.Data.LLVM
+import Compile.Phase1.Data.CBlock
+import Compile.Phase1.Data.CompileResult
+import Compile.Phase1.Instr
 import Compile.Utils
 
 

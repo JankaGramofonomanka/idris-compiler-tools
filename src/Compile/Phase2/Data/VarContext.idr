@@ -1,4 +1,4 @@
-module Compile.Data.VarContext
+module Compile.Phase2.Data.VarContext
 
 import Data.DMap
 import Data.DSum

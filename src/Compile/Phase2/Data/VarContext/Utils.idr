@@ -1,4 +1,4 @@
-module Compile.Data.VarContext.Utils
+module Compile.Phase2.Data.VarContext.Utils
 
 
 import Control.Monad.State

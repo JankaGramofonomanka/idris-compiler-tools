@@ -1,4 +1,4 @@
-module Compile.Program
+module Compile.Phase1.Program
 
 import Control.Monad.State
 
@@ -9,7 +9,7 @@ import Data.GCompare
 import LNG.BuiltIns
 import LNG.TypeChecked as LNG
 import LLVM.Generalized as LLVM.G
-import Compile.FunDef
+import Compile.Phase1.FunDef
 import Compile.Data.CompM
 import Compile.Data.FunContext
 import Compile.Data.Error
