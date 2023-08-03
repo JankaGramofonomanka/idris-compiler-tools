@@ -5,6 +5,7 @@ import Data.Attached
 
 import LNG.TypeChecked
 import LLVM
+import LLVM.Generalized
 
 public export
 GetLLType : LNGType -> LLType

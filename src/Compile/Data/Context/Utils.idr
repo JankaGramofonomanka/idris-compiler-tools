@@ -15,6 +15,7 @@ import Data.Typed
 import LNG.TypeChecked
 import LNG.TypeChecked.Render
 import LLVM
+import LLVM.Generalized
 import Compile.Data.CompM
 import Compile.Data.Context
 import Compile.Data.Error

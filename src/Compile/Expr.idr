@@ -14,6 +14,7 @@ import Data.Typed
 import LNG.BuiltIns
 import LNG.TypeChecked
 import LLVM
+import LLVM.Generalized
 
 import Compile.Data.CBlock
 import Compile.Data.CompM

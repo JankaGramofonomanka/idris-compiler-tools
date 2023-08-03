@@ -10,6 +10,7 @@ import Data.GCompare
 import LNG.BuiltIns
 import LNG.TypeChecked as LNG
 import LLVM
+import LLVM.Generalized as LLVM.G
 import Compile.FunDef
 import Compile.Data.CompM
 import Compile.Data.Context
@@ -17,19 +18,19 @@ import Compile.Data.Error
 import Compile.Utils
 
 
-mkFunMap : List (t ** ts ** fun ** FunDef t ts fun) -> FunCTX
+mkFunMap : List (t ** ts ** fun ** LNG.FunDef t ts fun) -> FunCTX
 mkFunMap l = foldr insertFun empty l where
 
   mkFunPtr : Fun t ts -> LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))
   -- TODO: was there any requirement about how to name functions in LLVM?
   mkFunPtr (MkFun t ts (MkFunId funId)) = ConstPtr (MkConst (FunType (GetLLType t) (map GetLLType ts)) (MkConstId funId))
 
-  insertFun : (t ** ts ** fun ** FunDef t ts fun) -> FunCTX -> FunCTX
+  insertFun : (t ** ts ** fun ** LNG.FunDef t ts fun) -> FunCTX -> FunCTX
   insertFun (t ** ts ** funId ** _) = insert (MkFun t ts funId) (mkFunPtr (MkFun t ts funId))
 
   
 
-compileFunDecl' : (t ** ts ** fun ** FunDef t ts fun)
+compileFunDecl' : (t ** ts ** fun ** LNG.FunDef t ts fun)
                -> CompM (retType ** paramTypes ** FunDef retType paramTypes)
 compileFunDecl' (t ** ts ** fun ** decl) = do
   decl' <- compileFunDecl decl
@@ -53,4 +54,4 @@ compileProgram (MkProgram { main, funcs }) = do
   constDefs <- mkConstDefs <$> gets strLits
 
   let mainDecl' = (I32 ** [] ** mainDecl)
-  pure (LLVM.MkProgram { funDecls = builtInDecls, constDefs, funcs = (mainDecl' :: funcDecls) })
+  pure (LLVM.G.MkProgram { funDecls = builtInDecls, constDefs, funcs = (mainDecl' :: funcDecls) })

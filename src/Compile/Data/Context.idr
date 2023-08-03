@@ -12,6 +12,7 @@ import Data.The
 import Data.Typed
 import LNG.TypeChecked
 import LLVM
+import LLVM.Generalized
 import Compile.Utils
 import CFG
 import Compile.Utils

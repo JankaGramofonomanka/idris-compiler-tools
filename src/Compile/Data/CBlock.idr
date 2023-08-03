@@ -7,6 +7,7 @@ import Data.GCompare
 import Data.The
 
 import LLVM
+import LLVM.Generalized as LLVM.G
 import LLVM.Render
 import LNG.TypeChecked
 import LNG.TypeChecked.Render
@@ -70,7 +71,7 @@ emptyCBlock {lbl} ctx = MkBB { theLabel = MkThe lbl, phis = (), body = [], term 
 
 export
 assign : Variable t -> LLValue (GetLLType t) -> CBlock rt lbl ins Undefined -> CBlock rt lbl ins Undefined
-assign var reg = { ctx $= map (insert var reg), body $= (++ [(LLVM.Empty, Just $ mkSentence [prt var, "~", prt reg])]) }
+assign var reg = { ctx $= map (insert var reg), body $= (++ [(LLVM.G.Empty, Just $ mkSentence [prt var, "~", prt reg])]) }
 
 
 

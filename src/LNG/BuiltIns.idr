@@ -11,6 +11,7 @@ import Data.The
 import LNG.Parsed as LNG
 import LNG.TypeChecked as TC
 import LLVM
+import LLVM.Generalized as LLVM.G
 import Compile.Utils
 import Interpreter.Semantics
 
@@ -99,14 +100,14 @@ namespace Compile
       ]
   
   
-  mkFunDecl : (t : LLType) -> (ts : List LLType) -> Const (FunType t ts) -> LLVM.FunDecl t ts
+  mkFunDecl : (t : LLType) -> (ts : List LLType) -> Const (FunType t ts) -> LLVM.G.FunDecl t ts
   mkFunDecl t ts cst = MkFunDecl { name = cst, theRetType = MkThe t, theParamTypes = MkThe ts }
 
-  mkFunDecl' : (t : LLType) -> (ts : List LLType) -> Const (FunType t ts) -> (t ** ts ** LLVM.FunDecl t ts)
+  mkFunDecl' : (t : LLType) -> (ts : List LLType) -> Const (FunType t ts) -> (t ** ts ** LLVM.G.FunDecl t ts)
   mkFunDecl' t ts cst = (t ** ts ** mkFunDecl t ts cst)
 
   export
-  builtInDecls : List (retType ** paramTypes ** LLVM.FunDecl retType paramTypes)
+  builtInDecls : List (retType ** paramTypes ** LLVM.G.FunDecl retType paramTypes)
   builtInDecls
     = [ mkFunDecl' Void     [I32]             llPrintInt
       , mkFunDecl' Void     [Ptr I8]          llPrintString

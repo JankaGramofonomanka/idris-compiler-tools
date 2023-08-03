@@ -5,6 +5,7 @@ import System.File
 
 import Data.Doc
 import LLVM
+import LLVM.Generalized
 import LLVM.Render
 import LNG.Parse
 import LNG.Parsed

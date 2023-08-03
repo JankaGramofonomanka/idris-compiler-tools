@@ -13,6 +13,7 @@ import Data.The
 import Data.Typed
 
 import LLVM
+import LLVM.Generalized
 import LNG.TypeChecked
 
 import Compile.Data.CBlock

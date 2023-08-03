@@ -9,7 +9,8 @@ import Data.The
 import Data.Typed
 
 import LLVM
-import LNG.TypeChecked
+import LLVM.Generalized as LLVM.G
+import LNG.TypeChecked as LNG
 import CFG
 import Compile.Instr
 import Compile.Data.CBlock
@@ -39,7 +40,8 @@ compileFunDecl : {retType : LNGType}
               -> CompM $ FunDef (GetLLType retType) (map GetLLType paramTypes)
 compileFunDecl func {paramTypes} = do
   
-  varRegPairs <- dtraverse getReg func.params
+  let fparams = func.params
+  varRegPairs <- dtraverse getReg fparams
   let entryLabel  = MkBlockLabel "entry"
       ctx         = attach entryLabel $ contextify varRegPairs
       regs        = dmap snd varRegPairs
@@ -50,7 +52,7 @@ compileFunDecl func {paramTypes} = do
   
   let MkFunId name = unThe func.theId
   let llname = MkConst (FunType (GetLLType retType) (map GetLLType paramTypes)) (MkConstId name)
-  pure $ LLVM.MkFunDef { name = llname, theRetType = The.map GetLLType func.theRetType, params = regs', body = cfg' }
+  pure $ LLVM.G.MkFunDef { name = llname, theRetType = The.map GetLLType func.theRetType, params = regs', body = cfg' }
 
   where
 

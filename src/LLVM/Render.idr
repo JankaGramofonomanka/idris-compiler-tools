@@ -9,6 +9,7 @@ import Data.List
 import Data.The
 import Data.Typed
 import LLVM
+import LLVM.Generalized
 import Utils
 
 prtItems : List String -> String
