@@ -16,6 +16,10 @@ public export
 FunVal' : (LNGType, List LNGType) -> Type
 FunVal' (t, ts) = FunVal t ts
 
-
-
+export
+liftReg : LLValue Reg t -> LLValue Reg' t
+liftReg (Var reg) = Var (R reg)
+liftReg (Lit lit) = Lit lit
+liftReg (ConstPtr cst) = ConstPtr cst
+liftReg (Null t) = Null t
 

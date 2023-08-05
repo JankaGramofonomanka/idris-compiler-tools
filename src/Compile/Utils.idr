@@ -19,4 +19,11 @@ addInput : (lbl : BlockLabel)
 addInput lbl val (Phi t kvs) = Phi t $ (lbl, val) :: kvs
 
 
+public export
+FunVal : (LLType -> Type) -> LNGType -> List LNGType -> Type
+FunVal var t ts = LLFun var (GetLLType t) (map GetLLType ts)
+
+public export
+FunVal' : (LLType -> Type) -> (LNGType, List LNGType) -> Type
+FunVal' var (t, ts) = FunVal var t ts
 

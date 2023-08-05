@@ -4,12 +4,12 @@ import Data.DMap
 import Data.GCompare
 import LNG.TypeChecked
 import LLVM.Generalized as LLVM.G
-import Compile.Data.LLVM as LLVM
-import Compile.Data.LLVM.Utils
+import LLVM
+import Compile.Utils
 
 export
 FunCTX : Type
-FunCTX = DMap Fun' FunVal'
+FunCTX = DMap Fun' (FunVal' Reg)
 
 
 export
@@ -17,11 +17,11 @@ empty : FunCTX
 empty = DMap.empty
 
 export
-lookup : Fun t ts -> FunCTX -> Maybe (FunVal t ts)
+lookup : Fun t ts -> FunCTX -> Maybe (FunVal Reg t ts)
 lookup {t, ts} fun ctx = DMap.lookup {v = (t, ts)} fun ctx
 
 export
-insert : Fun t ts -> FunVal t ts -> FunCTX -> FunCTX
+insert : Fun t ts -> FunVal Reg t ts -> FunCTX -> FunCTX
 insert fun val ctx = DMap.insert {v = (t, ts)} fun val ctx
 
 export

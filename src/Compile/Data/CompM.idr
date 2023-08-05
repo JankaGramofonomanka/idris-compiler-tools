@@ -31,7 +31,7 @@ record CompState where
   funcs : FunCTX
   regCount : Int
   lblCount : Int
-  strLits : SortedMap String (n ** (Const (Array I8 n), LLValue (Array I8 n)))
+  strLits : SortedMap String (n ** (Const (Array I8 n), LLValue Reg (Array I8 n)))
   strLitCount : Int
 
 export
@@ -76,7 +76,7 @@ getFunPtr {t, ts} funId = do
   let Just ptr = lookup funId funcs
     | Nothing => throwError (NoSuchFunction (getFunId funId))
   
-  pure ptr
+  pure (liftReg ptr)
 
 freshStrConst : (n : Nat) -> CompM (Const (Array I8 n))
 freshStrConst n = do
