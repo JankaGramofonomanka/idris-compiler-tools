@@ -5,11 +5,12 @@ import Control.Monad.State
 
 import Data.DList
 import LLVM
+import LLVM.Generalized
 import LNG.BuiltIns
 import LNG.TypeChecked as LNG
-import Compile.Phase1.Program
+import Compile.Phase3.Program
 import Compile.Data.CompM
-import Compile.Data.Context
+import Compile.Data.FunContext
 import Compile.Data.Error
 import Compile.Utils
 
@@ -19,8 +20,8 @@ export
 compile : LNG.Program -> Either Error LLVM.Program
 compile = evalStateT initState . compileProgram where
   
-  insert' : (t ** ts ** (Fun t ts, FunVal t ts)) -> FunCTX -> FunCTX
-  insert' (t ** ts ** (key, val)) = FunCTX.insert key val
+  insert' : (t ** ts ** (Fun t ts, FunVal Reg t ts)) -> FunCTX -> FunCTX
+  insert' (t ** ts ** (key, val)) = FunContext.insert key val
 
   builtIns : FunCTX
   builtIns = foldr insert' empty Compile.builtIns
