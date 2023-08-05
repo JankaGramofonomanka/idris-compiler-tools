@@ -197,7 +197,8 @@ namespace Graph
           ->            CFG vertex (Defined $ ls ++ rs) outs
          
     
-    Parallel : CFG vertex (Defined ins) (Defined outs)
+    Parallel : {ins, ins' : List (Edge a)}
+            -> CFG vertex (Defined ins) (Defined outs)
             -> CFG vertex (Defined ins') (Defined outs')
             -> CFG vertex (Defined $ ins ++ ins') (Defined $ outs ++ outs')
     
@@ -231,7 +232,7 @@ namespace Graph
   
   branch : {0 vertex : Vertex a}
         -> {vins : Neighbors a}
-        -> {w, w' : a}
+        -> {v, w, w' : a}
         
         -> (pre   : vertex v vins (Just [w, w']))
         -> (left  : CFG vertex (Single v w)  (Defined louts))
@@ -241,7 +242,7 @@ namespace Graph
 
   fullBranch : {0 vertex : Vertex a}
             -> {vins, vouts : Neighbors a}
-            -> {w, w', u, u' : a}
+            -> {v, w, w', u, u' : a}
 
             -> (pre    : vertex v vins (Just [w, w']))
             -> (left   : CFG vertex (Single v w)  (Single u t))

@@ -63,7 +63,7 @@ emptyCBlock {lbl} = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = ()
 
 infixr 7 <++, <+, <+:, <:
 infixr 6 <+|, |+>, |++>, |+:>, |++:>
-infixr 5 +|, ++|
+infixr 5 +|, ++|, +:|, ++:|
 
 export
 (++) : CBlock' var rt lbl ins Undefined -> CBlock' var rt lbl Undefined outs -> CBlock' var rt lbl ins outs
@@ -118,18 +118,29 @@ export
 instr |+> blk = [instr] |++> blk
 
 export
+(+:|) : (PhiInstr var (MkInputs inputs), Maybe String)
+    -> CBlock' var rt lbl (Just inputs) outs
+    -> CBlock' var rt lbl (Just inputs) outs
+instr +:| MkBB { theLabel, phis, body, term }
+  = MkBB { theLabel, phis = (instr :: phis), body, term }
+
+export
+(++:|) : List (PhiInstr var (MkInputs inputs), Maybe String)
+      -> CBlock' var rt lbl (Just inputs) outs
+      -> CBlock' var rt lbl (Just inputs) outs
+phis ++:| blk = foldl (flip (+:|)) blk phis
+
+export
 (+|) : PhiInstr var (MkInputs inputs)
     -> CBlock' var rt lbl (Just inputs) outs
     -> CBlock' var rt lbl (Just inputs) outs
-instr +| MkBB { theLabel, phis, body, term }
-  = MkBB { theLabel, phis = ((instr, Nothing) :: phis), body, term }
+instr +| blk = (instr, Nothing) +:| blk
 
 export
 (++|) : List (PhiInstr var (MkInputs inputs))
      -> CBlock' var rt lbl (Just inputs) outs
      -> CBlock' var rt lbl (Just inputs) outs
 phis ++| blk = foldl (flip (+|)) blk phis
-
 
 export
 implementation Connectable (CBlock' var rt) where

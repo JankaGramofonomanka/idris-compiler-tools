@@ -19,11 +19,12 @@ import LLVM
 import LLVM.Generalized
 import Utils
 
-genRegsCBlock : VarCTX -> CBlock' Reg' rt lbl (Just ins) (Just outs) -> CompM (CBlock' Reg rt lbl (Just ins) (Just outs))
-genRegsCBlock ctx (MkBB { theLabel, phis, body, term }) = do
-  (ctx, phis') <- runStateT ctx $ traverse (onFirstM genRegsPhiInstr) phis
-  (ctx, body') <- runStateT ctx $ traverse (onFirstM genRegsSTInstr) body
-  (ctx, term') <- runStateT ctx $ genRegsCFInstr term
+export
+genRegsCBlock : CBlock' Reg' rt lbl (Just ins) (Just outs) -> CompM' (CBlock' Reg rt lbl (Just ins) (Just outs))
+genRegsCBlock (MkBB { theLabel, phis, body, term }) = do
+  phis' <- traverse (onFirstM genRegsPhiInstr) phis
+  body' <- traverse (onFirstM genRegsSTInstr) body
+  term' <- genRegsCFInstr term
 
   pure $ MkBB { theLabel, phis = phis', body = body', term = term' }
 
