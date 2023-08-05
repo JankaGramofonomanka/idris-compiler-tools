@@ -94,6 +94,7 @@ seriesCR g (CRO (lbls ** g')) = CRO $ (lbls ** Series g g')
 
 export
 parallelCR : {lbl : BlockLabel}
+          -> {ledges, redges : List (Edge BlockLabel)}
           -> (lres : CompileResult rt (Defined ledges) lbl lcrt)
           -> (rres : CompileResult rt (Defined redges) lbl rcrt)
           

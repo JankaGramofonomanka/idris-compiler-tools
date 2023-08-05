@@ -28,3 +28,11 @@ genRegsCBlock (MkBB { theLabel, phis, body, term }) = do
 
   pure $ MkBB { theLabel, phis = phis', body = body', term = term' }
 
+export
+genRegsCBlockU : CBlock' Reg' rt lbl Nothing (Just outs) -> CompM' (CBlock' Reg rt lbl Nothing (Just outs))
+genRegsCBlockU (MkBB { theLabel, phis, body, term }) = do
+  body' <- traverse (onFirstM genRegsSTInstr) body
+  term' <- genRegsCFInstr term
+
+  pure $ MkBB { theLabel, phis = (), body = body', term = term' }
+

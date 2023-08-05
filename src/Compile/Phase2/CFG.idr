@@ -21,6 +21,9 @@ import LLVM
 import LLVM.Generalized
 import Utils
 
+attachToEdges : (outs : List BlockLabel) -> VarCTX -> DList (:~: VarCTX) (lbl ~>> outs)
+attachToEdges outs ctx = replicate' (lbl ~>) outs (\l => attach (lbl ~> l) ctx)
+
 genRegsCBlock' : {ins, outs : List BlockLabel}
               -> (ctxs : DList (:~: VarCTX) (ins ~~> lbl))
               -> CBlock' Reg' rt lbl (Just ins) (Just outs)
@@ -28,8 +31,20 @@ genRegsCBlock' : {ins, outs : List BlockLabel}
 genRegsCBlock' {lbl, ins, outs} ctxs blk = do
   SG ctx phis <- segregate ctxs
   (ctx', blk') <- runStateT (detach ctx) $ genRegsCBlock blk
-  let ctxs' = replicate' (lbl ~>) outs (\l => attach (lbl ~> l) ctx')
+  let ctxs' = attachToEdges outs ctx'
   pure (phis ++:| blk', ctxs')
+
+genRegsCBlockU' : {outs : List BlockLabel}
+               -> (ctx : (lbl :~: VarCTX))
+               -> CBlock' Reg' rt lbl Nothing (Just outs)
+               -> CompM (CBlock' Reg rt lbl Nothing (Just outs), DList (:~: VarCTX) (lbl ~>> outs))
+genRegsCBlockU' {lbl, outs} ctx blk = do
+  (ctx', blk') <- runStateT (detach ctx) $ genRegsCBlockU blk
+  let ctxs' = attachToEdges outs ctx'
+  pure (blk', ctxs')
+
+
+
 
 export
 genRegsCFG : (ctxs : DList (:~: VarCTX) ins)
@@ -93,3 +108,50 @@ genRegsCFG ctxs (OFlip cfg) = do
   (cfg', ctxs') <- genRegsCFG ctxs cfg
   let (lctxs, rctxs) = split ctxs'
   pure (OFlip cfg', rctxs ++ lctxs)
+
+
+
+
+
+
+
+export
+genRegsCFGU : (ctx : (lbl :~: VarCTX))
+          -> CFG (CBlock' Reg' rt) (Undefined lbl) (Defined outs)
+          -> CompM (CFG (CBlock' Reg rt) (Undefined lbl) (Defined outs), DList (:~: VarCTX) outs)
+
+genRegsCFGU ctx (SingleVertex v {vins = Nothing,  vouts = Just outs}) = do
+  (v', ctxs') <- genRegsCBlockU' ctx v
+  let cfg = SingleVertex v' {vins = Nothing, vouts = Just outs}
+  pure (cfg, ctxs')
+
+genRegsCFGU ctx (SingleVertex v {vins = Just ins})                 impossible
+genRegsCFGU ctx (SingleVertex v {vins = Nothing, vouts = Nothing}) impossible
+genRegsCFGU ctx (Cycle node loop)                                  impossible
+genRegsCFGU ctx (LMerge branch joint)                              impossible
+genRegsCFGU ctx (RMerge branch joint)                              impossible
+genRegsCFGU ctx (Parallel left right)                              impossible
+genRegsCFGU ctx (IFlip cfg)                                        impossible
+
+genRegsCFGU ctx (Series pre suc) = do
+  (pre', ctxs') <- genRegsCFGU ctx pre
+  (suc', ctxs'') <- genRegsCFG ctxs' suc
+  pure (Series pre' suc', ctxs'')
+
+genRegsCFGU ctx (LBranch node branch) = do
+  (node', ctxs') <- genRegsCFGU ctx node
+  let (lctxs, rctxs) = split ctxs'
+  (branch', lctxs') <- genRegsCFG lctxs branch
+  pure (LBranch node' branch', lctxs' ++ rctxs)
+
+genRegsCFGU ctx (RBranch node branch) = do
+  (node', ctxs') <- genRegsCFGU ctx node
+  let (lctxs, rctxs) = split ctxs'
+  (branch', rctxs') <- genRegsCFG rctxs branch
+  pure (RBranch node' branch', lctxs ++ rctxs')
+
+genRegsCFGU ctx (OFlip cfg) = do
+  (cfg', ctxs') <- genRegsCFGU ctx cfg
+  let (lctxs, rctxs) = split ctxs'
+  pure (OFlip cfg', rctxs ++ lctxs)
+
