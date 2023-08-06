@@ -376,12 +376,12 @@ mutual
     
     reg <- lift (freshRegister I1)
 
-    let phi : PhiExpr (MkInputs [labelTrue, labelFalse]) I1
+    let phi : PhiExpr [labelTrue, labelFalse] I1
         phi = Phi I1 [(labelTrue, ILitV 1), (labelFalse, ILitV 0)]
     
     let phiAssignment = AssignPhi reg phi
     
-    let postIns = MkInputs [labelTrue, labelFalse]
+    let postIns = [labelTrue, labelFalse]
     
     postBLK <- pure $ phiAssignment |+> emptyCBlock (attach labelPost !get)
 

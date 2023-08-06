@@ -175,7 +175,7 @@ LLFun' (t, ts) = LLFun t ts
 
 
 
--- BinOperator, CMPKind, BlockLabel, Inputs -----------------------------------
+-- BinOperator, CMPKind, BlockLabel, List BlockLabel -----------------------------------
 public export
 data BinOperator : LLType -> LLType -> LLType -> Type where
   ADD   : {n : Nat} -> BinOperator (I n) (I n) (I n)
@@ -211,14 +211,6 @@ implementation Eq BlockLabel where
 public export
 data CFKind = Return | Jump (List BlockLabel)
 
-
--- TODO: shouldn' this be just an alias for `List BlockLabel`?
-public export
-data Inputs = MkInputs (List BlockLabel)
-
-public export
-(++) : Inputs -> Inputs -> Inputs
-MkInputs labels ++ MkInputs labels' = MkInputs (labels ++ labels')
 
 -- Expr -----------------------------------------------------------------------
 public export
@@ -264,9 +256,9 @@ implementation Typed LLExpr where
   typeOf (BitCast val t) = MkThe t
 
 public export
-data PhiExpr : Inputs -> LLType -> Type where
+data PhiExpr : List BlockLabel -> LLType -> Type where
   -- TODO: the `t` is here in case the list is empty but I think an empty list is invalid
-  Phi : (t : LLType) -> (l : List (BlockLabel, LLValue t)) -> PhiExpr (MkInputs $ map (\t => fst t) l) t
+  Phi : (t : LLType) -> (l : List (BlockLabel, LLValue t)) -> PhiExpr (map (\t => fst t) l) t
 
 export
 implementation Typed (PhiExpr inputs) where
@@ -290,7 +282,7 @@ data CFInstr : (returnType : LLType) -> (kind : CFKind) -> Type where
   RetVoid : CFInstr Void Return
 
 public export
-data PhiInstr : Inputs -> Type where
+data PhiInstr : List BlockLabel -> Type where
   AssignPhi : Reg t -> PhiExpr inputs t -> PhiInstr inputs
 
 
@@ -299,7 +291,7 @@ public export
 record SimpleBlock
   (retT : LLType)
   (label : BlockLabel)
-  (inputs : Inputs)
+  (inputs : List BlockLabel)
   (cfkind : CFKind)
 where
   constructor MkSimpleBlock
@@ -314,9 +306,9 @@ public export
 BlockVertex : (returnType : LLType) -> Vertex BlockLabel
 BlockVertex rt lbl Nothing _ = Void
 BlockVertex rt lbl _ Nothing = Void
-BlockVertex rt lbl (Just ins) (Just []) = SimpleBlock rt lbl (MkInputs ins) Return
+BlockVertex rt lbl (Just ins) (Just []) = SimpleBlock rt lbl ins Return
 BlockVertex rt lbl (Just ins) (Just (out :: outs))
-  = SimpleBlock rt lbl (MkInputs ins) (Jump $ out :: outs)
+  = SimpleBlock rt lbl ins (Jump $ out :: outs)
 
 -- FunDef ---------------------------------------------------------------------
 public export

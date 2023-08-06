@@ -434,7 +434,7 @@ mutual
       phiFromDList : The t
                   -> (lbls : List BlockLabel)
                   -> DList (:~: (LLValue t)) (lbls ~~> lbl)
-                  -> PhiExpr (MkInputs lbls) t
+                  -> PhiExpr lbls t
 
       phiFromDList (MkThe t) Nil Nil = Phi t Nil
       phiFromDList theT (lbl :: lbls) (val :: vals)
@@ -446,12 +446,12 @@ mutual
       mkPhis : VarCTX'
             -> {lbls : List BlockLabel}
             -> DList (:~: VarCTX) (lbls ~~> lbl)
-            -> CompM $ List (PhiInstr (MkInputs lbls), Maybe String)
+            -> CompM $ List (PhiInstr lbls, Maybe String)
       
       mkPhis ctx {lbls} ctxs = traverse mkPhi' (toList ctx) where
         
         mkPhi' : (DSum Variable (Reg . GetLLType))
-              -> CompM (PhiInstr (MkInputs lbls), Maybe String)
+              -> CompM (PhiInstr lbls, Maybe String)
 
         mkPhi' (key :=> reg) = do
 

@@ -22,7 +22,7 @@ import Utils
 public export
 MbPhis : Neighbors BlockLabel -> Type
 MbPhis Nothing = ()
-MbPhis (Just ins) = List (PhiInstr $ MkInputs ins, Maybe String)
+MbPhis (Just ins) = List (PhiInstr ins, Maybe String)
 
 
 public export
@@ -130,37 +130,37 @@ export
 MkBB { theLabel, phis, body, term = (), ctx } <+| term = MkBB { theLabel, phis, body, term, ctx }
 
 export
-(|++:>) : List (PhiInstr (MkInputs inputs), Maybe String)
+(|++:>) : List (PhiInstr inputs, Maybe String)
        -> CBlock rt lbl Undefined outs
        -> CBlock rt lbl (Just inputs) outs
 phis |++:> MkBB { theLabel, phis = (), body, term, ctx } = MkBB { theLabel, phis, body, term, ctx }
 
 export
-(|+:>) : (PhiInstr (MkInputs inputs), Maybe String)
+(|+:>) : (PhiInstr inputs, Maybe String)
       -> CBlock rt lbl Undefined outs
       -> CBlock rt lbl (Just inputs) outs
 instr |+:> blk = [instr] |++:> blk
 
 export
-(|++>) : List (PhiInstr (MkInputs inputs))
+(|++>) : List (PhiInstr inputs)
       -> CBlock rt lbl Undefined outs
       -> CBlock rt lbl (Just inputs) outs
 phis |++> blk = (map noComment phis) |++:> blk
 
 export
-(|+>) : PhiInstr (MkInputs inputs)
+(|+>) : PhiInstr inputs
      -> CBlock rt lbl Undefined outs
      -> CBlock rt lbl (Just inputs) outs
 instr |+> blk = [instr] |++> blk
 
 export
-(+|) : PhiInstr (MkInputs inputs)
+(+|) : PhiInstr inputs
     -> CBlock rt lbl (Just inputs) outs
     -> CBlock rt lbl (Just inputs) outs
 instr +| MkBB { theLabel, phis, body, term, ctx } = MkBB { theLabel, phis = ((instr, Nothing) :: phis), body, term, ctx }
 
 export
-(++|) : List (PhiInstr (MkInputs inputs))
+(++|) : List (PhiInstr inputs)
      -> CBlock rt lbl (Just inputs) outs
      -> CBlock rt lbl (Just inputs) outs
 phis ++| blk = foldl (flip (+|)) blk phis
