@@ -402,13 +402,13 @@ mutual
     ctxNode' <- attach labelNodeIn <$> newRegForAll (commonKeys ctxsIn)
     let ctxNode = map toValues ctxNode'
 
-    ((labelNodeOut ** nodeG), val) <- compileExpr' labelNodeIn ctxNode cond
     labelLoop <- freshLabel
 
-    let nodeG' = omap {outs = Just [labelLoop, labelPost]} (<+| CondBranch val labelLoop labelPost) nodeG
-    let [ctxLoop, ctxPost] = getContexts nodeG'
+    (outsT ** outsF ** nodeG) <- ifology' labelNodeIn ctxNode cond labelLoop labelPost
+    let (ctxsLoop, ctxsPost) = split (getContexts nodeG)
 
-    (loopOuts ** loop) <- compileInstrDD' [labelNodeOut] labelLoop labelNodeIn [ctxLoop] loop
+
+    (loopOuts ** loop) <- compileInstrDD' outsT labelLoop labelNodeIn ctxsLoop loop
     
     let ctxsLoopOut = getContexts loop
     
@@ -421,13 +421,13 @@ mutual
 
     let node' : CFG (CBlock $ GetLLType rt)
                     (Defined $ pre ~~> labelNodeIn ++ loopOuts ~~> labelNodeIn)
-                    (Defined $ (labelNodeOut ~>> [labelLoop, labelPost]))
+                    (Defined $ (outsT ~~> labelLoop) ++ (outsF ~~> labelPost))
         node' = rewrite revEq $ collect_concat labelNodeIn pre loopOuts
-                  in imap {ins = Just $ pre ++ loopOuts} (phis |++:>) nodeG'
+                in imap {ins = Just $ pre ++ loopOuts} (phis |++:>) nodeG
     
     let final = Cycle node' loop
     
-    pure $ CRO ([labelNodeOut] ** final)
+    pure $ CRO (outsF ** final)
     
     where
 
