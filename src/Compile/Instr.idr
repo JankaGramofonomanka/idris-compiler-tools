@@ -399,7 +399,7 @@ mutual
   compileInstrDD pre labelNodeIn labelPost ctxsIn instr@(While cond loop) = do
 
     -- TODO: get rid of unnecessary assignments
-    ctxNode' <- attach labelNodeIn <$> newRegForAll (commonKeys ctxsIn)
+    ctxNode' <-newRegForAll ctxsIn
     let ctxNode = map toValues ctxNode'
 
     labelLoop <- freshLabel
@@ -417,7 +417,7 @@ mutual
                 in ctxsIn ++ ctxsLoopOut
 
 
-    phis <- mkPhis (detach ctxNode') ctxs
+    phis <- mkPhis ctxNode' ctxs
 
     let node' : CFG (CBlock $ GetLLType rt)
                     (Defined $ pre ~~> labelNodeIn ++ loopOuts ~~> labelNodeIn)
@@ -443,12 +443,12 @@ mutual
 
 
 
-      mkPhis : VarCTX'
+      mkPhis : lbl :~: VarCTX'
             -> {lbls : List BlockLabel}
             -> DList (:~: VarCTX) (lbls ~~> lbl)
             -> CompM $ List (PhiInstr lbls, Maybe String)
       
-      mkPhis ctx {lbls} ctxs = traverse mkPhi' (toList ctx) where
+      mkPhis ctx {lbls} ctxs = traverse mkPhi' (toList $ detach ctx) where
         
         mkPhi' : (DSum Variable (Reg . GetLLType))
               -> CompM (PhiInstr lbls, Maybe String)

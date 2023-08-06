@@ -165,9 +165,8 @@ segregate : {lbls : List BlockLabel}
 segregate ctxs = finalize (segregate' ctxs)
 
 
-export
-newRegForAll : List (t ** Variable t) -> CompM VarCTX'
-newRegForAll vars = foldlM addNewReg DMap.empty vars
+newRegForAll' : List (t ** Variable t) -> CompM VarCTX'
+newRegForAll' vars = foldlM addNewReg DMap.empty vars
 
   where
     
@@ -178,7 +177,6 @@ newRegForAll vars = foldlM addNewReg DMap.empty vars
     addNewReg ctx (t ** var) = pure (VarCTX'.insert var !(freshRegister $ GetLLType t) ctx)
 
 
-export
 commonKeys : DList (:~: VarCTX) lbls -> List (t ** Variable t)
 commonKeys ctxs = VarCTX.keys (intersection' ctxs) where
 
@@ -187,7 +185,10 @@ commonKeys ctxs = VarCTX.keys (intersection' ctxs) where
   intersection' (ctx :: Nil) = detach ctx
   intersection' (ctx :: ctxs) = VarCTX.intersection (detach ctx) (intersection' ctxs)
 
-  
+export
+newRegForAll : DList (:~: VarCTX) (from ~~> to)
+             -> CompM (to :~: VarCTX')
+newRegForAll {to} ctxs = attach to <$> newRegForAll' (commonKeys ctxs)
 
 
 
