@@ -108,7 +108,7 @@ mutual
     GT => compileIntComparison labelIn SGT lhs rhs
 
     Concat => do
-      ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
+      ((lbl ** g), [lhs', rhs']) <- compileExprs labelIn [lhs, rhs]
 
       reg <- lift $ freshRegister (Ptr I8)
       let g' = omap {outs = Undefined} (<+ Assign reg (Call (ConstPtr strconcat) [lhs', rhs'])) g
@@ -170,25 +170,6 @@ mutual
 
 
 
-  -----------------------------------------------------------------------------
-  compileOperands : (labelIn : BlockLabel)
-                 -> Expr t
-                 -> Expr t'
-                 -> CompM' ( (lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl))
-                           , LLValue (GetLLType t)
-                           , LLValue (GetLLType t')
-                           )
-
-  compileOperands labelIn lhs rhs = do
-    
-    ((labelL ** gl), lhs') <- compileExpr labelIn lhs
-    ((labelR ** gr), rhs') <- compileExpr labelL rhs
-  
-    let glr = connect gl gr
-    pure ((labelR ** glr), lhs', rhs')
-  
-
-
 
   -----------------------------------------------------------------------------
   compileAritmOp : (labelIn : BlockLabel)
@@ -198,7 +179,7 @@ mutual
                 -> Expr TInt
                 -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I32)
   compileAritmOp labelIn op lhs rhs = do
-    ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
+    ((lbl ** g), [lhs', rhs']) <- compileExprs labelIn [lhs, rhs]
     
     reg <- lift (freshRegister I32)
     let g' = omap {outs = Undefined} (<+ Assign reg (BinOperation op lhs' rhs')) g
@@ -222,7 +203,7 @@ mutual
     MkThe TBool   => compileBoolComparison labelIn (cmpKind eqType) lhs rhs
     
     MkThe TString => do
-      ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
+      ((lbl ** g), [lhs', rhs']) <- compileExprs labelIn [lhs, rhs]
 
       -- TODO here the `eqType` is discarded and the code acts as if it is `EQ'`
       reg <- lift $ freshRegister I1
@@ -244,7 +225,7 @@ mutual
                       -> Expr TInt
                       -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1)
   compileIntComparison labelIn cmpKind lhs rhs = do
-    ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
+    ((lbl ** g), [lhs', rhs']) <- compileExprs labelIn [lhs, rhs]
 
     (g', val) <- addICMP cmpKind g lhs' rhs'
     pure ((lbl ** g'), val)
@@ -256,7 +237,7 @@ mutual
                        -> Expr TBool
                        -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1)
   compileBoolComparison labelIn cmpKind lhs rhs = do
-    ((lbl ** g), lhs', rhs') <- compileOperands labelIn lhs rhs
+    ((lbl ** g), [lhs', rhs']) <- compileExprs labelIn [lhs, rhs]
 
     (g', val) <- addICMP cmpKind g lhs' rhs'
     pure ((lbl ** g'), val)
