@@ -90,11 +90,11 @@ mutual
   
 
   compileExpr labelIn (BinOperation op lhs rhs) = case op of
-    Add => compileAritmOp labelIn ADD lhs rhs
-    Sub => compileAritmOp labelIn SUB lhs rhs
-    Mul => compileAritmOp labelIn MUL lhs rhs
-    Div => compileAritmOp labelIn SDIV lhs rhs
-    Mod => compileAritmOp labelIn SREM lhs rhs
+    Add => compileBinOp labelIn I32 (BinOperation ADD)  lhs rhs
+    Sub => compileBinOp labelIn I32 (BinOperation SUB)  lhs rhs
+    Mul => compileBinOp labelIn I32 (BinOperation MUL)  lhs rhs
+    Div => compileBinOp labelIn I32 (BinOperation SDIV) lhs rhs
+    Mod => compileBinOp labelIn I32 (BinOperation SREM) lhs rhs
     
     And => compileBoolExpr labelIn (BinOperation And lhs rhs)
     Or  => compileBoolExpr labelIn (BinOperation Or  lhs rhs)
@@ -102,10 +102,10 @@ mutual
     EQ {prf} => compileEqComparison {prf} labelIn EQ' lhs rhs
     NE {prf} => compileEqComparison {prf} labelIn NE' lhs rhs
 
-    LE => compileIntComparison labelIn SLE lhs rhs
-    LT => compileIntComparison labelIn SLT lhs rhs
-    GE => compileIntComparison labelIn SGE lhs rhs
-    GT => compileIntComparison labelIn SGT lhs rhs
+    LE => compileBinOp labelIn I1 (ICMP SLE) lhs rhs
+    LT => compileBinOp labelIn I1 (ICMP SLT) lhs rhs
+    GE => compileBinOp labelIn I1 (ICMP SGE) lhs rhs
+    GT => compileBinOp labelIn I1 (ICMP SGT) lhs rhs
 
     Concat => do
       ((lbl ** g), [lhs', rhs']) <- compileExprs labelIn [lhs, rhs]
@@ -172,20 +172,20 @@ mutual
 
 
   -----------------------------------------------------------------------------
-  compileAritmOp : (labelIn : BlockLabel)
-
-                -> BinOperator I32 I32 I32
-                -> Expr TInt
-                -> Expr TInt
-                -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I32)
-  compileAritmOp labelIn op lhs rhs = do
+  compileBinOp : (labelIn : BlockLabel)
+              -> (t : LLType)
+              -> (LLValue (GetLLType t') -> LLValue (GetLLType t'') -> LLExpr t)
+              -> Expr t'
+              -> Expr t''
+              -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue t)
+  compileBinOp labelIn t mkExpr lhs rhs = do
+  
     ((lbl ** g), [lhs', rhs']) <- compileExprs labelIn [lhs, rhs]
     
-    reg <- lift (freshRegister I32)
-    let g' = omap {outs = Undefined} (<+ Assign reg (BinOperation op lhs' rhs')) g
+    reg <- lift (freshRegister t)
+    let g' = omap {outs = Undefined} (<+ Assign reg (mkExpr lhs' rhs')) g
 
     pure ((lbl ** g'), Var reg)
-  
 
 
 
@@ -198,9 +198,9 @@ mutual
                      -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1)
   compileEqComparison labelIn eqType lhs rhs = case typeOf {f = Expr} lhs of
     
-    MkThe TInt    => compileIntComparison labelIn (cmpKind eqType) lhs rhs
+    MkThe TInt    => compileBinOp labelIn I1 (ICMP $ cmpKind eqType) lhs rhs
     
-    MkThe TBool   => compileBoolComparison labelIn (cmpKind eqType) lhs rhs
+    MkThe TBool   => compileBinOp labelIn I1 (ICMP $ cmpKind eqType) lhs rhs
     
     MkThe TString => do
       ((lbl ** g), [lhs', rhs']) <- compileExprs labelIn [lhs, rhs]
@@ -218,47 +218,10 @@ mutual
 
       in rewrite impossiblePrf in ()
 
-  -----------------------------------------------------------------------------
-  compileIntComparison : (labelIn : BlockLabel)
-                      -> CMPKind
-                      -> Expr TInt
-                      -> Expr TInt
-                      -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1)
-  compileIntComparison labelIn cmpKind lhs rhs = do
-    ((lbl ** g), [lhs', rhs']) <- compileExprs labelIn [lhs, rhs]
-
-    (g', val) <- addICMP cmpKind g lhs' rhs'
-    pure ((lbl ** g'), val)
-  
-  -----------------------------------------------------------------------------
-  compileBoolComparison : (labelIn : BlockLabel)
-                       -> CMPKind
-                       -> Expr TBool
-                       -> Expr TBool
-                       -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1)
-  compileBoolComparison labelIn cmpKind lhs rhs = do
-    ((lbl ** g), [lhs', rhs']) <- compileExprs labelIn [lhs, rhs]
-
-    (g', val) <- addICMP cmpKind g lhs' rhs'
-    pure ((lbl ** g'), val)
   
   
   
   
-  -----------------------------------------------------------------------------
-  addICMP : CMPKind
-         -> CFG (CBlock rt) ins (Undefined labelOut)
-         -> LLValue (I k)
-         -> LLValue (I k)
-         -> CompM' (CFG (CBlock rt) ins (Undefined labelOut), LLValue I1)
-  addICMP {k} cmpKind g lhs rhs = do
-    reg <- lift (freshRegister I1)
-    let g' = omap {outs = Undefined} (<+ Assign reg (ICMP cmpKind lhs rhs)) g
-    
-    pure (g', Var reg)
-  
-
-
   -----------------------------------------------------------------------------
   
   {-
