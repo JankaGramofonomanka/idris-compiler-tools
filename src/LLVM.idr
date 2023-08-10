@@ -321,7 +321,6 @@ record FunDef (retT : LLType) (paramTs : List LLType) where
   params : DList Reg paramTs
 
   -- TODO: enforce the existence of an entry block
-  -- TODO: enforce correct return types
   body : CFG (BlockVertex retT) (Defined []) (Defined [])
 
 -- FunDecl --------------------------------------------------------------------
