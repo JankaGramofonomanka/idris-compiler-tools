@@ -36,7 +36,7 @@ compileFunDecl : {retType : LNGType}
               -> {paramTypes : List LNGType}
               -> {funId : FunId retType paramTypes}
               -> FunDef retType paramTypes funId
-              -> CompM $ FunDef (GetLLType retType) (map GetLLType paramTypes)
+              -> CompM FunDef
 compileFunDecl func {paramTypes} = do
   
   varRegPairs <- dtraverse getReg func.params
@@ -50,7 +50,8 @@ compileFunDecl func {paramTypes} = do
   
   let MkFunId name = unThe func.theId
   let llname = MkConst (FunType (GetLLType retType) (map GetLLType paramTypes)) (MkConstId name)
-  pure $ LLVM.MkFunDef { name = llname, theRetType = The.map GetLLType func.theRetType, params = regs', body = cfg' }
+  case func.theRetType of
+    MkThe retT => pure $ LLVM.MkFunDef { retT = GetLLType retT, name = llname, params = regs', body = cfg' }
 
   where
 

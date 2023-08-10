@@ -312,12 +312,11 @@ BlockVertex rt lbl (Just ins) (Just (out :: outs))
 
 -- FunDef ---------------------------------------------------------------------
 public export
-record FunDef (retT : LLType) (paramTs : List LLType) where
+record FunDef where
 
   constructor MkFunDef
+  retT : LLType
   name : Const (FunType retT paramTs)
-  
-  theRetType : The retT
   params : DList Reg paramTs
 
   -- TODO: enforce the existence of an entry block
@@ -325,12 +324,11 @@ record FunDef (retT : LLType) (paramTs : List LLType) where
 
 -- FunDecl --------------------------------------------------------------------
 public export
-record FunDecl (retT : LLType) (paramTs : List LLType) where
+record FunDecl where
   constructor MkFunDecl
+  retT : LLType
+  paramTs : List LLType
   name : Const (FunType retT paramTs)
-  
-  theRetType : The retT
-  theParamTypes : The paramTs
 
 -- ConstDef -------------------------------------------------------------------
 public export
@@ -342,7 +340,7 @@ data ConstDef : Type where
 public export
 record Program where
   constructor MkProgram
-  funDecls : List (retType ** paramTypes ** FunDecl retType paramTypes)
+  funDecls : List FunDecl
   constDefs : List ConstDef
-  funcs : List (retType ** paramTypes ** FunDef retType paramTypes)
+  funcs : List FunDef
 

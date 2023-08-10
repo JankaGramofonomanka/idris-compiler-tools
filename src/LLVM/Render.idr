@@ -220,16 +220,16 @@ implementation Document (CFG (BlockVertex rt) (Defined ins) (Defined outs)) wher
 
 -- FunDef ---------------------------------------------------------------------
 export
-implementation Document (FunDef retT paramTs) where
+implementation Document FunDef where
 
-  print (MkFunDef { theRetType, name, params, body }) = let
-      header = simple $ mkSentence ["define", prtFun (prt theRetType) (prt name) (undmap (prt @{typed}) params), "{"]
+  print (MkFunDef { retT, name, params, body }) = let
+      header = simple $ mkSentence ["define", prtFun (prt retT) (prt name) (undmap (prt @{typed}) params), "{"]
     in MkDoc { lines = [Right header, Left (print @{cfg} body), Right (simple "}")] }
 
 -- FunDecl --------------------------------------------------------------------
 export
-implementation DocItem (FunDecl retT paramTs) where
-  prt (MkFunDecl { name, theRetType, theParamTypes }) = mkSentence ["declare", prtFun (prt theRetType) (prt name) (map prt $ unThe theParamTypes)]
+implementation DocItem FunDecl where
+  prt (MkFunDecl { retT, paramTs, name }) = mkSentence ["declare", prtFun (prt retT) (prt name) (map prt paramTs)]
 
 -- ConstDef -------------------------------------------------------------------
 export
@@ -247,13 +247,13 @@ implementation Document Program where
     ++ foldl appendFunDef Doc.empty funcs
     
     where
-      appendFunDecl : Doc -> (t ** ts ** FunDecl t ts) -> Doc
-      appendFunDecl doc (t ** ts ** decl) = doc ++ fromLines [simple (prt decl)]
+      appendFunDecl : Doc -> FunDecl -> Doc
+      appendFunDecl doc decl = doc ++ fromLines [simple (prt decl)]
 
       appendConstDef : Doc -> ConstDef -> Doc
       appendConstDef doc def = doc ++ fromLines [simple (prt def)]
 
-      appendFunDef : Doc -> (t ** ts ** FunDef t ts) -> Doc
-      appendFunDef doc (t ** ts ** fun) = doc ++ blankLines 1 ++ (print fun)
+      appendFunDef : Doc -> FunDef -> Doc
+      appendFunDef doc fun = doc ++ blankLines 1 ++ (print fun)
       
 

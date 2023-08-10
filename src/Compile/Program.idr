@@ -30,10 +30,8 @@ mkFunMap l = foldr insertFun empty l where
   
 
 compileFunDecl' : (t ** ts ** fun ** FunDef t ts fun)
-               -> CompM (retType ** paramTypes ** FunDef retType paramTypes)
-compileFunDecl' (t ** ts ** fun ** decl) = do
-  decl' <- compileFunDecl decl
-  pure (GetLLType t ** map GetLLType ts ** decl')
+               -> CompM FunDef
+compileFunDecl' (t ** ts ** fun ** decl) = compileFunDecl decl
 
 mkConstDefs : SortedMap String (n ** (Const (Array I8 n), LLValue (Array I8 n))) -> List ConstDef
 mkConstDefs m = foldl (flip $ (::) . mkConstDef) Nil (SortedMap.toList m) where
@@ -48,9 +46,8 @@ compileProgram (MkProgram { main, funcs }) = do
   modify { funcs $= (`union` funMap) }
 
   mainDecl <- compileFunDecl main
-  funcDecls <- traverse compileFunDecl' funcs
+  funDecls <- traverse compileFunDecl' funcs
   
   constDefs <- mkConstDefs <$> gets strLits
 
-  let mainDecl' = (I32 ** [] ** mainDecl)
-  pure (LLVM.MkProgram { funDecls = builtInDecls, constDefs, funcs = (mainDecl' :: funcDecls) })
+  pure (LLVM.MkProgram { funDecls = builtInDecls, constDefs, funcs = (mainDecl :: funDecls) })
