@@ -56,8 +56,6 @@ compileFunDecl func = do
 
   where
 
-    
-
     VRPair : LNGType -> Type
     VRPair t = (Variable t, Reg (GetLLType t))
 
@@ -75,19 +73,11 @@ compileFunDecl func = do
           -> (CBlock rt) lbl (Just ins) (Just outs)
           -> BlockVertex rt lbl (Just ins) (Just outs)
     
-    toLLVM {outs = []} (MkBB { theLabel, phis, body, term = Ret val, ctx })
-      = MkSimpleBlock { theLabel, phis, body, term = Ret val }
+    toLLVM {outs = []} (MkBB { theLabel, phis, body, term, ctx })
+      = MkSimpleBlock { theLabel, phis, body, term }
     
-    toLLVM {outs = []} (MkBB { theLabel, phis, body, term = RetVoid, ctx })
-      = MkSimpleBlock { theLabel, phis, body, term = RetVoid }
-    
-    toLLVM {outs = [l]} (MkBB { theLabel, phis, body, term = Branch l, ctx })
-      = MkSimpleBlock { theLabel, phis, body, term = Branch l }
-    
-    toLLVM {outs = [t, e]} (MkBB { theLabel, phis, body, term = CondBranch c t e, ctx })
-      = MkSimpleBlock { theLabel, phis, body, term = CondBranch c t e }
-      
-    toLLVM {outs = (l :: l' :: l'' :: ls)} (MkBB { theLabel, phis, body, term, ctx}) impossible  
+    toLLVM {outs = (_ :: _)} (MkBB { theLabel, phis, body, term, ctx })
+      = MkSimpleBlock { theLabel, phis, body, term }
   
     decompose : DList (f . g) ts -> DList f (map g ts)
     -- TODO is there a bettter way?
