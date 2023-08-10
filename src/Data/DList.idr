@@ -11,6 +11,10 @@ public export
 Nil         ++ fys = fys
 (fx :: fxs) ++ fys = fx :: fxs ++ fys
 
+export
+length : DList f xs -> Nat
+length Nil = Z
+length (x :: xs) = S (length xs)
 
 -- TODO: rewrite in termos of `Applicative`
 export

@@ -9,7 +9,7 @@ import Data.The
 import Data.Typed
 
 import LLVM
-import LNG.TypeChecked
+import LNG.TypeChecked as LNG
 import CFG
 import Compile.Instr
 import Compile.Data.CBlock
@@ -31,13 +31,13 @@ compileBody labelIn ctx instr = do
   CRC g <- compileInstrUD labelIn (MkBlockLabel "") ctx instr
   pure $ imap {ins = Just []} ([] |++>) g
 
+mkFunConst : Fun t ts -> Const $ FunType (GetLLType t) (map GetLLType ts)
+mkFunConst (MkFun t ts (MkFunId name)) = MkConst (FunType (GetLLType t) (map GetLLType ts)) (MkConstId name)
+
 export
-compileFunDecl : {retType : LNGType}
-              -> {paramTypes : List LNGType}
-              -> {funId : FunId retType paramTypes}
-              -> FunDef retType paramTypes funId
-              -> CompM FunDef
-compileFunDecl func {paramTypes} = do
+compileFunDecl : LNG.FunDef
+              -> CompM LLVM.FunDef
+compileFunDecl func = do
   
   varRegPairs <- dtraverse getReg func.params
   let entryLabel  = MkBlockLabel "entry"
@@ -48,12 +48,15 @@ compileFunDecl func {paramTypes} = do
   cfg <- compileBody entryLabel ctx func.body
   let cfg' = vmap' toLLVM cfg
   
-  let MkFunId name = unThe func.theId
-  let llname = MkConst (FunType (GetLLType retType) (map GetLLType paramTypes)) (MkConstId name)
-  case func.theRetType of
-    MkThe retT => pure $ LLVM.MkFunDef { retT = GetLLType retT, name = llname, params = regs', body = cfg' }
+  pure $ LLVM.MkFunDef { retT = GetLLType func.retType
+                       , name = mkFunConst func.funId
+                       , params = regs'
+                       , body = cfg'
+                       }
 
   where
+
+    
 
     VRPair : LNGType -> Type
     VRPair t = (Variable t, Reg (GetLLType t))

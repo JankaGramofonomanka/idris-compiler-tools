@@ -306,17 +306,16 @@ mutual
     (::) : Instr rt Simple -> Instrs rt k -> Instrs rt k
 
 public export
-record FunDef (retType : LNGType) (paramTypes : List LNGType) (funId : FunId retType paramTypes) where
+record FunDef where
   constructor MkFunDef
-  theId : The funId
-  theRetType : The retType
+  retType : LNGType
+  funId : Fun retType paramTypes
   params : DList Variable paramTypes
   body : Instr retType Returning
 
 public export
 record Program where
   constructor MkProgram
-  main : FunDef TInt [] (MkFunId "main")
-  funcs : List (t ** ts ** fun ** FunDef t ts fun)
+  funcs : List FunDef
 
 
