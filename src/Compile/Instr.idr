@@ -40,18 +40,18 @@ TODO: Figure out how to reduce the number of attachments and detachments
 --* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 jumpTo : (labelPost : BlockLabel)
       -> (labelOut ** CFG (CBlock rt) (Undefined labelIn) (Undefined labelOut))
-      -> CompileResult rt (Undefined labelIn) labelPost Open
+      -> CompileResult rt (Undefined labelIn) labelPost Simple
 jumpTo labelPost (lbl ** g) = let
   g' = omap {outs = Just [labelPost]} (<+| Branch labelPost) g
-  in CRO ([lbl] ** g')
+  in CRS ([lbl] ** g')
 
 jumpFrom : (lbl : BlockLabel)
         -> CompileResult rt (Undefined lbl')        lbl'' crt
         -> CompileResult rt (Defined [lbl ~> lbl']) lbl'' crt
-jumpFrom labelPre (CRC g) = CRC $ imap {ins = Just [labelPre]} ([] |++>) g
-jumpFrom labelPre (CRO (lbls ** g)) = let
+jumpFrom labelPre (CRR g) = CRR $ imap {ins = Just [labelPre]} ([] |++>) g
+jumpFrom labelPre (CRS (lbls ** g)) = let
   g' = imap {ins = Just [labelPre]} ([] |++>) g
-  in CRO (lbls ** g')
+  in CRS (lbls ** g')
 
 collectOuts : {labelPost : BlockLabel}
   -> (lbls ** CFG (CBlock rt) (Undefined labelIn) (Defined $ lbls ~~> labelPost))
@@ -101,26 +101,10 @@ compileExpr' labelIn ctx expr = evalStateT (detach ctx) $ compileExpr labelIn ex
 --* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 
 {-
-TODO: Consider getting rid of `GetCRT` in favor of returning a dependent
+TODO: Consider getting rid of `CompileResult` in favor of returning a dependent
 pair (lbls ** CFG _ ins (Defined $ lbls ~~> lbl))
 or (maybeLBL ** CFG _ ins (fromMaybe Closed $ map Undefined maybeLBL))
 -}
-public export
-GetCRT : InstrKind -> CRType
-GetCRT Simple    = Open
-GetCRT Returning = Closed
-
-private
-thmGetCRT : (k, k' : InstrKind) -> GetCRT (BrKind k k') = CRParallel (GetCRT k) (GetCRT k')
-thmGetCRT Simple    Simple    = Refl
-thmGetCRT Simple    Returning = Refl
-thmGetCRT Returning Simple    = Refl
-thmGetCRT Returning Returning = Refl
-
-private
-thmGetCRT' : {k, k' : InstrKind} -> GetCRT (BrKind k k') = CRParallel (GetCRT k) (GetCRT k')
-thmGetCRT' {k, k'} = thmGetCRT k k'
-
 
 mutual
 
@@ -223,7 +207,7 @@ mutual
   compileInstrUD : (labelIn, labelPost : BlockLabel)
                 -> (ctx : labelIn :~: VarCTX)
                 -> (instr : Instr rt kind)
-                -> CompM (CompileResult (GetLLType rt) (Undefined labelIn) labelPost $ GetCRT kind)
+                -> CompM (CompileResult (GetLLType rt) (Undefined labelIn) labelPost kind)
 
   -- Assign -------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx instr@(Assign var expr)
@@ -238,12 +222,12 @@ mutual
       ((_ ** g), val) <- compileExpr' labelIn ctx expr
       
       let g' = omap {outs = Closed} (<+| Ret val) g
-      pure (CRC g')
+      pure (CRR g')
 
   -- RetVoid ------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx instr@RetVoid = do
       let g = omap {outs = Closed} (<+| RetVoid) (emptyCFG ctx)
-      pure (CRC g)
+      pure (CRR g)
 
 
 
@@ -257,7 +241,7 @@ mutual
       compile : (labelIn : BlockLabel)
              -> (ctx : labelIn :~: VarCTX)
              -> (instrs : Instrs rt k)
-             -> CompM (CompileResult (GetLLType rt) (Undefined labelIn) labelPost $ GetCRT k)
+             -> CompM (CompileResult (GetLLType rt) (Undefined labelIn) labelPost k)
       compile labelIn ctx Nil = pure (emptyCR labelIn labelPost ctx)
       compile labelIn ctx (TermSingleton instr) = compileInstrUD labelIn labelPost ctx instr
       compile labelIn ctx (instr :: instrs) = do
@@ -279,7 +263,7 @@ mutual
         final = rewrite collect_concat labelPost branchOuts outsF
                 in LBranch condG thenG
     
-    pure $ CRO (branchOuts ++ outsF ** final)
+    pure $ CRS (branchOuts ++ outsF ** final)
     
 
 
@@ -297,12 +281,7 @@ mutual
 
     let branches = parallelCR thenRes elseRes
 
-    let final : CompileResult (GetLLType rt)
-                              (Undefined labelIn)
-                              labelPost
-                              (GetCRT $ BrKind k k')
-        final = rewrite thmGetCRT k k'
-                in seriesCR condG branches
+    let final = seriesCR condG branches
 
     pure final
 
@@ -335,7 +314,7 @@ mutual
                      -> (labelIn, labelPost : BlockLabel)
                      -> (ctxs : DList (:~: VarCTX) (pre ~~> labelIn))
                      -> (instr : Instr rt kind)
-                     -> CompM (CompileResult (GetLLType rt) (Defined $ pre ~~> labelIn) labelPost $ GetCRT kind)
+                     -> CompM (CompileResult (GetLLType rt) (Defined $ pre ~~> labelIn) labelPost kind)
   
   compileInstrDDViaUD pre labelIn labelPost ctxs instr = do
     SG ctx phis <- segregate ctxs
@@ -359,7 +338,7 @@ mutual
                 -> (labelIn, labelPost : BlockLabel)
                 -> (ctxs : DList (:~: VarCTX) (pre ~~> labelIn))
                 -> (instr : Instr rt kind)
-                -> CompM (CompileResult (GetLLType rt) (Defined $ pre ~~> labelIn) labelPost $ GetCRT kind)
+                -> CompM (CompileResult (GetLLType rt) (Defined $ pre ~~> labelIn) labelPost kind)
 
 
 
@@ -427,7 +406,7 @@ mutual
     
     let final = Cycle node' loop
     
-    pure $ CRO (outsF ** final)
+    pure $ CRS (outsF ** final)
     
     where
 
