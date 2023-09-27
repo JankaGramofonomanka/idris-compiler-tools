@@ -80,5 +80,5 @@ compileFunDecl func = do
       = MkSimpleBlock { theLabel, phis, body, term }
   
     decompose : DList (f . g) ts -> DList f (map g ts)
-    -- TODO is there a bettter way?
+    -- TODO is there a better way?
     decompose xs = believe_me xs

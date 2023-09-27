@@ -16,7 +16,7 @@ length : DList f xs -> Nat
 length Nil = Z
 length (x :: xs) = S (length xs)
 
--- TODO: rewrite in termos of `Applicative`
+-- TODO: rewrite in terms of `Applicative`
 export
 dtraverse : Monad f
         => {0 t : Type}

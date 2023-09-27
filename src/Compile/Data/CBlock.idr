@@ -172,7 +172,6 @@ implementation Connectable (CBlock rt) where
 
 
 
--- TODO: consider hiding the attachment somewhere, eg. in the `CBlock` itself
 export
 getContext : {lbl : BlockLabel}
           -> CFG (CBlock rt) ins (Undefined lbl)
