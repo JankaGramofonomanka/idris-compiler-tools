@@ -208,9 +208,6 @@ export
 implementation Eq BlockLabel where
   MkBlockLabel s == MkBlockLabel s' = s == s'
 
-public export
-data CFKind = Return | Jump (List BlockLabel)
-
 
 -- Expr -----------------------------------------------------------------------
 public export
@@ -273,13 +270,13 @@ data STInstr : Type where
   Empty : STInstr
 
 public export
-data CFInstr : (returnType : LLType) -> (kind : CFKind) -> Type where
+data CFInstr : (returnType : LLType) -> (outs : List BlockLabel) -> Type where
   
-  Branch : (l : BlockLabel) -> CFInstr rt (Jump [l])
-  CondBranch : LLValue I1 -> (l1 : BlockLabel) -> (l2 : BlockLabel) -> CFInstr rt (Jump [l1, l2])
+  Branch : (l : BlockLabel) -> CFInstr rt [l]
+  CondBranch : LLValue I1 -> (l1 : BlockLabel) -> (l2 : BlockLabel) -> CFInstr rt [l1, l2]
 
-  Ret : LLValue t -> CFInstr t Return
-  RetVoid : CFInstr Void Return
+  Ret : LLValue t -> CFInstr t []
+  RetVoid : CFInstr Void []
 
 public export
 data PhiInstr : List BlockLabel -> Type where
@@ -289,16 +286,16 @@ data PhiInstr : List BlockLabel -> Type where
 -- BasicBlock -----------------------------------------------------------------
 public export
 record BasicBlock
-  (retT : LLType)
-  (label : BlockLabel)
-  (inputs : List BlockLabel)
-  (cfkind : CFKind)
+  (retT     : LLType)
+  (label    : BlockLabel)
+  (inputs   : List BlockLabel)
+  (outputs  : List BlockLabel)
 where
   constructor MkBasicBlock
   theLabel  : The label
   phis      : List (PhiInstr inputs, Maybe String)
   body      : List (STInstr, Maybe String)
-  term      : CFInstr retT cfkind
+  term      : CFInstr retT outputs
 
 
 
@@ -306,9 +303,7 @@ public export
 BlockVertex : (returnType : LLType) -> Vertex BlockLabel
 BlockVertex rt lbl Nothing _ = Void
 BlockVertex rt lbl _ Nothing = Void
-BlockVertex rt lbl (Just ins) (Just []) = BasicBlock rt lbl ins Return
-BlockVertex rt lbl (Just ins) (Just (out :: outs))
-  = BasicBlock rt lbl ins (Jump $ out :: outs)
+BlockVertex rt lbl (Just ins) (Just outs) = BasicBlock rt lbl ins outs
 
 -- FunDef ---------------------------------------------------------------------
 public export

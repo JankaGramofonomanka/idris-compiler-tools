@@ -167,7 +167,7 @@ implementation DocItem STInstr where
   prt Empty = ""
 
 export
-implementation DocItem (CFInstr rt cfk) where
+implementation DocItem (CFInstr rt outs) where
   prt (Branch lbl) = mkSentence ["br", prt @{branch} lbl]
   prt (CondBranch cond thn els) = mkSentence ["br", prtItems [prt @{typed} cond, prt @{branch} thn, prt @{branch} els]]
   prt (Ret val) = mkSentence ["ret", prt @{typed} val]
@@ -180,7 +180,7 @@ implementation DocItem (PhiInstr ins) where
 
 -- BasicBlock -----------------------------------------------------------------
 export
-implementation Document (BasicBlock rt label inputs cfkind) where
+implementation Document (BasicBlock rt label inputs outputs) where
   print (MkBasicBlock { theLabel = MkThe label, phis, body, term })
     = MkDoc { lines = [ Right (simple $ prt label @{blockEntry})
                       , Left ( fromLines

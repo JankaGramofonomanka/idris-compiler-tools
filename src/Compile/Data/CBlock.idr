@@ -26,19 +26,9 @@ MbPhis (Just ins) = List (PhiInstr ins, Maybe String)
 
 
 public export
-toCFK : List BlockLabel -> CFKind
-toCFK [] = Return
-toCFK (lbl :: lbls) = Jump (lbl :: lbls)
-
-public export
-fromCFK : CFKind -> List BlockLabel
-fromCFK Return = []
-fromCFK (Jump lbls) = lbls
-
-public export
 MbTerm : LLType -> Neighbors BlockLabel -> Type
 MbTerm rt Nothing = ()
-MbTerm rt (Just outs) = CFInstr rt (toCFK outs)
+MbTerm rt (Just outs) = CFInstr rt outs
 
 public export
 record CBlock (retT : LLType) (label : BlockLabel) (ins : Neighbors BlockLabel) (outs : Neighbors BlockLabel) where
@@ -126,7 +116,7 @@ export
 blk <: cmt = blk <+: (Empty, Just cmt)
 
 export
-(<+|) : CBlock rt lbl ins Undefined -> CFInstr rt (toCFK outs) -> CBlock rt lbl ins (Just outs)
+(<+|) : CBlock rt lbl ins Undefined -> CFInstr rt outs -> CBlock rt lbl ins (Just outs)
 MkBB { theLabel, phis, body, term = (), ctx } <+| term = MkBB { theLabel, phis, body, term, ctx }
 
 export
