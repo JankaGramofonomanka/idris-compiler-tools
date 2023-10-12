@@ -286,15 +286,15 @@ data PhiInstr : List BlockLabel -> Type where
   AssignPhi : Reg t -> PhiExpr inputs t -> PhiInstr inputs
 
 
--- SimpleBlock ----------------------------------------------------------------
+-- BasicBlock -----------------------------------------------------------------
 public export
-record SimpleBlock
+record BasicBlock
   (retT : LLType)
   (label : BlockLabel)
   (inputs : List BlockLabel)
   (cfkind : CFKind)
 where
-  constructor MkSimpleBlock
+  constructor MkBasicBlock
   theLabel  : The label
   phis      : List (PhiInstr inputs, Maybe String)
   body      : List (STInstr, Maybe String)
@@ -306,9 +306,9 @@ public export
 BlockVertex : (returnType : LLType) -> Vertex BlockLabel
 BlockVertex rt lbl Nothing _ = Void
 BlockVertex rt lbl _ Nothing = Void
-BlockVertex rt lbl (Just ins) (Just []) = SimpleBlock rt lbl ins Return
+BlockVertex rt lbl (Just ins) (Just []) = BasicBlock rt lbl ins Return
 BlockVertex rt lbl (Just ins) (Just (out :: outs))
-  = SimpleBlock rt lbl ins (Jump $ out :: outs)
+  = BasicBlock rt lbl ins (Jump $ out :: outs)
 
 -- FunDef ---------------------------------------------------------------------
 public export

@@ -178,13 +178,13 @@ implementation DocItem (PhiInstr ins) where
   prt (AssignPhi reg phi) = mkSentence [prt reg, "=", prt phi]
 
 
--- SimpleBlock ----------------------------------------------------------------
+-- BasicBlock -----------------------------------------------------------------
 export
-implementation Document (SimpleBlock rt label inputs cfkind) where
-  print (MkSimpleBlock { theLabel = MkThe label, phis, body, term })
+implementation Document (BasicBlock rt label inputs cfkind) where
+  print (MkBasicBlock { theLabel = MkThe label, phis, body, term })
     = MkDoc { lines = [ Right (simple $ prt label @{blockEntry})
                       , Left ( fromLines
-                            -- TODO: Add comments to `SimpleBlock`
+                            -- TODO: Add comments to `BasicBlock`
                              $ map (uncurry (MkLine . prt)) phis
                             ++ map (uncurry (MkLine . prt)) body
                             ++ map (simple . prt) [term]
