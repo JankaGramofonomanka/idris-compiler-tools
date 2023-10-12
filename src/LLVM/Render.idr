@@ -89,7 +89,7 @@ export
 implementation DocItem (LLValue t) where
   prt = prtValue
 
--- BinOperator, CMPKind, BlockLabel, Inputs -----------------------------------
+-- BinOperator, CMPKind, Label ------------------------------------------------
 export
 implementation DocItem (BinOperator t1 t2 t3) where
   -- TODO: verify that each of these is correct
@@ -115,19 +115,19 @@ implementation DocItem CMPKind where
   prt ULT = "ult"
   prt ULE = "ule"
 
-prtLabel : BlockLabel -> String
-prtLabel (MkBlockLabel s) = "%" ++ s
+prtLabel : Label -> String
+prtLabel (MkLabel s) = "%" ++ s
 
 export
-implementation DocItem BlockLabel where
+implementation DocItem Label where
   prt = prtLabel
 
 export
-implementation [blockEntry] DocItem BlockLabel where
-  prt (MkBlockLabel s) = s ++ ":"
+implementation [blockEntry] DocItem Label where
+  prt (MkLabel s) = s ++ ":"
 
 export
-implementation [branch] DocItem BlockLabel where
+implementation [branch] DocItem Label where
   prt lbl = "label " ++ prtLabel lbl
 
 -- Expr -----------------------------------------------------------------------
@@ -155,7 +155,7 @@ implementation DocItem (LLExpr t) where
 export
 implementation DocItem (PhiExpr ins t) where
   prt (Phi t l) = mkSentence $ ["phi", prt t, prtItems (map prtPair l)] where
-    prtPair : (BlockLabel, LLValue t) -> String
+    prtPair : (Label, LLValue t) -> String
     prtPair (lbl, val) = "[" ++ prt val ++ ", " ++ prt lbl ++ "]"
 
 -- Isntr ----------------------------------------------------------------------

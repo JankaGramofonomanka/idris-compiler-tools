@@ -53,11 +53,11 @@ freshRegister' : The t -> CompM (Reg t)
 freshRegister' (MkThe t) = freshRegister t
 
 export
-freshLabel : CompM BlockLabel
+freshLabel : CompM Label
 freshLabel = do
   n <- gets lblCount
   modify { lblCount := n + 1 }
-  pure $ MkBlockLabel ("L" ++ show n)
+  pure $ MkLabel ("L" ++ show n)
 
 export
 getFunPtr : Fun' (t, ts) -> CompM $ LLValue (Ptr $ FunType (GetLLType t) (map GetLLType ts))

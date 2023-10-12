@@ -175,7 +175,7 @@ LLFun' (t, ts) = LLFun t ts
 
 
 
--- BinOperator, CMPKind, BlockLabel, List BlockLabel -----------------------------------
+-- BinOperator, CMPKind, Label ------------------------------------------------
 public export
 data BinOperator : LLType -> LLType -> LLType -> Type where
   ADD   : {n : Nat} -> BinOperator (I n) (I n) (I n)
@@ -202,11 +202,11 @@ public export
 data CMPKind = EQ | NE | SGT | SGE | SLT | SLE | UGT | UGE | ULT | ULE
 
 public export
-data BlockLabel = MkBlockLabel String
+data Label = MkLabel String
 
 export
-implementation Eq BlockLabel where
-  MkBlockLabel s == MkBlockLabel s' = s == s'
+implementation Eq Label where
+  MkLabel s == MkLabel s' = s == s'
 
 
 -- Expr -----------------------------------------------------------------------
@@ -253,9 +253,9 @@ implementation Typed LLExpr where
   typeOf (BitCast val t) = MkThe t
 
 public export
-data PhiExpr : List BlockLabel -> LLType -> Type where
+data PhiExpr : List Label -> LLType -> Type where
   -- TODO: the `t` is here in case the list is empty but I think an empty list is invalid
-  Phi : (t : LLType) -> (l : List (BlockLabel, LLValue t)) -> PhiExpr (map (\t => fst t) l) t
+  Phi : (t : LLType) -> (l : List (Label, LLValue t)) -> PhiExpr (map (\t => fst t) l) t
 
 export
 implementation Typed (PhiExpr inputs) where
@@ -270,16 +270,16 @@ data STInstr : Type where
   Empty : STInstr
 
 public export
-data CFInstr : (returnType : LLType) -> (outs : List BlockLabel) -> Type where
+data CFInstr : (returnType : LLType) -> (outs : List Label) -> Type where
   
-  Branch : (l : BlockLabel) -> CFInstr rt [l]
-  CondBranch : LLValue I1 -> (l1 : BlockLabel) -> (l2 : BlockLabel) -> CFInstr rt [l1, l2]
+  Branch : (l : Label) -> CFInstr rt [l]
+  CondBranch : LLValue I1 -> (l1 : Label) -> (l2 : Label) -> CFInstr rt [l1, l2]
 
   Ret : LLValue t -> CFInstr t []
   RetVoid : CFInstr Void []
 
 public export
-data PhiInstr : List BlockLabel -> Type where
+data PhiInstr : List Label -> Type where
   AssignPhi : Reg t -> PhiExpr inputs t -> PhiInstr inputs
 
 
@@ -287,9 +287,9 @@ data PhiInstr : List BlockLabel -> Type where
 public export
 record BasicBlock
   (retT     : LLType)
-  (label    : BlockLabel)
-  (inputs   : List BlockLabel)
-  (outputs  : List BlockLabel)
+  (label    : Label)
+  (inputs   : List Label)
+  (outputs  : List Label)
 where
   constructor MkBasicBlock
   theLabel  : The label
@@ -300,7 +300,7 @@ where
 
 
 public export
-BlockVertex : (returnType : LLType) -> Vertex BlockLabel
+BlockVertex : (returnType : LLType) -> Vertex Label
 BlockVertex rt lbl Nothing _ = Void
 BlockVertex rt lbl _ Nothing = Void
 BlockVertex rt lbl (Just ins) (Just outs) = BasicBlock rt lbl ins outs

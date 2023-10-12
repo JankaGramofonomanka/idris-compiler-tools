@@ -20,18 +20,18 @@ import Utils
 -- TODO: `MbPhis Undefined = List [t ** Variable t]` - list of variables that need a phi assignment
 
 public export
-MbPhis : Neighbors BlockLabel -> Type
+MbPhis : Neighbors Label -> Type
 MbPhis Nothing = ()
 MbPhis (Just ins) = List (PhiInstr ins, Maybe String)
 
 
 public export
-MbTerm : LLType -> Neighbors BlockLabel -> Type
+MbTerm : LLType -> Neighbors Label -> Type
 MbTerm rt Nothing = ()
 MbTerm rt (Just outs) = CFInstr rt outs
 
 public export
-record CBlock (retT : LLType) (label : BlockLabel) (ins : Neighbors BlockLabel) (outs : Neighbors BlockLabel) where
+record CBlock (retT : LLType) (label : Label) (ins : Neighbors Label) (outs : Neighbors Label) where
   constructor MkBB
   theLabel : The label
 
@@ -46,16 +46,16 @@ noComment : instr -> (instr, Maybe String)
 noComment instr = (instr, Nothing)
 
 export
-contexts : {0 lbl : BlockLabel}
-        -> {outs : List BlockLabel}
+contexts : {0 lbl : Label}
+        -> {outs : List Label}
         -> CBlock rt lbl ins (Just outs)
         -> DList (:~: VarCTX) (lbl ~>> outs)
 contexts {lbl, outs} blk = replicate' lblTo outs (\l => attach (lblTo l) (detach $ blk.ctx)) where
-  0 lblTo : BlockLabel -> Edge BlockLabel
+  0 lblTo : Label -> Edge Label
   lblTo v = lbl ~> v
   
 export
-emptyCBlock : {lbl : BlockLabel} -> lbl :~: VarCTX -> CBlock rt lbl Undefined Undefined
+emptyCBlock : {lbl : Label} -> lbl :~: VarCTX -> CBlock rt lbl Undefined Undefined
 emptyCBlock {lbl} ctx = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = (), ctx}
 
 export
@@ -163,7 +163,7 @@ implementation Connectable (CBlock rt) where
 
 
 export
-getContext : {lbl : BlockLabel}
+getContext : {lbl : Label}
           -> CFG (CBlock rt) ins (Undefined lbl)
           -> lbl :~: VarCTX
 getContext {lbl} cfg = oget ctx cfg
@@ -176,5 +176,5 @@ getContexts cfg = oget' contexts cfg
 
 
 export
-emptyCFG : {lbl : BlockLabel} -> lbl :~: VarCTX -> CFG (CBlock rt) (Undefined lbl) (Undefined lbl)
+emptyCFG : {lbl : Label} -> lbl :~: VarCTX -> CFG (CBlock rt) (Undefined lbl) (Undefined lbl)
 emptyCFG = initGraph . emptyCBlock

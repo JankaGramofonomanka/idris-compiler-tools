@@ -38,14 +38,14 @@ TODO: Figure out how to reduce the number of attachments and detachments
 --* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 -- Utils ----------------------------------------------------------------------
 --* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
-jumpTo : (labelPost : BlockLabel)
+jumpTo : (labelPost : Label)
       -> (labelOut ** CFG (CBlock rt) (Undefined labelIn) (Undefined labelOut))
       -> CompileResult rt (Undefined labelIn) labelPost Simple
 jumpTo labelPost (lbl ** g) = let
   g' = omap {outs = Just [labelPost]} (<+| Branch labelPost) g
   in CRS ([lbl] ** g')
 
-jumpFrom : (lbl : BlockLabel)
+jumpFrom : (lbl : Label)
         -> CompileResult rt (Undefined lbl')        lbl'' crt
         -> CompileResult rt (Defined [lbl ~> lbl']) lbl'' crt
 jumpFrom labelPre (CRR g) = CRR $ imap {ins = Just [labelPre]} ([] |++>) g
@@ -53,7 +53,7 @@ jumpFrom labelPre (CRS (lbls ** g)) = let
   g' = imap {ins = Just [labelPre]} ([] |++>) g
   in CRS (lbls ** g')
 
-collectOuts : {labelPost : BlockLabel}
+collectOuts : {labelPost : Label}
   -> (lbls ** CFG (CBlock rt) (Undefined labelIn) (Defined $ lbls ~~> labelPost))
   -> CompM $ (labelOut **  CFG (CBlock rt) (Undefined labelIn) (Undefined labelOut))
 collectOuts {labelPost} (lbls ** g) = do
@@ -69,11 +69,11 @@ collectOuts {labelPost} (lbls ** g) = do
   pure (labelPost ** final)
 
 
-ifology' : (labelIn : BlockLabel)
+ifology' : (labelIn : Label)
         -> (ctx : labelIn :~: VarCTX)
         -> (expr : Expr TBool)
-        -> (lblT : BlockLabel)
-        -> (lblF : BlockLabel)
+        -> (lblT : Label)
+        -> (lblF : Label)
         -> CompM  ( outsT ** outsF ** CFG (CBlock rt)
                                           (Undefined labelIn)
                                           (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
@@ -82,7 +82,7 @@ ifology' labelIn ctx expr lblT lblF = evalStateT (detach ctx) $ ifology labelIn 
 
                   
 
-compileExpr' : (labelIn : BlockLabel)
+compileExpr' : (labelIn : Label)
             -> (ctx : labelIn :~: VarCTX)
             -> (expr : Expr t)
             -> CompM  ( (lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl))
@@ -132,7 +132,7 @@ mutual
   variables at the start of the graph.
   -}
   export
-  compileInstrUU : (labelIn : BlockLabel)
+  compileInstrUU : (labelIn : Label)
                 -> (ctx : labelIn :~: VarCTX)
                 -> (instr : Instr rt Simple)
                 -> CompM (labelOut ** CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Undefined labelOut))
@@ -143,7 +143,7 @@ mutual
   -- Block --------------------------------------------------------------------
   compileInstrUU labelIn ctx (Block instrs) = compile labelIn ctx instrs where
 
-    compile : (labelIn : BlockLabel)
+    compile : (labelIn : Label)
            -> (ctx : labelIn :~: VarCTX)
            -> (instrs : Instrs rt Simple)
            -> CompM (labelOut **  CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Undefined labelOut))
@@ -197,14 +197,14 @@ mutual
   -- UD -----------------------------------------------------------------------
   --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   export
-  compileInstrUD' : (labelIn, labelPost : BlockLabel)
+  compileInstrUD' : (labelIn, labelPost : Label)
                  -> (ctx : labelIn :~: VarCTX)
                  -> (instr : Instr rt kind)
                  -> CompM (lbls ** CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Defined $ lbls ~~> labelPost))
   compileInstrUD' labelIn labelPost ctx instr = unwrapCR <$> compileInstrUD labelIn labelPost ctx instr
 
   export
-  compileInstrUD : (labelIn, labelPost : BlockLabel)
+  compileInstrUD : (labelIn, labelPost : Label)
                 -> (ctx : labelIn :~: VarCTX)
                 -> (instr : Instr rt kind)
                 -> CompM (CompileResult (GetLLType rt) (Undefined labelIn) labelPost kind)
@@ -238,7 +238,7 @@ mutual
     
     where
 
-      compile : (labelIn : BlockLabel)
+      compile : (labelIn : Label)
              -> (ctx : labelIn :~: VarCTX)
              -> (instrs : Instrs rt k)
              -> CompM (CompileResult (GetLLType rt) (Undefined labelIn) labelPost k)
@@ -310,8 +310,8 @@ mutual
   --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   -- DD -----------------------------------------------------------------------
   --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  compileInstrDDViaUD : (pre : List BlockLabel)
-                     -> (labelIn, labelPost : BlockLabel)
+  compileInstrDDViaUD : (pre : List Label)
+                     -> (labelIn, labelPost : Label)
                      -> (ctxs : DList (:~: VarCTX) (pre ~~> labelIn))
                      -> (instr : Instr rt kind)
                      -> CompM (CompileResult (GetLLType rt) (Defined $ pre ~~> labelIn) labelPost kind)
@@ -326,16 +326,16 @@ mutual
 
 
   export
-  compileInstrDD' : (pre : List BlockLabel)
-                 -> (labelIn, labelPost : BlockLabel)
+  compileInstrDD' : (pre : List Label)
+                 -> (labelIn, labelPost : Label)
                  -> (ctxs : DList (:~: VarCTX) (pre ~~> labelIn))
                  -> (instr : Instr rt kind)
                  -> CompM (lbls ** CFG (CBlock $ GetLLType rt) (Defined $ pre ~~> labelIn) (Defined $ lbls ~~> labelPost))
   compileInstrDD' pre labelIn labelPost ctxs instr = unwrapCR <$> compileInstrDD pre labelIn labelPost ctxs instr
 
   export
-  compileInstrDD : (pre : List BlockLabel)
-                -> (labelIn, labelPost : BlockLabel)
+  compileInstrDD : (pre : List Label)
+                -> (labelIn, labelPost : Label)
                 -> (ctxs : DList (:~: VarCTX) (pre ~~> labelIn))
                 -> (instr : Instr rt kind)
                 -> CompM (CompileResult (GetLLType rt) (Defined $ pre ~~> labelIn) labelPost kind)
@@ -411,7 +411,7 @@ mutual
     where
 
       phiFromDList : The t
-                  -> (lbls : List BlockLabel)
+                  -> (lbls : List Label)
                   -> DList (:~: (LLValue t)) (lbls ~~> lbl)
                   -> PhiExpr lbls t
 
@@ -423,7 +423,7 @@ mutual
 
 
       mkPhis : lbl :~: VarCTX'
-            -> {lbls : List BlockLabel}
+            -> {lbls : List Label}
             -> DList (:~: VarCTX) (lbls ~~> lbl)
             -> CompM $ List (PhiInstr lbls, Maybe String)
       

@@ -24,7 +24,7 @@ FunVal' (t, ts) = FunVal t ts
 
 
 export
-addInput : (lbl : BlockLabel)
+addInput : (lbl : Label)
         -> LLValue t
         -> PhiExpr ins t
         -> PhiExpr (lbl :: ins) t

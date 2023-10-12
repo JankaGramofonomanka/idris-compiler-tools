@@ -20,7 +20,7 @@ import Compile.Data.Error
 import Compile.Utils
 
 
-compileBody : (labelIn : BlockLabel)
+compileBody : (labelIn : Label)
            -> (ctx : labelIn :~: VarCTX)
            -> (instr : Instr rt Returning)
            -> CompM (CFG (CBlock $ GetLLType rt) Closed Closed)
@@ -28,7 +28,7 @@ compileBody : (labelIn : BlockLabel)
 compileBody labelIn ctx instr = do
   -- TODO get rid of this "" hack
   -- TODO consider using `compileInstrDD`
-  CRR g <- compileInstrUD labelIn (MkBlockLabel "") ctx instr
+  CRR g <- compileInstrUD labelIn (MkLabel "") ctx instr
   pure $ imap {ins = Just []} ([] |++>) g
 
 mkFunConst : Fun t ts -> Const $ FunType (GetLLType t) (map GetLLType ts)
@@ -40,7 +40,7 @@ compileFunDecl : LNG.FunDef
 compileFunDecl func = do
   
   varRegPairs <- dtraverse getReg func.params
-  let entryLabel  = MkBlockLabel "entry"
+  let entryLabel  = MkLabel "entry"
       ctx         = attach entryLabel $ contextify varRegPairs
       regs        = dmap snd varRegPairs
       regs'       = decompose regs
@@ -69,7 +69,7 @@ compileFunDecl func = do
       insert' : VRPair t' -> VarCTX -> VarCTX
       insert' (k, v) = insert k (Var v)
     
-    toLLVM : {ins, outs : List BlockLabel}
+    toLLVM : {ins, outs : List Label}
           -> (CBlock rt) lbl (Just ins) (Just outs)
           -> BlockVertex rt lbl (Just ins) (Just outs)
     

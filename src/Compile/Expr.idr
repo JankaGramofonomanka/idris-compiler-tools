@@ -45,7 +45,7 @@ getValue var = do
 
 
 
-compileLiteral : (labelIn : BlockLabel)
+compileLiteral : (labelIn : Label)
               -> (literal : Literal t)
               -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue (GetLLType t))
 compileLiteral labelIn (LitBool b) = pure $ ((labelIn ** emptyCFG (attach labelIn !get)), ILitV (if b then 1 else 0))
@@ -73,7 +73,7 @@ mutual
   computation and is stored in the state.
   -}
   export
-  compileExpr : (labelIn : BlockLabel)
+  compileExpr : (labelIn : Label)
              -> (expr : Expr t)
              -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue (GetLLType t))
 
@@ -153,7 +153,7 @@ mutual
 
 
   -----------------------------------------------------------------------------
-  compileExprs : (labelIn : BlockLabel)
+  compileExprs : (labelIn : Label)
               -> DList Expr ts
               -> CompM' ( (lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl))
                         , DList LLValue (map GetLLType ts)
@@ -172,7 +172,7 @@ mutual
 
 
   -----------------------------------------------------------------------------
-  compileBinOp : (labelIn : BlockLabel)
+  compileBinOp : (labelIn : Label)
               -> (t : LLType)
               -> (LLValue (GetLLType t') -> LLValue (GetLLType t'') -> LLExpr t)
               -> Expr t'
@@ -191,7 +191,7 @@ mutual
 
   -----------------------------------------------------------------------------
   compileEqComparison : {0 prf : EqComparable t}
-                     -> (labelIn : BlockLabel)
+                     -> (labelIn : Label)
                      -> EQType
                      -> Expr t
                      -> Expr t
@@ -229,10 +229,10 @@ mutual
   execution of the program will end up in `lblT` and in `lblF` otherwise.
   -}
   export
-  ifology : (labelIn : BlockLabel)
+  ifology : (labelIn : Label)
          -> (expr : Expr TBool)
-         -> (lblT : BlockLabel)
-         -> (lblF : BlockLabel)
+         -> (lblT : Label)
+         -> (lblF : Label)
          -> CompM'  ( outsT ** outsF ** CFG (CBlock rt)
                                             (Undefined labelIn)
                                             (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
@@ -294,7 +294,7 @@ mutual
   
   -----------------------------------------------------------------------------
 
-  compileBoolExpr : (labelIn : BlockLabel)
+  compileBoolExpr : (labelIn : Label)
                  -> Expr TBool
                  -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1)
 

@@ -22,7 +22,7 @@ import CFG
 import Theory
 
 public export
-data CompileResult : LLType -> Edges BlockLabel -> BlockLabel -> InstrKind -> Type where
+data CompileResult : LLType -> Edges Label -> Label -> InstrKind -> Type where
   CRR : CFG (CBlock rt) ins Closed -> CompileResult rt ins lbl Returning
   CRS : (lbls ** CFG (CBlock rt) ins (Defined $ lbls ~~> lbl))
      -> CompileResult rt ins lbl Simple
@@ -35,7 +35,7 @@ unwrapCR (CRR g) = ([] ** g)
 unwrapCR (CRS (outs ** g)) = (outs ** g)
 
 export
-emptyCR : (lbl, lbl' : BlockLabel) -> lbl :~: VarCTX -> CompileResult rt (Undefined lbl) lbl' Simple
+emptyCR : (lbl, lbl' : Label) -> lbl :~: VarCTX -> CompileResult rt (Undefined lbl) lbl' Simple
 emptyCR lbl lbl' ctx = CRS ([lbl] ** omap {outs = Just [lbl']} (<+| Branch lbl') (emptyCFG ctx))
 
 
@@ -56,7 +56,7 @@ seriesCR g (CRS (lbls ** g')) = CRS $ (lbls ** Series g g')
 
 
 export
-parallelCR : {lbl : BlockLabel}
+parallelCR : {lbl : Label}
           -> (lres : CompileResult rt (Defined ledges) lbl lcrt)
           -> (rres : CompileResult rt (Defined redges) lbl rcrt)
           
