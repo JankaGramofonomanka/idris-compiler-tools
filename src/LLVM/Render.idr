@@ -193,8 +193,7 @@ implementation Document (BasicBlock rt label inputs outputs) where
             }
 
 printCFG : CFG (BlockVertex rt) (Defined ins) (Defined outs) -> Doc
-printCFG (SingleVertex {vins = Just ins, vouts = Just []} v) = print v
-printCFG (SingleVertex {vins = Just ins, vouts = Just (out :: outs)} v) = print v
+printCFG (SingleVertex {vins = Just ins, vouts = Just outs} v) = print v
 printCFG (Cycle node loop) = printCFG node ++ printCFG loop
 printCFG (Series first second) = printCFG first ++ printCFG second
 

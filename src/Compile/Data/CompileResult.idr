@@ -36,7 +36,7 @@ unwrapCR (CRS (outs ** g)) = (outs ** g)
 
 export
 emptyCR : (lbl, lbl' : Label) -> lbl :~: VarCTX -> CompileResult rt (Undefined lbl) lbl' Simple
-emptyCR lbl lbl' ctx = CRS ([lbl] ** omap {outs = Just [lbl']} (<+| Branch lbl') (emptyCFG ctx))
+emptyCR lbl lbl' ctx = CRS ([lbl] ** omap (<+| Branch lbl') (emptyCFG ctx))
 
 
 

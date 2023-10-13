@@ -56,7 +56,7 @@ compileLiteral labelIn (LitString s) = do
   reg <- lift $ freshRegister (Ptr I8)
   
   let expr = GetElementPtr {k} {n = 32} (ConstPtr cst) (ILitV 0) (ILitV 0)
-  g <- pure $ omap {outs = Undefined} (<+ Assign reg expr) (emptyCFG $ attach labelIn !get)
+  g <- pure $ omap (<+ Assign reg expr) (emptyCFG $ attach labelIn !get)
   
   pure ((labelIn ** g), Var reg)
 
@@ -111,7 +111,7 @@ mutual
       ((lbl ** g), [lhs', rhs']) <- compileExprs labelIn [lhs, rhs]
 
       reg <- lift $ freshRegister (Ptr I8)
-      let g' = omap {outs = Undefined} (<+ Assign reg (Call (ConstPtr strconcat) [lhs', rhs'])) g
+      let g' = omap (<+ Assign reg (Call (ConstPtr strconcat) [lhs', rhs'])) g
 
       pure ((lbl ** g'), Var reg)
   
@@ -125,7 +125,7 @@ mutual
       reg <- lift (freshRegister I32)
 
       -- TODO: Is this OK or is it a hack?
-      let g' = omap {outs = Undefined} (<+ Assign reg (BinOperation SUB (ILitV 0) val)) g
+      let g' = omap (<+ Assign reg (BinOperation SUB (ILitV 0) val)) g
       
       pure ((lbl ** g'), Var reg)
 
@@ -140,7 +140,7 @@ mutual
     reg <- lift (freshRegister' $ (unFun . unPtr) (typeOf funPtr))
 
     let instr = assignIfNonVoid (typeOf reg) reg (Call funPtr args')
-    let g' = omap {outs = Undefined} (<+ instr) g
+    let g' = omap (<+ instr) g
 
     pure ((lbl ** g'), Var reg)
   
@@ -183,7 +183,7 @@ mutual
     ((lbl ** g), [lhs', rhs']) <- compileExprs labelIn [lhs, rhs]
     
     reg <- lift (freshRegister t)
-    let g' = omap {outs = Undefined} (<+ Assign reg (mkExpr lhs' rhs')) g
+    let g' = omap (<+ Assign reg (mkExpr lhs' rhs')) g
 
     pure ((lbl ** g'), Var reg)
 
@@ -207,7 +207,7 @@ mutual
 
       -- TODO here the `eqType` is discarded and the code acts as if it is `EQ'`
       reg <- lift $ freshRegister I1
-      let g' = omap {outs = Undefined} (<+ Assign reg (Call (ConstPtr strcompare) [lhs', rhs'])) g
+      let g' = omap (<+ Assign reg (Call (ConstPtr strcompare) [lhs', rhs'])) g
 
       pure ((lbl ** g'), Var reg)
 
@@ -282,7 +282,7 @@ mutual
 
   ifology labelIn expr lblT lblF = do
     ((lbl ** g), val) <- compileExpr labelIn expr
-    let g' = omap {outs = Just [lblT, lblF]} (<+| CondBranch val lblT lblF) g
+    let g' = omap (<+| CondBranch val lblT lblF) g
     
     pure ([lbl] ** [lbl] ** g')
     

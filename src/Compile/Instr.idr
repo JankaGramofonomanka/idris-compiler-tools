@@ -42,7 +42,7 @@ jumpTo : (labelPost : Label)
       -> (labelOut ** CFG (CBlock rt) (Undefined labelIn) (Undefined labelOut))
       -> CompileResult rt (Undefined labelIn) labelPost Simple
 jumpTo labelPost (lbl ** g) = let
-  g' = omap {outs = Just [labelPost]} (<+| Branch labelPost) g
+  g' = omap (<+| Branch labelPost) g
   in CRS ([lbl] ** g')
 
 jumpFrom : (lbl : Label)
@@ -62,7 +62,7 @@ collectOuts {labelPost} (lbls ** g) = do
   let ctxPost = ctx
 
   let post : CFG (CBlock rt) (Defined $ lbls ~~> labelPost) (Undefined labelPost)
-      post = SingleVertex {vins = Just lbls} $ phis |++:> emptyCBlock ctxPost
+      post = SingleVertex (phis |++:> emptyCBlock ctxPost)
   
   let final = Series g post
 
@@ -159,7 +159,7 @@ mutual
     -- TODO: consider having attached context in the state
     ((lbl ** g), val) <- compileExpr' labelIn ctx expr
     
-    let g' = omap {outs = Undefined} (assign var val . (<: prt instr)) g
+    let g' = omap (assign var val . (<: prt instr)) g
 
     pure (lbl ** g')
     
@@ -221,12 +221,12 @@ mutual
   compileInstrUD labelIn labelPost ctx instr@(Return expr) = do
       ((_ ** g), val) <- compileExpr' labelIn ctx expr
       
-      let g' = omap {outs = Closed} (<+| Ret val) g
+      let g' = omap (<+| Ret val) g
       pure (CRR g')
 
   -- RetVoid ------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx instr@RetVoid = do
-      let g = omap {outs = Closed} (<+| RetVoid) (emptyCFG ctx)
+      let g = omap (<+| RetVoid) (emptyCFG ctx)
       pure (CRR g)
 
 
@@ -294,8 +294,7 @@ mutual
     labelNodeIn <- freshLabel
 
     let pre : CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Defined [labelIn ~> labelNodeIn])
-        pre = SingleVertex {vouts = Just [labelNodeIn]}
-            $ emptyCBlock ctxIn <+| Branch labelNodeIn
+        pre = SingleVertex (emptyCBlock ctxIn <+| Branch labelNodeIn)
 
     seriesCR pre <$> compileInstrDD [labelIn] labelNodeIn labelPost (getContexts pre) instr
 
@@ -320,7 +319,7 @@ mutual
     SG ctx phis <- segregate ctxs
     res <- compileInstrUD labelIn labelPost ctx instr
 
-    let preG = imap {ins = Just pre} (phis |++:>) (emptyCFG ctx)
+    let preG = imap (phis |++:>) (emptyCFG ctx)
           
     pure $ connectCR preG res
 
@@ -402,7 +401,7 @@ mutual
                     (Defined $ pre ~~> labelNodeIn ++ loopOuts ~~> labelNodeIn)
                     (Defined $ (outsT ~~> labelLoop) ++ (outsF ~~> labelPost))
         node' = rewrite revEq $ collect_concat labelNodeIn pre loopOuts
-                in imap {ins = Just $ pre ++ loopOuts} (phis |++:>) nodeG
+                in imap (phis |++:>) nodeG
     
     let final = Cycle node' loop
     
