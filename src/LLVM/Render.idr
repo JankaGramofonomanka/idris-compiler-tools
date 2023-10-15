@@ -161,7 +161,10 @@ implementation DocItem (PhiExpr ins t) where
 -- Isntr ----------------------------------------------------------------------
 export
 implementation DocItem STInstr where
-  prt (Assign reg expr) = mkSentence [prt reg, "=", prt expr]
+  -- TODO: the assignments of `void` values should be prevented by the structure of `LLVM`
+  prt (Assign reg expr) = case (typeOf {f = LLExpr} expr) of
+    MkThe Void => prt expr
+    MkThe t    => mkSentence [prt reg, "=", prt expr]
   prt (Exec expr) = prt expr
   prt (Store val ptr) = mkSentence ["store", prt val @{typed} ++ ",", prt ptr @{typed}]
   prt Empty = ""

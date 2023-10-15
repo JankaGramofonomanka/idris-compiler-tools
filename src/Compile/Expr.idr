@@ -139,17 +139,10 @@ mutual
 
     reg <- lift (freshRegister' $ (unFun . unPtr) (typeOf funPtr))
 
-    let instr = assignIfNonVoid (typeOf reg) reg (Call funPtr args')
-    let g' = omap (<+ instr) g
+    let g' = omap (<+ Assign reg (Call funPtr args')) g
 
     pure ((lbl ** g'), Var reg)
   
-    where
-      -- TODO: this should be enforced by the structure of `LLVM`
-      assignIfNonVoid : {0 t : LLType} -> The t -> Reg t -> LLExpr t -> STInstr
-      assignIfNonVoid (MkThe Void) reg expr = Exec expr
-      assignIfNonVoid (MkThe t) reg expr = Assign reg expr
-
 
 
   -----------------------------------------------------------------------------
