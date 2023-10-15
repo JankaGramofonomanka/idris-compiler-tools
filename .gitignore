@@ -1,2 +1,5 @@
 build
 .toignore
+tests/*.ll
+tests/*.bc
+tests/*.out
