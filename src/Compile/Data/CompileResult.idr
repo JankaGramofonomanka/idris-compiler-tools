@@ -42,25 +42,25 @@ emptyCR lbl lbl' ctx = CRS ([lbl] ** omap (<+| Branch lbl') (emptyCFG ctx))
 
 export
 connectCR : CFG (CBlock rt) ins (Undefined lbl)
-         -> CompileResult rt (Undefined lbl) lbl' crt
-         -> CompileResult rt ins lbl' crt
+         -> CompileResult rt (Undefined lbl) lbl' k
+         -> CompileResult rt ins lbl' k
 connectCR g (CRR g') = CRR $ connect g g'
 connectCR g (CRS (lbls ** g')) = CRS $ (lbls ** connect g g')
 
 export
 seriesCR : CFG (CBlock rt) ins (Defined outs)
-        -> CompileResult rt (Defined outs) lbl' crt
-        -> CompileResult rt ins lbl' crt
+        -> CompileResult rt (Defined outs) lbl' k
+        -> CompileResult rt ins lbl' k
 seriesCR g (CRR g') = CRR $ Series g g'
 seriesCR g (CRS (lbls ** g')) = CRS $ (lbls ** Series g g')
 
 
 export
 parallelCR : {lbl : Label}
-          -> (lres : CompileResult rt (Defined ledges) lbl lcrt)
-          -> (rres : CompileResult rt (Defined redges) lbl rcrt)
+          -> (lres : CompileResult rt (Defined ledges) lbl lk)
+          -> (rres : CompileResult rt (Defined redges) lbl rk)
           
-          -> CompileResult rt (Defined $ ledges ++ redges) lbl (BrKind lcrt rcrt)
+          -> CompileResult rt (Defined $ ledges ++ redges) lbl (BrKind lk rk)
 
 parallelCR {lbl} (CRR lg) (CRR rg) = CRR $ Parallel lg rg
 

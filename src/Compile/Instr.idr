@@ -46,8 +46,8 @@ jumpTo labelPost (lbl ** g) = let
   in CRS ([lbl] ** g')
 
 jumpFrom : (lbl : Label)
-        -> CompileResult rt (Undefined lbl')        lbl'' crt
-        -> CompileResult rt (Defined [lbl ~> lbl']) lbl'' crt
+        -> CompileResult rt (Undefined lbl')        lbl'' k
+        -> CompileResult rt (Defined [lbl ~> lbl']) lbl'' k
 jumpFrom labelPre (CRR g) = CRR $ imap {ins = Just [labelPre]} ([] |++>) g
 jumpFrom labelPre (CRS (lbls ** g)) = let
   g' = imap {ins = Just [labelPre]} ([] |++>) g
@@ -269,7 +269,7 @@ mutual
 
 
   -- IfElse -------------------------------------------------------------------
-  compileInstrUD labelIn labelPost ctx (IfElse {k, k'} cond instrThen instrElse) = do
+  compileInstrUD labelIn labelPost ctx (IfElse cond instrThen instrElse) = do
 
     labelThen <- freshLabel
     labelElse <- freshLabel
