@@ -35,9 +35,9 @@ mkFunConst : Fun t ts -> Const $ FunType (GetLLType t) (map GetLLType ts)
 mkFunConst (MkFun t ts (MkFunId name)) = MkConst (FunType (GetLLType t) (map GetLLType ts)) (MkConstId name)
 
 export
-compileFunDecl : LNG.FunDef
+compileFunDef : LNG.FunDef
               -> CompM LLVM.FunDef
-compileFunDecl func = do
+compileFunDef func = do
   
   varRegPairs <- dtraverse getReg func.params
   let entryLabel  = MkLabel "entry"

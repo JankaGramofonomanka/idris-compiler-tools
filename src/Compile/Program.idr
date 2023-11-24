@@ -39,8 +39,8 @@ compileProgram (MkProgram { funcs }) = do
   let funMap = mkFunMap funcs
   modify { funcs $= (`union` funMap) }
 
-  funDecls <- traverse compileFunDecl funcs
+  funDefs <- traverse compileFunDef funcs
   
   constDefs <- mkConstDefs <$> gets strLits
 
-  pure (LLVM.MkProgram { funDecls = builtInDecls, constDefs, funcs = funDecls })
+  pure (LLVM.MkProgram { funDecls = builtInDecls, constDefs, funcs = funDefs })
