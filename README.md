@@ -32,5 +32,13 @@ To test the compiled examples, run the following:
 ./scripts/test
 ```
 
-
+## Warning
+The parser of the LNG language is broken.
+Whenever a function or variable identifier is prefixed by a keyword,
+the tokenizer will interpret the prefix as a keyword, and thus the program won't parse.
+For example, the instruction
+```
+int elsewhere = 0;
+```
+will not parse because the name of the variable starts with `else` which is a keyword.
 
