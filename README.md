@@ -1,5 +1,8 @@
 # idris-compiler-tools
 
+## Idris version
+This project is built using Idris 2 version `0.5.1-a4b99bd81`
+
 ## Build the compiler:
 ```
 idris2 --build compiler-tools.ipkg
