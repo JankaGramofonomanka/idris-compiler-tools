@@ -9,9 +9,9 @@ idris2 --build compiler-tools.ipkg
 ```
 
 ## Run the compiler
-To compile a source file `SOURCE_DIR.lat` run the following:
+To compile a source file `SOURCE_DIR.lng` run the following:
 ```
-./build/exec/compile <SOURCE_DIR>.lat <SOURCE_DIR>.ll
+./build/exec/compile <SOURCE_DIR>.lng <SOURCE_DIR>.ll
 ```
 
 ## Run the compiled code

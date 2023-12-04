@@ -1,10 +1,10 @@
 #!/bin/bash
 
-for source in ./tests/*.lat
+for source in ./tests/*.lng
 do
     echo $source
     dir="$(dirname $source)"
-    filename="$(basename $source .lat)"
+    filename="$(basename $source .lng)"
     dest="$dir/$filename.ll"
 
     ./build/exec/compile $source $dest
