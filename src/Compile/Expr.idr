@@ -33,7 +33,7 @@ cmpKind EQ' = EQ
 cmpKind NE' = NE
 
 
-
+-- TODO: consider having attached context in the state
 public export
 CompM' : Type -> Type
 CompM' = StateT VarCTX CompM
@@ -48,15 +48,15 @@ getValue var = do
 compileLiteral : (labelIn : Label)
               -> (literal : Literal t)
               -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue (GetLLType t))
-compileLiteral labelIn (LitBool b) = pure $ ((labelIn ** emptyCFG (attach labelIn !get)), ILitV (if b then 1 else 0))
-compileLiteral labelIn (LitInt i) = pure $ ((labelIn ** emptyCFG (attach labelIn !get)), ILitV i)
+compileLiteral labelIn (LitBool b) = pure $ ((labelIn ** emptyCFG), ILitV (if b then 1 else 0))
+compileLiteral labelIn (LitInt i)  = pure $ ((labelIn ** emptyCFG), ILitV i)
 compileLiteral labelIn (LitString s) = do
 
   (k ** cst) <- lift (getStringLiteral s)
   reg <- lift $ freshRegister (Ptr I8)
   
   let expr = GetElementPtr {k} {n = 32} (ConstPtr cst) (ILitV 0) (ILitV 0)
-  g <- pure $ omap (<+ Assign reg expr) (emptyCFG $ attach labelIn !get)
+  g <- pure $ omap (<+ Assign reg expr) emptyCFG
   
   pure ((labelIn ** g), Var reg)
 
@@ -85,7 +85,7 @@ mutual
     
     val <- getValue var
 
-    pure ((labelIn ** emptyCFG (attach labelIn !get)), val)
+    pure ((labelIn ** emptyCFG), val)
 
   
 
@@ -151,7 +151,7 @@ mutual
               -> CompM' ( (lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl))
                         , DList LLValue (map GetLLType ts)
                         )
-  compileExprs labelIn [] = pure ((labelIn ** emptyCFG (attach labelIn !get)), [])
+  compileExprs labelIn [] = pure ((labelIn ** emptyCFG), [])
   compileExprs labelIn (expr :: exprs) = do
     ((lbl ** g), val) <- compileExpr labelIn expr
     ((lbl' ** g'), vals) <- compileExprs lbl exprs
@@ -299,13 +299,13 @@ mutual
     labelPost <- lift freshLabel
     
     
-    trueBLK <- pure $ [] |++> emptyCBlock (attach labelTrue !get) <+| Branch labelPost
+    trueBLK <- pure $ [] |++> emptyCBlock <+| Branch labelPost
     
     let trueG : CFG (CBlock rt) (Defined $ outsT ~~> labelTrue) (Defined [labelTrue ~> labelPost])
         trueG = SingleVertex {vins = Just outsT, vouts = Just [labelPost]} trueBLK
     
     
-    falseBLK <- pure $ [] |++> emptyCBlock (attach labelFalse !get) <+| Branch labelPost
+    falseBLK <- pure $ [] |++> emptyCBlock <+| Branch labelPost
 
     let falseG : CFG (CBlock rt) (Defined $ outsF ~~> labelFalse) (Defined [labelFalse ~> labelPost])
         falseG = SingleVertex {vins = Just outsF, vouts = Just [labelPost]} falseBLK
@@ -320,7 +320,7 @@ mutual
     
     let postIns = [labelTrue, labelFalse]
     
-    postBLK <- pure $ phiAssignment |+> emptyCBlock (attach labelPost !get)
+    postBLK <- pure $ phiAssignment |+> emptyCBlock
 
     let postG : CFG (CBlock rt) (Defined [labelTrue ~> labelPost, labelFalse ~> labelPost]) (Undefined labelPost)
         postG = SingleVertex {vins = Just [labelTrue, labelFalse], vouts = Undefined} postBLK

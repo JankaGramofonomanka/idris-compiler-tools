@@ -38,29 +38,15 @@ record CBlock (retT : LLType) (label : Label) (ins : Neighbors Label) (outs : Ne
   phis : MbPhis ins
   body : List (STInstr, Maybe String)
   term : MbTerm retT outs
-  
-  -- TODO: divide assignments between individual instructions
-  ctx : label :~: VarCTX
 
 noComment : instr -> (instr, Maybe String)
 noComment instr = (instr, Nothing)
 
+-- TODO why implicit?
 export
-contexts : {0 lbl : Label}
-        -> {outs : List Label}
-        -> CBlock rt lbl ins (Just outs)
-        -> DList (:~: VarCTX) (lbl ~>> outs)
-contexts {lbl, outs} blk = replicate' lblTo outs (\l => attach (lblTo l) (detach $ blk.ctx)) where
-  0 lblTo : Label -> Edge Label
-  lblTo v = lbl ~> v
-  
-export
-emptyCBlock : {lbl : Label} -> lbl :~: VarCTX -> CBlock rt lbl Undefined Undefined
-emptyCBlock {lbl} ctx = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = (), ctx}
+emptyCBlock : {lbl : Label} -> CBlock rt lbl Undefined Undefined
+emptyCBlock {lbl} = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = () }
 
-export
-assign : Variable t -> LLValue (GetLLType t) -> CBlock rt lbl ins Undefined -> CBlock rt lbl ins Undefined
-assign var reg = { ctx $= map (insert var reg), body $= (++ [(LLVM.Empty, Just $ mkSentence [prt var, "~", prt reg])]) }
 
 
 
@@ -77,7 +63,6 @@ export
     , phis
     , body
     , term = ()
-    , ctx
     }
   )
   ( MkBB
@@ -85,7 +70,6 @@ export
     , phis = ()
     , body = body'
     , term = term'
-    , ctx = ctx'
     }
   )
   = MkBB
@@ -93,14 +77,12 @@ export
     , phis
     , body = (body ++ body')
     , term = term'
-    --, ctx = (ctx' `union` ctx {- `ctx'` takes precedence -})
-    , ctx = ctx' -- This assumes `ctx'` contains `ctx`
     }
 
 export
 (<++) : CBlock rt lbl ins Undefined -> List STInstr -> CBlock rt lbl ins Undefined
-(MkBB { theLabel, phis , body , term = (), ctx }) <++ instrs
-  = MkBB { theLabel, phis, body = (body ++ map noComment instrs), term = (), ctx}
+(MkBB { theLabel, phis , body , term = () }) <++ instrs
+  = MkBB { theLabel, phis, body = (body ++ map noComment instrs), term = () }
 
 export
 (<+) : CBlock rt lbl ins Undefined -> STInstr -> CBlock rt lbl ins Undefined
@@ -108,8 +90,8 @@ blk <+ instr = blk <++ [instr]
 
 export
 (<+:) : CBlock rt lbl ins Undefined -> (STInstr, Maybe String) -> CBlock rt lbl ins Undefined
-(MkBB { theLabel, phis , body , term = (), ctx }) <+: instr
-  = MkBB { theLabel, phis, body = (body ++ [instr]), term = (), ctx}
+(MkBB { theLabel, phis , body , term = () }) <+: instr
+  = MkBB { theLabel, phis, body = (body ++ [instr]), term = () }
 
 export
 (<:) : CBlock rt lbl ins Undefined -> String -> CBlock rt lbl ins Undefined
@@ -117,13 +99,13 @@ blk <: cmt = blk <+: (Empty, Just cmt)
 
 export
 (<+|) : CBlock rt lbl ins Undefined -> CFInstr rt outs -> CBlock rt lbl ins (Just outs)
-MkBB { theLabel, phis, body, term = (), ctx } <+| term = MkBB { theLabel, phis, body, term, ctx }
+MkBB { theLabel, phis, body, term = () } <+| term = MkBB { theLabel, phis, body, term }
 
 export
 (|++:>) : List (PhiInstr inputs, Maybe String)
        -> CBlock rt lbl Undefined outs
        -> CBlock rt lbl (Just inputs) outs
-phis |++:> MkBB { theLabel, phis = (), body, term, ctx } = MkBB { theLabel, phis, body, term, ctx }
+phis |++:> MkBB { theLabel, phis = (), body, term } = MkBB { theLabel, phis, body, term }
 
 export
 (|+:>) : (PhiInstr inputs, Maybe String)
@@ -147,7 +129,7 @@ export
 (+|) : PhiInstr inputs
     -> CBlock rt lbl (Just inputs) outs
     -> CBlock rt lbl (Just inputs) outs
-instr +| MkBB { theLabel, phis, body, term, ctx } = MkBB { theLabel, phis = ((instr, Nothing) :: phis), body, term, ctx }
+instr +| MkBB { theLabel, phis, body, term } = MkBB { theLabel, phis = ((instr, Nothing) :: phis), body, term }
 
 export
 (++|) : List (PhiInstr inputs)
@@ -162,19 +144,7 @@ implementation Connectable (CBlock rt) where
 
 
 
+-- TODO why implicit?
 export
-getContext : {lbl : Label}
-          -> CFG (CBlock rt) ins (Undefined lbl)
-          -> lbl :~: VarCTX
-getContext {lbl} cfg = oget ctx cfg
-
-export
-getContexts : CFG (CBlock rt) ins (Defined outs)
-           -> DList (:~: VarCTX) outs
-getContexts cfg = oget' contexts cfg
-
-
-
-export
-emptyCFG : {lbl : Label} -> lbl :~: VarCTX -> CFG (CBlock rt) (Undefined lbl) (Undefined lbl)
-emptyCFG = initGraph . emptyCBlock
+emptyCFG : {lbl : Label} -> CFG (CBlock rt) (Undefined lbl) (Undefined lbl)
+emptyCFG = initGraph emptyCBlock

@@ -21,22 +21,40 @@ import CFG
 
 import Theory
 
+export
+close : (dest : Label)
+     -> lbl :~: VarCTX
+     -> CFG (CBlock rt) ins (Undefined lbl)
+     -> ( CFG (CBlock rt) ins (Defined [lbl ~> dest])
+        , DList (:~: VarCTX) [lbl ~> dest]
+        )
+close {lbl} dest ctx cfg = (omap (<+| Branch dest) cfg, [attach (lbl ~> dest) (detach ctx)])
+
 public export
 data CompileResult : LLType -> Edges Label -> Label -> InstrKind -> Type where
-  CRR : CFG (CBlock rt) ins Closed -> CompileResult rt ins lbl Returning
-  CRS : (lbls ** CFG (CBlock rt) ins (Defined $ lbls ~~> lbl))
+  CRR : CFG (CBlock rt) ins Closed
+     -> CompileResult rt ins lbl Returning
+  CRS : ( lbls
+       ** ( CFG (CBlock rt) ins (Defined $ lbls ~~> lbl)
+          , DList (:~: VarCTX) (lbls ~~> lbl)
+          )
+        )
      -> CompileResult rt ins lbl Simple
 
 
 export
 unwrapCR : CompileResult rt ins lbl kind
-          -> (outs ** CFG (CBlock rt) ins (Defined $ outs ~~> lbl))
-unwrapCR (CRR g) = ([] ** g)
-unwrapCR (CRS (outs ** g)) = (outs ** g)
+          -> ( outs
+            ** ( CFG (CBlock rt) ins (Defined $ outs ~~> lbl)
+               , DList (:~: VarCTX) (outs ~~> lbl)
+               )
+             )
+unwrapCR (CRR g) = ([] ** (g, []))
+unwrapCR (CRS (outs ** stuff)) = (outs ** stuff)
 
 export
 emptyCR : (lbl, lbl' : Label) -> lbl :~: VarCTX -> CompileResult rt (Undefined lbl) lbl' Simple
-emptyCR lbl lbl' ctx = CRS ([lbl] ** omap (<+| Branch lbl') (emptyCFG ctx))
+emptyCR lbl lbl' ctx = CRS ([lbl] ** (close lbl' ctx (emptyCFG {lbl})))
 
 
 
@@ -45,14 +63,14 @@ connectCR : CFG (CBlock rt) ins (Undefined lbl)
          -> CompileResult rt (Undefined lbl) lbl' k
          -> CompileResult rt ins lbl' k
 connectCR g (CRR g') = CRR $ connect g g'
-connectCR g (CRS (lbls ** g')) = CRS $ (lbls ** connect g g')
+connectCR g (CRS (lbls ** (g', ctxs))) = CRS $ (lbls ** (connect g g', ctxs))
 
 export
 seriesCR : CFG (CBlock rt) ins (Defined outs)
         -> CompileResult rt (Defined outs) lbl' k
         -> CompileResult rt ins lbl' k
 seriesCR g (CRR g') = CRR $ Series g g'
-seriesCR g (CRS (lbls ** g')) = CRS $ (lbls ** Series g g')
+seriesCR g (CRS (lbls ** (g', ctxs))) = CRS $ (lbls ** (Series g g', ctxs))
 
 
 export
@@ -65,23 +83,26 @@ parallelCR : {lbl : Label}
 parallelCR {lbl} (CRR lg) (CRR rg) = CRR $ Parallel lg rg
 
 -- Without the "case of" pattern match idris thinks the function is not covering
---parallelCR {lbl} (CRR lg) (CRS (routs ** rg)) = CRS (routs ** Parallel lg rg)
+--parallelCR {lbl} (CRR lg) (CRS (routs ** (rg, rctxs))) = CRS (routs ** (Parallel lg rg, rctxs))
 parallelCR {lbl} (CRR lg) (CRS dp) = case dp of
-  (routs ** rg) => CRS (routs ** Parallel lg rg)
+  (routs ** (rg, rctxs)) => CRS (routs ** (Parallel lg rg, rctxs))
 
-parallelCR {lbl} (CRS (louts ** lg)) (CRR rg) = let
+parallelCR {lbl} (CRS (louts ** (lg, lctxs))) (CRR rg) = let
 
   g = rewrite revEq $ concat_nil (louts ~~> lbl)
       in Parallel lg rg
 
-  in CRS (louts ** g)
+  in CRS (louts ** (g, lctxs))
 
-parallelCR {lbl} (CRS (louts ** lg)) (CRS (routs ** rg)) = let
+parallelCR {lbl} (CRS (louts ** (lg, lctxs))) (CRS (routs ** (rg, rctxs))) = let
 
   g = rewrite collect_concat lbl louts routs
       in Parallel lg rg
+  
+  ctxs = rewrite collect_concat lbl louts routs
+         in lctxs ++ rctxs
 
-  in CRS (louts ++ routs ** g)
+  in CRS (louts ++ routs ** (g, ctxs))
 
 
 
