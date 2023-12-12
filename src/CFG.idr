@@ -166,6 +166,7 @@ namespace Graph
                 -> vertex v vins vouts
                 -> CFG vertex (fromVIn vins v) (fromVOut v vouts)
     
+    -- TODO consider `CFG (ins ++ edges) (outs ++ edges) -> CFG ins outs` instead of this
     Cycle : {ins, outs, loopIns, loopOuts : List (Edge a)}
          -> (node : CFG vertex (Defined $ ins ++ loopOuts) (Defined $ loopIns ++ outs))
          -> (loop : CFG vertex (Defined loopIns) (Defined loopOuts))
@@ -177,8 +178,8 @@ namespace Graph
           -> CFG vertex ins outs
     
     
-    Parallel : CFG vertex (Defined ins) (Defined outs)
-            -> CFG vertex (Defined ins') (Defined outs')
+    Parallel : CFG vertex (Defined ins)           (Defined outs)
+            -> CFG vertex (Defined ins')          (Defined outs')
             -> CFG vertex (Defined $ ins ++ ins') (Defined $ outs ++ outs')
     
     
@@ -190,6 +191,21 @@ namespace Graph
     OFlip : {outs, outs' : List (Edge a)}
          -> CFG vertex ins (Defined $ outs ++ outs')
          -> CFG vertex ins (Defined $ outs' ++ outs)
+  
+  infixr 4 |-|
+  public export
+  (|-|) : CFG vertex (Defined ins)           (Defined outs)
+       -> CFG vertex (Defined ins')          (Defined outs')
+       -> CFG vertex (Defined $ ins ++ ins') (Defined $ outs ++ outs')
+  (|-|) = Parallel
+
+  infixr 5 *->
+  public export
+  (*->) : CFG vertex ins (Defined edges)
+       -> CFG vertex (Defined edges) outs
+       -> CFG vertex ins outs
+  (*->) = Series
+          
 
   public export
   prepend : {0 vertex : Vertex a}
@@ -198,7 +214,7 @@ namespace Graph
          -> vertex v vins (Just vouts)
          -> CFG vertex (Defined $ v ~>> vouts) gouts
          -> CFG vertex (fromVIn vins v) gouts
-  prepend v g = Series (SingleVertex v) g
+  prepend v g = (SingleVertex v) *-> g
 
   public export
   append : {vins : List a}
@@ -207,7 +223,7 @@ namespace Graph
         -> CFG vertex gins (Defined $ vins ~~> v)
         -> vertex v (Just vins) vouts
         -> CFG vertex gins (fromVOut v vouts)
-  append g v = Series g (SingleVertex v)
+  append g v = g *-> (SingleVertex v)
   
   branch : {0 vertex : Vertex a}
         -> {vins : Neighbors a}
@@ -217,7 +233,7 @@ namespace Graph
         -> (left  : CFG vertex (Single v w)  (Defined louts))
         -> (right : CFG vertex (Single v w') (Defined routs))
         -> CFG vertex (fromVIn vins v) (Defined $ louts ++ routs)
-  branch pre left right = prepend pre $ Parallel left right
+  branch pre left right = pre `prepend` (left |-| right)
 
   fullBranch : {0 vertex : Vertex a}
             -> {vins, vouts : Neighbors a}
@@ -228,35 +244,35 @@ namespace Graph
             -> (right  : CFG vertex (Single v w') (Single u' t))
             -> (post   : vertex t (Just [u, u']) vouts)
             -> CFG vertex (fromVIn vins v) (fromVOut t vouts)
-  fullBranch pre left right post = append (branch pre left right) post
+  fullBranch pre left right post = (branch pre left right) `append` post
 
   public export  
   lbranch : {ls, rs : List (Edge a)}
          -> (node   : CFG vertex ins (Defined $ ls ++ rs))
          -> (branch : CFG vertex (Defined ls) (Defined ls'))
          ->           CFG vertex ins (Defined $ ls' ++ rs)
-  lbranch node branch = node `Series` (branch `Parallel` Empty)
+  lbranch node branch = node *-> (branch |-| Empty)
 
   public export
   rbranch : {ls, rs : List (Edge a)}
          -> (node   : CFG vertex ins (Defined $ ls ++ rs))
          -> (branch : CFG vertex (Defined rs) (Defined rs'))
          ->           CFG vertex ins (Defined $ ls ++ rs')
-  rbranch node branch = node `Series` (Empty `Parallel` branch)
+  rbranch node branch = node *-> (Empty |-| branch)
 
   public export
   lmerge : {ls, rs  : List (Edge a)}
         -> (branch  : CFG vertex (Defined ls) (Defined ls'))
         -> (node    : CFG vertex (Defined $ ls' ++ rs) outs)
         ->            CFG vertex (Defined $ ls ++ rs) outs
-  lmerge branch node = (branch `Parallel` Empty) `Series` node
+  lmerge branch node = (branch |-| Empty) *-> node
 
   public export
   rmerge : {ls, rs  : List (Edge a)}
         -> (branch  : CFG vertex (Defined rs) (Defined rs'))
         -> (node    : CFG vertex (Defined $ ls ++ rs') outs)
         ->            CFG vertex (Defined $ ls ++ rs) outs
-  rmerge branch node = (Empty `Parallel` branch) `Series` node
+  rmerge branch node = (Empty |-| branch) *-> node
 
   export
   imap : {0 vertex : Vertex a}
@@ -310,6 +326,14 @@ namespace Graph
   connect (Cycle node loop)                     g' impossible
   connect (Parallel g g')                       g' impossible
   connect (OFlip g)                             g' impossible
+
+  infixr 5 *~>
+  export
+  (*~>) : (impl : Connectable vertex)
+       => CFG vertex ins (Undefined v)
+       -> CFG vertex (Undefined v) outs
+       -> CFG vertex ins outs
+  (*~>) = connect
   
 
   export

@@ -65,7 +65,7 @@ collectOuts {labelPost} dat = do
   let post : CFG (CBlock rt) (Defined $ dat.outs ~~> labelPost) (Undefined labelPost)
       post = SingleVertex (phis |++:> emptyCBlock)
   
-  let final = Series dat.cfg post
+  let final = dat.cfg *-> post
 
   pure $ MkDataUU { lblOut = labelPost, cfg = final, ctx }
 
@@ -158,7 +158,7 @@ mutual
     compile labelIn ctx (instr :: instrs) = do
       dat  <- compileInstrUU labelIn ctx instr
       dat' <- compile dat.lblOut dat.ctx instrs
-      pure $ { cfg $= connect dat.cfg } dat'
+      pure $ { cfg $= (dat.cfg *~>) } dat'
 
   -- Assign -------------------------------------------------------------------
   compileInstrUU labelIn ctx instr@(Assign var expr) = do
@@ -254,7 +254,7 @@ mutual
       compile labelIn ctx (instr :: instrs) = do
         dat <- compileInstrUU labelIn ctx instr
         res <- compile dat.lblOut dat.ctx instrs
-        pure $ connectCR dat.cfg res
+        pure (dat.cfg *~~> res)
 
 
   -- If -----------------------------------------------------------------------
@@ -287,9 +287,7 @@ mutual
     thenRes <- compileInstrDD condDat.outsT labelThen labelPost condDat.ctxsT instrThen
     elseRes <- compileInstrDD condDat.outsF labelElse labelPost condDat.ctxsF instrElse
 
-    let branches = parallelCR thenRes elseRes
-
-    let final = seriesCR condDat.cfg branches
+    let final = condDat.cfg *--> (thenRes |--| elseRes)
 
     pure final
 
@@ -308,7 +306,7 @@ mutual
         
     (pre', ctxs) <- pure pre
 
-    seriesCR pre' <$> compileInstrDD [labelIn] labelNodeIn labelPost ctxs instr
+    (pre' *-->) <$> compileInstrDD [labelIn] labelNodeIn labelPost ctxs instr
 
 
 
@@ -333,7 +331,7 @@ mutual
 
     let preG = imap (phis |++:>) emptyCFG
           
-    pure $ connectCR preG res
+    pure (preG *~~> res)
 
 
   export

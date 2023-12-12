@@ -156,7 +156,7 @@ mutual
     ((lbl ** g), val) <- compileExpr labelIn expr
     ((lbl' ** g'), vals) <- compileExprs lbl exprs
 
-    let g'' = connect g g'
+    let g'' = g *~> g'
     
     pure ((lbl' ** g''), val :: vals)
   
@@ -326,8 +326,7 @@ mutual
         postG = SingleVertex {vins = Just [labelTrue, labelFalse], vouts = Undefined} postBLK
 
 
-    let confluence = Series (Parallel trueG falseG) postG
-    let final = Series ifologyG confluence
+    let final = ifologyG *-> (trueG |-| falseG) *-> postG
     
     pure ((labelPost ** final), Var reg)
 
