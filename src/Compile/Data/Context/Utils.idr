@@ -53,12 +53,6 @@ record Segregated' (lbl : Label) (ins : List Label) where
 
 
 
-replicatePhi : (ins : List Label) -> LLValue t -> PhiExpr ins t
-replicatePhi {t} Nil val = case the (The t) (typeOf val) of { MkThe t' => Phi t' Nil }
-replicatePhi (lbl :: lbls) val = addInput lbl val $ replicatePhi lbls val
-
-
-
 addInput' : (lbl ~> lbl') :~: (LLValue t)
          -> Phi' lbl' ins t
          -> Phi' lbl' (lbl :: ins) t

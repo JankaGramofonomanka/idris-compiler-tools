@@ -292,45 +292,25 @@ mutual
                  -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1)
 
   compileBoolExpr labelIn expr = do
-    labelTrue <- lift freshLabel
-    labelFalse <- lift freshLabel
-    (outsT ** outsF ** ifologyG) <- ifology labelIn expr labelTrue labelFalse
-    
     labelPost <- lift freshLabel
-    
-    
-    trueBLK <- pure $ [] |++> emptyCBlock <+| Branch labelPost
-    
-    let trueG : CFG (CBlock rt) (Defined $ outsT ~~> labelTrue) (Defined [labelTrue ~> labelPost])
-        trueG = SingleVertex {vins = Just outsT, vouts = Just [labelPost]} trueBLK
-    
-    
-    falseBLK <- pure $ [] |++> emptyCBlock <+| Branch labelPost
-
-    let falseG : CFG (CBlock rt) (Defined $ outsF ~~> labelFalse) (Defined [labelFalse ~> labelPost])
-        falseG = SingleVertex {vins = Just outsF, vouts = Just [labelPost]} falseBLK
-    
+    (outsT ** outsF ** ifologyG) <- ifology labelIn expr labelPost labelPost
     
     reg <- lift (freshRegister I1)
 
-    let phi : PhiExpr [labelTrue, labelFalse] I1
-        phi = Phi I1 [(labelTrue, ILitV 1), (labelFalse, ILitV 0)]
+    let phi : PhiExpr (outsT ++ outsF) I1
+        phi = replicatePhi outsT (ILitV 1) `concatPhi` replicatePhi outsF (ILitV 0)
     
     let phiAssignment = AssignPhi reg phi
     
-    let postIns = [labelTrue, labelFalse]
-    
     postBLK <- pure $ phiAssignment |+> emptyCBlock
 
-    let postG : CFG (CBlock rt) (Defined [labelTrue ~> labelPost, labelFalse ~> labelPost]) (Undefined labelPost)
-        postG = SingleVertex {vins = Just [labelTrue, labelFalse], vouts = Undefined} postBLK
+    let postG : CFG (CBlock rt) (Defined $ (outsT ~~> labelPost) ++ (outsF ~~> labelPost)) (Undefined labelPost)
+        postG = rewrite revEq $ collect_concat labelPost outsT outsF
+                in SingleVertex {vins = Just (outsT ++ outsF), vouts = Undefined} postBLK
 
-
-    let final = ifologyG *-> (trueG |-| falseG) *-> postG
+    let final = ifologyG *-> postG
     
     pure ((labelPost ** final), Var reg)
-
-
 
 
 

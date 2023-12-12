@@ -416,18 +416,6 @@ mutual
 
     where
 
-      phiFromDList : The t
-                  -> (lbls : List Label)
-                  -> DList (:~: (LLValue t)) (lbls ~~> lbl)
-                  -> PhiExpr lbls t
-
-      phiFromDList (MkThe t) Nil Nil = Phi t Nil
-      phiFromDList theT (lbl :: lbls) (val :: vals)
-        = addInput lbl (detach val) (phiFromDList theT lbls vals)
-
-
-
-
       mkPhis : lbl :~: VarCTX'
             -> {lbls : List Label}
             -> DList (:~: VarCTX) (lbls ~~> lbl)
