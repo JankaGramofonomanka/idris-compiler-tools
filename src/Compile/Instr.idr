@@ -42,38 +42,32 @@ TODO: Figure out how to reduce the number of attachments and detachments
 -- Utils ----------------------------------------------------------------------
 --* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 jumpTo : (labelPost : Label)
-      -> ( labelOut
-        ** ( CFG (CBlock rt) (Undefined labelIn) (Undefined labelOut)
-           , labelOut :~: VarCTX
-           )
-         )
+      -> DataUU rt labelIn
       -> CompileResult rt (Undefined labelIn) labelPost Simple
-jumpTo labelPost (lbl ** (g, ctx)) = CRS ([lbl] ** (close labelPost ctx g))
+jumpTo labelPost dat = let
+  (cfg, ctxs) = close labelPost dat.ctx dat.cfg
+  in CRS $ MkDataXD { outs = [dat.lblOut], cfg, ctxs }
 
 jumpFrom : (lbl : Label)
         -> CompileResult rt (Undefined lbl')        lbl'' k
         -> CompileResult rt (Defined [lbl ~> lbl']) lbl'' k
 jumpFrom labelPre (CRR g) = CRR $ imap {ins = Just [labelPre]} ([] |++>) g
-jumpFrom labelPre (CRS (lbls ** (g, ctxs))) = let
-  g' = imap {ins = Just [labelPre]} ([] |++>) g
-  in CRS (lbls ** (g', ctxs))
+jumpFrom labelPre (CRS dat) = let
+  cfg' = imap {ins = Just [labelPre]} ([] |++>) dat.cfg
+  in CRS $ {cfg := cfg'} dat
 
 collectOuts : {labelPost : Label}
-  -> ( lbls
-    ** ( CFG (CBlock rt) (Undefined labelIn) (Defined $ lbls ~~> labelPost)
-       , DList (:~: VarCTX) (lbls ~~> labelPost)
-       )
-      )
-  -> CompM $ (labelOut ** (CFG (CBlock rt) (Undefined labelIn) (Undefined labelOut), labelOut :~: VarCTX))
-collectOuts {labelPost} (lbls ** (g, ctxs)) = do
-  SG ctxPost phis <- segregate ctxs
+  -> DataXD rt (Undefined labelIn) labelPost
+  -> CompM $ DataUU rt labelIn
+collectOuts {labelPost} dat = do
+  SG ctx phis <- segregate dat.ctxs
 
-  let post : CFG (CBlock rt) (Defined $ lbls ~~> labelPost) (Undefined labelPost)
+  let post : CFG (CBlock rt) (Defined $ dat.outs ~~> labelPost) (Undefined labelPost)
       post = SingleVertex (phis |++:> emptyCBlock)
   
-  let final = Series g post
+  let final = Series dat.cfg post
 
-  pure (labelPost ** (final, ctxPost))
+  pure $ MkDataUU { lblOut = labelPost, cfg = final, ctx }
 
 
 ifology' : (labelIn : Label)
@@ -81,39 +75,27 @@ ifology' : (labelIn : Label)
         -> (expr : Expr TBool)
         -> (lblT : Label)
         -> (lblF : Label)
-        -> CompM  ( outsT
-                 ** outsF
-                 ** ( CFG (CBlock rt)
-                          (Undefined labelIn)
-                          (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
-                    , DList (:~: VarCTX) (outsT ~~> lblT)
-                    , DList (:~: VarCTX) (outsF ~~> lblF)
-                    )
-                  )
+        -> CompM $ DataXD2 rt (Undefined labelIn) lblT lblF
 ifology' labelIn ctx expr lblT lblF = do
   (ctx, (outsT ** outsF ** cfg)) <- runStateT (detach ctx) $ ifology labelIn expr lblT lblF
 
   let ctxsT = replicate (outsT ~~> lblT) (`attach` ctx)
       ctxsF = replicate (outsF ~~> lblF) (`attach` ctx)
 
-  pure (outsT ** outsF ** (cfg, ctxsT, ctxsF))
+  pure $ MkDataXD2 { outsT, outsF, cfg, ctxsT, ctxsF }
 
                   
 
 compileExpr' : (labelIn : Label)
             -> (ctx : labelIn :~: VarCTX)
             -> (expr : Expr t)
-            -> CompM  ( ( lbl
-                       ** ( CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)
-                          , lbl :~: VarCTX
-                          )
-                        )
+            -> CompM  ( DataUU rt labelIn
                       , LLValue (GetLLType t)
                       )
 compileExpr' labelIn ctx expr = do
-  (ctx, ((lbl ** cfg), val)) <- runStateT (detach ctx) $ compileExpr labelIn expr
+  (ctx, ((lblOut ** cfg), val)) <- runStateT (detach ctx) $ compileExpr labelIn expr
 
-  pure ((lbl ** (cfg, attach lbl ctx)), val)
+  pure (MkDataUU { lblOut, cfg, ctx = attach lblOut ctx }, val)
 
 
 
@@ -160,11 +142,7 @@ mutual
   compileInstrUU : (labelIn : Label)
                 -> (ctx : labelIn :~: VarCTX)
                 -> (instr : Instr rt Simple)
-                -> CompM ( labelOut
-                        ** ( CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Undefined labelOut)
-                           , labelOut :~: VarCTX
-                           )
-                         )
+                -> CompM $ DataUU (GetLLType rt) labelIn
 
 
 
@@ -175,32 +153,27 @@ mutual
     compile : (labelIn : Label)
            -> (ctx : labelIn :~: VarCTX)
            -> (instrs : Instrs rt Simple)
-           -> CompM ( labelOut
-                   ** ( CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Undefined labelOut)
-                      , labelOut :~: VarCTX
-                      )
-                    )
-    compile labelIn ctx Nil = pure (labelIn ** (emptyCFG, ctx))
+           -> CompM $ DataUU (GetLLType rt) labelIn
+    compile labelIn ctx Nil = pure $ MkDataUU { lblOut = labelIn, cfg = emptyCFG, ctx }
     compile labelIn ctx (instr :: instrs) = do
-      (lbl ** (g, ctx')) <- compileInstrUU labelIn ctx instr
-      (lbl' ** (g', ctx'')) <- compile lbl ctx' instrs
-      pure $ (lbl' ** (connect g g', ctx''))
+      dat  <- compileInstrUU labelIn ctx instr
+      dat' <- compile dat.lblOut dat.ctx instrs
+      pure $ { cfg $= connect dat.cfg } dat'
 
   -- Assign -------------------------------------------------------------------
   compileInstrUU labelIn ctx instr@(Assign var expr) = do
 
-    ((lbl ** (g, ctx')), val) <- compileExpr' labelIn ctx expr
+    (dat, val) <- compileExpr' labelIn ctx expr
     
-    let ctx'' = map (insert var val) ctx'
-        -- add a comment marking the assignment and print the instruction
-        g' = omap ((<: mkSentence [prt var, "~", prt val]) . (<: prt instr)) g
-
-    pure (lbl ** (g', ctx''))
+    pure $ { -- add a comment marking the assignment and print the instruction
+             cfg $= omap ((<: mkSentence [prt var, "~", prt val]) . (<: prt instr))
+           , ctx $= map (insert var val)
+           } dat
 
   -- Exec ---------------------------------------------------------------------
   compileInstrUU labelIn ctx (Exec expr) = do
-    ((lbl ** g), val) <- compileExpr' labelIn ctx expr
-    pure (lbl ** g)
+    (dat, val) <- compileExpr' labelIn ctx expr
+    pure dat
 
   -- If -----------------------------------------------------------------------
   compileInstrUU labelIn ctx instr@(If cond instrThen)
@@ -234,11 +207,7 @@ mutual
   compileInstrUD' : (labelIn, labelPost : Label)
                  -> (ctx : labelIn :~: VarCTX)
                  -> (instr : Instr rt kind)
-                 -> CompM ( lbls
-                         ** ( CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Defined $ lbls ~~> labelPost)
-                            , DList (:~: VarCTX) (lbls ~~> labelPost)
-                            )
-                          )
+                 -> CompM $ DataXD (GetLLType rt) (Undefined labelIn) labelPost
   compileInstrUD' labelIn labelPost ctx instr = unwrapCR <$> compileInstrUD labelIn labelPost ctx instr
 
   export
@@ -257,10 +226,10 @@ mutual
 
   -- Return -------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx instr@(Return expr) = do
-      ((_ ** (g, _)), val) <- compileExpr' labelIn ctx expr
+      (dat, val) <- compileExpr' labelIn ctx expr
       
-      let g' = omap (<+| Ret val) g
-      pure (CRR g')
+      let cfg = omap (<+| Ret val) dat.cfg
+      pure (CRR cfg)
 
   -- RetVoid ------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx instr@RetVoid = do
@@ -283,28 +252,28 @@ mutual
       compile labelIn ctx Nil = pure (emptyCR labelIn labelPost ctx)
       compile labelIn ctx (TermSingleton instr) = compileInstrUD labelIn labelPost ctx instr
       compile labelIn ctx (instr :: instrs) = do
-        (lbl ** (g, ctx)) <- compileInstrUU labelIn ctx instr
-        res <- compile lbl ctx instrs
-        pure $ connectCR g res
+        dat <- compileInstrUU labelIn ctx instr
+        res <- compile dat.lblOut dat.ctx instrs
+        pure $ connectCR dat.cfg res
 
 
   -- If -----------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx (If cond instrThen) = do
 
     labelThen <- freshLabel
-    (outsT ** outsF ** (condG, ctxsT, ctxsF)) <- ifology' labelIn ctx cond labelThen labelPost
+    condDat <- ifology' labelIn ctx cond labelThen labelPost
     
-    (branchOuts ** (thenG, ctxsT')) <- compileInstrDD' outsT labelThen labelPost ctxsT instrThen
+    branchDat <- compileInstrDD' condDat.outsT labelThen labelPost condDat.ctxsT instrThen
     
-    let final : CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Defined $ (branchOuts ++ outsF) ~~> labelPost)
-        final = rewrite collect_concat labelPost branchOuts outsF
-                in LBranch condG thenG
+    let final : CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Defined $ (branchDat.outs ++ condDat.outsF) ~~> labelPost)
+        final = rewrite collect_concat labelPost branchDat.outs condDat.outsF
+                in LBranch condDat.cfg branchDat.cfg
     
-    let ctxs = rewrite collect_concat labelPost branchOuts outsF
-               in ctxsT' ++ ctxsF
+    let ctxs = rewrite collect_concat labelPost branchDat.outs condDat.outsF
+               in branchDat.ctxs ++ condDat.ctxsF
     
     
-    pure $ CRS (branchOuts ++ outsF ** (final, ctxs))
+    pure $ CRS (MkDataXD { outs = branchDat.outs ++ condDat.outsF, cfg = final, ctxs })
     
 
 
@@ -314,14 +283,14 @@ mutual
 
     labelThen <- freshLabel
     labelElse <- freshLabel
-    (outsT ** outsF ** (condG, ctxsT, ctxsF)) <- ifology' labelIn ctx cond labelThen labelElse
+    condDat <- ifology' labelIn ctx cond labelThen labelElse
 
-    thenRes <- compileInstrDD outsT labelThen labelPost ctxsT instrThen
-    elseRes <- compileInstrDD outsF labelElse labelPost ctxsF instrElse
+    thenRes <- compileInstrDD condDat.outsT labelThen labelPost condDat.ctxsT instrThen
+    elseRes <- compileInstrDD condDat.outsF labelElse labelPost condDat.ctxsF instrElse
 
     let branches = parallelCR thenRes elseRes
 
-    let final = seriesCR condG branches
+    let final = seriesCR condDat.cfg branches
 
     pure final
 
@@ -373,11 +342,7 @@ mutual
                  -> (labelIn, labelPost : Label)
                  -> (ctxs : DList (:~: VarCTX) (pre ~~> labelIn))
                  -> (instr : Instr rt kind)
-                 -> CompM ( lbls
-                         ** ( CFG (CBlock $ GetLLType rt) (Defined $ pre ~~> labelIn) (Defined $ lbls ~~> labelPost)
-                            , DList (:~: VarCTX) (lbls ~~> labelPost)
-                            )
-                          )
+                 -> CompM $ DataXD (GetLLType rt) (Defined $ pre ~~> labelIn) labelPost
   compileInstrDD' pre labelIn labelPost ctxs instr = unwrapCR <$> compileInstrDD pre labelIn labelPost ctxs instr
 
   export
@@ -430,28 +395,28 @@ mutual
 
     labelLoop <- freshLabel
 
-    (outsT ** outsF ** (nodeG, ctxsLoop, ctxsPost)) <- ifology' labelNodeIn ctxNode cond labelLoop labelPost
+    condDat <- ifology' labelNodeIn ctxNode cond labelLoop labelPost
 
 
-    (loopOuts ** (loop, ctxsLoopOut)) <- compileInstrDD' outsT labelLoop labelNodeIn ctxsLoop loop
-    
-    let ctxs  : DList (:~: VarCTX) ((pre ++ loopOuts) ~~> labelNodeIn)
-        ctxs  = rewrite collect_concat labelNodeIn pre loopOuts
-                in ctxsIn ++ ctxsLoopOut
+    loopDat <- compileInstrDD' condDat.outsT labelLoop labelNodeIn condDat.ctxsT loop
+
+    let ctxs  : DList (:~: VarCTX) ((pre ++ loopDat.outs) ~~> labelNodeIn)
+        ctxs  = rewrite collect_concat labelNodeIn pre loopDat.outs
+                in ctxsIn ++ loopDat.ctxs
 
 
     phis <- mkPhis ctxNode' ctxs
 
-    let node' : CFG (CBlock $ GetLLType rt)
-                    (Defined $ pre ~~> labelNodeIn ++ loopOuts ~~> labelNodeIn)
-                    (Defined $ (outsT ~~> labelLoop) ++ (outsF ~~> labelPost))
-        node' = rewrite revEq $ collect_concat labelNodeIn pre loopOuts
-                in imap (phis |++:>) nodeG
-    
-    let final = Cycle node' loop
-    
-    pure $ CRS (outsF ** (final, ctxsPost))
-    
+    let nodeG : CFG (CBlock $ GetLLType rt)
+                    (Defined $ pre ~~> labelNodeIn ++ loopDat.outs ~~> labelNodeIn)
+                    (Defined $ (condDat.outsT ~~> labelLoop) ++ (condDat.outsF ~~> labelPost))
+        nodeG = rewrite revEq $ collect_concat labelNodeIn pre loopDat.outs
+                in imap (phis |++:>) condDat.cfg
+
+    let final = Cycle nodeG loopDat.cfg
+
+    pure $ CRS (MkDataXD { outs = condDat.outsF, cfg = final, ctxs = condDat.ctxsF })
+
     where
 
       phiFromDList : The t
@@ -470,7 +435,7 @@ mutual
             -> {lbls : List Label}
             -> DList (:~: VarCTX) (lbls ~~> lbl)
             -> CompM $ List (PhiInstr lbls, Maybe String)
-      
+
       mkPhis ctx {lbls} ctxs = traverse mkPhi' (toList $ detach ctx) where
         
         mkPhi' : (DSum Variable (Reg . GetLLType))
@@ -491,7 +456,7 @@ mutual
 
             getVal key ctx = do
               let Just val  = lookup key ctx
-                            | Nothing => throwError $ Impossible "variable non existent in loop body or node context"
+                            | Nothing => throwError $ Impossible "variable non existent in loop body or nodeG context"
               pure val
       
 

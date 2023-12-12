@@ -31,30 +31,49 @@ close : (dest : Label)
 close {lbl} dest ctx cfg = (omap (<+| Branch dest) cfg, [attach (lbl ~> dest) (detach ctx)])
 
 public export
+record DataUU (rt : LLType) (lblIn : Label) where
+  constructor MkDataUU
+  lblOut : Label
+  cfg : CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+  ctx : lblOut :~: VarCTX
+
+public export
+record DataXD (rt : LLType) (ins : Edges Label) (dest : Label) where
+  constructor MkDataXD
+  outs : List Label
+  cfg : CFG (CBlock rt) ins (Defined $ outs ~~> dest)
+  ctxs : DList (:~: VarCTX) (outs ~~> dest)
+
+public export
+record DataXD2 (rt : LLType) (ins : Edges Label) (lblT, lblF : Label) where
+  constructor MkDataXD2
+  outsT : List Label
+  outsF : List Label
+  
+  cfg : CFG (CBlock rt) ins (Defined $ (outsT ~~> lblT) ++ (outsF ~~> lblF))
+  
+  ctxsT : DList (:~: VarCTX) (outsT ~~> lblT)
+  ctxsF : DList (:~: VarCTX) (outsF ~~> lblF)
+
+public export
 data CompileResult : LLType -> Edges Label -> Label -> InstrKind -> Type where
   CRR : CFG (CBlock rt) ins Closed
      -> CompileResult rt ins lbl Returning
-  CRS : ( lbls
-       ** ( CFG (CBlock rt) ins (Defined $ lbls ~~> lbl)
-          , DList (:~: VarCTX) (lbls ~~> lbl)
-          )
-        )
+  CRS : DataXD rt ins lbl
      -> CompileResult rt ins lbl Simple
 
 
 export
 unwrapCR : CompileResult rt ins lbl kind
-          -> ( outs
-            ** ( CFG (CBlock rt) ins (Defined $ outs ~~> lbl)
-               , DList (:~: VarCTX) (outs ~~> lbl)
-               )
-             )
-unwrapCR (CRR g) = ([] ** (g, []))
-unwrapCR (CRS (outs ** stuff)) = (outs ** stuff)
+        -> DataXD rt ins lbl
+unwrapCR (CRR cfg) = MkDataXD { outs = [], cfg, ctxs = [] }
+unwrapCR (CRS dat) = dat
 
 export
 emptyCR : (lbl, lbl' : Label) -> lbl :~: VarCTX -> CompileResult rt (Undefined lbl) lbl' Simple
-emptyCR lbl lbl' ctx = CRS ([lbl] ** (close lbl' ctx (emptyCFG {lbl})))
+emptyCR lbl lbl' ctx = let
+  (cfg, ctxs) = (close lbl' ctx (emptyCFG {lbl}))
+  in CRS (MkDataXD { outs = [lbl], cfg, ctxs })
 
 
 
@@ -63,18 +82,18 @@ connectCR : CFG (CBlock rt) ins (Undefined lbl)
          -> CompileResult rt (Undefined lbl) lbl' k
          -> CompileResult rt ins lbl' k
 connectCR g (CRR g') = CRR $ connect g g'
-connectCR g (CRS (lbls ** (g', ctxs))) = CRS $ (lbls ** (connect g g', ctxs))
+connectCR g (CRS dat) = CRS $ { cfg $= connect g } dat
 
 export
 seriesCR : CFG (CBlock rt) ins (Defined outs)
         -> CompileResult rt (Defined outs) lbl' k
         -> CompileResult rt ins lbl' k
 seriesCR g (CRR g') = CRR $ Series g g'
-seriesCR g (CRS (lbls ** (g', ctxs))) = CRS $ (lbls ** (Series g g', ctxs))
+seriesCR g (CRS dat) = CRS $ { cfg $= Series g } dat
 
 
 export
-parallelCR : {lbl : Label}
+parallelCR : {0 lbl : Label}
           -> (lres : CompileResult rt (Defined ledges) lbl lk)
           -> (rres : CompileResult rt (Defined redges) lbl rk)
           
@@ -82,27 +101,29 @@ parallelCR : {lbl : Label}
 
 parallelCR {lbl} (CRR lg) (CRR rg) = CRR $ Parallel lg rg
 
--- Without the "case of" pattern match idris thinks the function is not covering
---parallelCR {lbl} (CRR lg) (CRS (routs ** (rg, rctxs))) = CRS (routs ** (Parallel lg rg, rctxs))
-parallelCR {lbl} (CRR lg) (CRS dp) = case dp of
-  (routs ** (rg, rctxs)) => CRS (routs ** (Parallel lg rg, rctxs))
+parallelCR {lbl} (CRR lg) (CRS rdat) = CRS $ { cfg $= Parallel lg } rdat
 
-parallelCR {lbl} (CRS (louts ** (lg, lctxs))) (CRR rg) = let
+-- TODO try without pattern matching on DataXD
+parallelCR {lbl} (CRS (MkDataXD { outs, cfg = lg, ctxs })) (CRR rg)
+  = let
 
-  g = rewrite revEq $ concat_nil (louts ~~> lbl)
-      in Parallel lg rg
+    g = rewrite revEq $ concat_nil (outs ~~> lbl)
+        in Parallel lg rg
 
-  in CRS (louts ** (g, lctxs))
+    in CRS $ MkDataXD { outs, cfg = g, ctxs }
 
-parallelCR {lbl} (CRS (louts ** (lg, lctxs))) (CRS (routs ** (rg, rctxs))) = let
+-- TODO try without pattern matching on DataXD
+parallelCR {lbl} (CRS (MkDataXD { outs = louts, cfg = lg, ctxs = lctxs }))
+                 (CRS (MkDataXD { outs = routs, cfg = rg, ctxs = rctxs }))
+  = let
 
-  g = rewrite collect_concat lbl louts routs
-      in Parallel lg rg
-  
-  ctxs = rewrite collect_concat lbl louts routs
-         in lctxs ++ rctxs
+    cfg = rewrite collect_concat lbl louts routs
+          in Parallel lg rg
+    
+    ctxs = rewrite collect_concat lbl louts routs
+           in lctxs ++ rctxs
 
-  in CRS (louts ++ routs ** (g, ctxs))
+    in CRS $ MkDataXD { outs = louts ++ routs, cfg, ctxs }
 
 
 
