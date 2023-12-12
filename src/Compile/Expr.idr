@@ -245,7 +245,7 @@ mutual
                     (Defined $ outsT ~~> lblT ++ (outsF' ++ outsF) ~~> lblF)
         final = rewrite collect_concat lblF outsF' outsF
                 in rewrite concat_assoc (outsT ~~> lblT) (outsF' ~~> lblF) (outsF ~~> lblF)
-                in LBranch gl gr'
+                in lbranch gl gr'
     
     pure (outsT ** outsF' ++ outsF ** final)
   
@@ -263,7 +263,7 @@ mutual
                     (Defined ((outsT ++ outsT') ~~> lblT ++ outsF ~~> lblF))
         final = rewrite collect_concat lblT outsT outsT'
                 in rewrite revEq $ concat_assoc (outsT ~~> lblT) (outsT' ~~> lblT) (outsF ~~> lblF)
-                in RBranch gl gr'
+                in rbranch gl gr'
     
     pure (outsT ++ outsT' ** outsF ** final)
   

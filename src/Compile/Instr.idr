@@ -267,12 +267,11 @@ mutual
     
     let final : CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Defined $ (branchDat.outs ++ condDat.outsF) ~~> labelPost)
         final = rewrite collect_concat labelPost branchDat.outs condDat.outsF
-                in LBranch condDat.cfg branchDat.cfg
-    
+                in lbranch condDat.cfg branchDat.cfg
+
     let ctxs = rewrite collect_concat labelPost branchDat.outs condDat.outsF
                in branchDat.ctxs ++ condDat.ctxsF
-    
-    
+
     pure $ CRS (MkDataXD { outs = branchDat.outs ++ condDat.outsF, cfg = final, ctxs })
     
 

@@ -159,6 +159,8 @@ namespace Graph
   public export
   data CFG : Vertex a -> Edges a -> Edges a -> Type where
 
+    Empty : CFG vertex (Defined edges) (Defined edges)
+    
     SingleVertex : {0 vertex : Vertex a}
                 -> {vins, vouts : Neighbors a}
                 -> vertex v vins vouts
@@ -174,28 +176,6 @@ namespace Graph
           -> CFG vertex (Defined edges) outs
           -> CFG vertex ins outs
     
-    
-    LBranch : {ls, rs : List (Edge a)}
-           -> (node   : CFG vertex ins (Defined $ ls ++ rs))
-           -> (branch : CFG vertex (Defined ls) (Defined ls'))
-           ->           CFG vertex ins (Defined $ ls' ++ rs)
-    
-    RBranch : {ls, rs : List (Edge a)}
-           -> (node   : CFG vertex ins (Defined $ ls ++ rs))
-           -> (branch : CFG vertex (Defined rs) (Defined rs'))
-           ->           CFG vertex ins (Defined $ ls ++ rs')
-
-    
-    LMerge : {ls, rs  : List (Edge a)}
-          -> (branch  : CFG vertex (Defined ls) (Defined ls'))
-          -> (node    : CFG vertex (Defined $ ls' ++ rs) outs)
-          ->            CFG vertex (Defined $ ls ++ rs) outs
-    
-    RMerge : {ls, rs  : List (Edge a)}
-          -> (branch  : CFG vertex (Defined rs) (Defined rs'))
-          -> (node    : CFG vertex (Defined $ ls ++ rs') outs)
-          ->            CFG vertex (Defined $ ls ++ rs) outs
-         
     
     Parallel : CFG vertex (Defined ins) (Defined outs)
             -> CFG vertex (Defined ins') (Defined outs')
@@ -249,7 +229,35 @@ namespace Graph
             -> (post   : vertex t (Just [u, u']) vouts)
             -> CFG vertex (fromVIn vins v) (fromVOut t vouts)
   fullBranch pre left right post = append (branch pre left right) post
-  
+
+  public export  
+  lbranch : {ls, rs : List (Edge a)}
+         -> (node   : CFG vertex ins (Defined $ ls ++ rs))
+         -> (branch : CFG vertex (Defined ls) (Defined ls'))
+         ->           CFG vertex ins (Defined $ ls' ++ rs)
+  lbranch node branch = node `Series` (branch `Parallel` Empty)
+
+  public export
+  rbranch : {ls, rs : List (Edge a)}
+         -> (node   : CFG vertex ins (Defined $ ls ++ rs))
+         -> (branch : CFG vertex (Defined rs) (Defined rs'))
+         ->           CFG vertex ins (Defined $ ls ++ rs')
+  rbranch node branch = node `Series` (Empty `Parallel` branch)
+
+  public export
+  lmerge : {ls, rs  : List (Edge a)}
+        -> (branch  : CFG vertex (Defined ls) (Defined ls'))
+        -> (node    : CFG vertex (Defined $ ls' ++ rs) outs)
+        ->            CFG vertex (Defined $ ls ++ rs) outs
+  lmerge branch node = (branch `Parallel` Empty) `Series` node
+
+  public export
+  rmerge : {ls, rs  : List (Edge a)}
+        -> (branch  : CFG vertex (Defined rs) (Defined rs'))
+        -> (node    : CFG vertex (Defined $ ls ++ rs') outs)
+        ->            CFG vertex (Defined $ ls ++ rs) outs
+  rmerge branch node = (Empty `Parallel` branch) `Series` node
+
   export
   imap : {0 vertex : Vertex a}
           -> {ins : Neighbors a}
@@ -260,15 +268,12 @@ namespace Graph
 
   imap f (SingleVertex {vins = Nothing} v)  = SingleVertex (f v)
   imap f (Series g g')                      = Series (imap f g) g'
-  imap f (LBranch g g')                     = LBranch (imap f g) g'
-  imap f (RBranch g g')                     = RBranch (imap f g) g'
   
   imap f (OFlip g)                          = OFlip (imap f g)
   
+  imap f Empty                              impossible
   imap f (SingleVertex {vins = Just ins} v) impossible
   imap f (Cycle node loop)                  impossible
-  imap f (LMerge g g')                      impossible
-  imap f (RMerge g g')                      impossible
   imap f (Parallel g g')                    impossible
   imap f (IFlip g)                          impossible
   
@@ -282,14 +287,11 @@ namespace Graph
 
   omap f (SingleVertex {vouts = Nothing} v)   = SingleVertex (f v)
   omap f (Series g g')                        = Series g (omap f g')
-  omap f (LMerge g g')                        = LMerge g (omap f g')
-  omap f (RMerge g g')                        = RMerge g (omap f g')
   omap f (IFlip g)                            = IFlip (omap f g)
   
+  omap f Empty                                impossible
   omap f (SingleVertex {vouts = Just outs} v) impossible
   omap f (Cycle node loop)                    impossible
-  omap f (LBranch g g')                       impossible
-  omap f (RBranch g g')                       impossible
   omap f (Parallel g g')                      impossible
   omap f (OFlip g)                            impossible
 
@@ -301,14 +303,11 @@ namespace Graph
 
   connect (SingleVertex {vouts = Nothing} v)  g   = imap (cnct @{impl} v) g
   connect (Series g g')                       g'' = Series g (connect g' g'')
-  connect (LMerge g g')                       g'' = LMerge g (connect g' g'')
-  connect (RMerge g g')                       g'' = RMerge g (connect g' g'')
   connect (IFlip g)                           g'  = IFlip (connect g g')
 
+  connect Empty                                 g' impossible
   connect (SingleVertex {vouts = Just outs} v)  g' impossible
   connect (Cycle node loop)                     g' impossible
-  connect (LBranch g g')                        g' impossible
-  connect (RBranch g g')                        g' impossible
   connect (Parallel g g')                       g' impossible
   connect (OFlip g)                             g' impossible
   
@@ -327,14 +326,11 @@ namespace Graph
       -> b
   iget f (SingleVertex {vins = Nothing} v)  = f v
   iget f (Series g g')                      = iget f g
-  iget f (LBranch g g')                     = iget f g
-  iget f (RBranch g g')                     = iget f g
   iget f (OFlip g)                          = iget f g
   
+  iget f Empty                              impossible
   iget f (SingleVertex {vins = Just ins} v) impossible
   iget f (Cycle node loop)                  impossible
-  iget f (LMerge g g')                      impossible
-  iget f (RMerge g g')                      impossible
   iget f (Parallel g g')                    impossible
   iget f (IFlip g)                          impossible
 
@@ -346,44 +342,13 @@ namespace Graph
 
   oget f (SingleVertex {vouts = Nothing} v)   = f v
   oget f (Series g g')                        = oget f g'
-  oget f (LMerge g g')                        = oget f g'
-  oget f (RMerge g g')                        = oget f g'
   oget f (IFlip g)                            = oget f g
   
+  oget f Empty                                impossible
   oget f (SingleVertex {vouts = Just outs} v) impossible
   oget f (Cycle node loop)                    impossible
-  oget f (LBranch g g')                       impossible
-  oget f (RBranch g g')                       impossible
   oget f (Parallel g g')                      impossible
   oget f (OFlip g)                            impossible
-
-
-
-  export
-  oget' : {0 vertex : Vertex a}
-       -> ({0 v : a} -> {ins : Neighbors a} -> {outs : List a} -> vertex v ins (Just outs) -> DList g (v ~>> outs))
-       -> CFG vertex gins (Defined gouts)
-       -> DList g gouts
-
-  oget' f (SingleVertex {vouts = Nothing} v)      impossible
-
-  oget' f (SingleVertex {v, vouts = Just outs} w) = f w
-  oget' f (Cycle node loop)                       = snd . split $ oget' f node
-  oget' f (Series g g')                           = oget' f g'
-
-  oget' f (LBranch g g')                          = let (lhs, rhs) = split (oget' f g)
-                                                    in oget' f g' ++ rhs
-  
-  oget' f (RBranch g g')                          = let (lhs, rhs) = split (oget' f g)
-                                                    in lhs ++ oget' f g'
-  
-  oget' f (LMerge g g')                           = oget' f g'
-  oget' f (RMerge g g')                           = oget' f g'
-  oget' f (Parallel g g')                         = oget' f g ++ oget' f g'
-  oget' f (IFlip g)                               = oget' f g
-  
-  oget' f (OFlip g)                               = let (lres, rres) = split (oget' f g)
-                                                    in rres ++ lres
 
 
 
@@ -399,13 +364,10 @@ namespace Graph
       -> CFG vertex ins outs
       -> CFG vertex' ins outs
 
+  vmap f Empty              = Empty
   vmap f (SingleVertex v)   = SingleVertex (f v)
   vmap f (Cycle node loop)  = Cycle (vmap f node) (vmap f loop)
   vmap f (Series g g')      = Series (vmap f g) (vmap f g')
-  vmap f (LBranch g g')     = LBranch (vmap f g) (vmap f g')
-  vmap f (RBranch g g')     = RBranch (vmap f g) (vmap f g')
-  vmap f (LMerge g g')      = LMerge (vmap f g) (vmap f g')
-  vmap f (RMerge g g')      = RMerge (vmap f g) (vmap f g')
   vmap f (Parallel g g')    = Parallel (vmap f g) (vmap f g')
   vmap f (IFlip g)          = IFlip (vmap f g)
   vmap f (OFlip g)          = OFlip (vmap f g)
@@ -422,13 +384,13 @@ namespace Graph
       -> CFG vertex (Defined ins) (Defined outs)
       -> CFG vertex' (Defined ins) (Defined outs)
 
-  vmap' f (SingleVertex {vins = Just ins, vouts = Just outs} v)  = SingleVertex (f v)
+  vmap' f (SingleVertex {vins = Just ins, vouts = Just outs} v) = SingleVertex (f v)
+  vmap' f Empty             = Empty
   vmap' f (Cycle node loop) = Cycle (vmap' f node) (vmap' f loop)
   vmap' f (Series g g')     = Series (vmap' f g) (vmap' f g')
-  vmap' f (LBranch g g')    = LBranch (vmap' f g) (vmap' f g')
-  vmap' f (RBranch g g')    = RBranch (vmap' f g) (vmap' f g')
-  vmap' f (LMerge g g')     = LMerge (vmap' f g) (vmap' f g')
-  vmap' f (RMerge g g')     = RMerge (vmap' f g) (vmap' f g')
   vmap' f (Parallel g g')   = Parallel (vmap' f g) (vmap' f g')
   vmap' f (IFlip g)         = IFlip (vmap' f g)
   vmap' f (OFlip g)         = OFlip (vmap' f g)
+
+  vmap' f (SingleVertex {vins  = Nothing} v) impossible
+  vmap' f (SingleVertex {vouts = Nothing} v) impossible
