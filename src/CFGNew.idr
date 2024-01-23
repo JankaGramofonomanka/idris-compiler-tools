@@ -342,6 +342,71 @@ namespace Graph
   imap f (IFlip g)                          impossible
   -}
 
+
+  prependU
+     : (impl : Connectable vertex)
+    => {lbl : a}
+    -> vertex lbl Undefined Undefined
+    -> CFG {a} vertex (Undefined lbl :: gins) outs
+    -> CFG {a} vertex (Undefined lbl :: gins) outs
+  
+  prependU v (Empty {edges = Undefined lbl :: gins}) = Parallel {ins = [Undefined lbl], ins' = gins} (VertexUU v) Empty
+  prependU v (VertexUU w) = singleVertex (cnct @{impl} v w)
+  prependU v (VertexUD w) = singleVertex (cnct @{impl} v w)
+  prependU v (Cycle node loop) = Cycle (v `prependU` node) loop
+  prependU v (Series g g')     = Series (v `prependU` g) g'
+  prependU v (OFlip g)         = OFlip (v `prependU` g)
+  
+  prependU v (Parallel {ins = Nil} g g') = Parallel g (v `prependU` g')
+  prependU v (Parallel {ins = (Undefined v' :: edgs)} g g') = Parallel (v `prependU` g) g'
+  
+  prependU v (IFlip {ins, ins' = Undefined v' :: edgs'} g) = v `prependU` IFlip g
+  prependU v (IFlip {ins = Undefined v' :: edgs, ins' = Nil} g) = rewrite revEq $ concat_nil edgs in prependU v g
+
+  prependU v (IFlip {ins = Nil, ins' = Nil} g) impossible
+
+  prependU v (VertexDU w {vins = Nil})    impossible
+  prependU v (VertexDU w {vins = (_::_)}) impossible
+
+  prependU v (VertexDD w {vins = Nil})    impossible
+  prependU v (VertexDD w {vins = (_::_)}) impossible
+
+  prependD
+     : (impl : Connectable vertex)
+    => {vins : List a}
+    -> {lbl : a}
+    -> vertex lbl (Just vins) Undefined
+    -> CFG vertex (Undefined lbl :: gins) outs
+    -> CFG vertex ((vins ~~> lbl) ++ gins) outs
+  
+  prependD v (Empty {edges = Undefined lbl :: gins}) = Parallel {ins = vins ~~> lbl, ins' = gins} (VertexDU v) Empty
+  prependD v (VertexUU w) = rewrite concat_nil (vins ~~> lbl) in singleVertex (cnct @{impl} v w)
+  prependD v (VertexUD w) = rewrite concat_nil (vins ~~> lbl) in singleVertex (cnct @{impl} v w)
+  prependD v (Cycle {loopOuts} node loop)
+    = let
+        node' = rewrite revEq $ concat_assoc (vins ~~> lbl) gins loopOuts
+                in prependD v node
+      in Cycle node' loop
+  
+  prependD v (Series g g')     = Series (v `prependD` g) g'
+  prependD v (OFlip g)         = OFlip (v `prependD` g)
+  
+  prependD v (Parallel {ins = Nil} g g') = Parallel g (v `prependD` g')
+  prependD v (Parallel {ins = (Undefined v' :: edgs), ins'} g g')
+    = rewrite concat_assoc (vins ~~> lbl) edgs ins'
+      in Parallel (v `prependD` g) g'
+  
+  prependD v (IFlip {ins, ins' = Undefined v' :: edgs'} g) = v `prependD` IFlip g
+  prependD v (IFlip {ins = Undefined v' :: edgs, ins' = Nil} g) = rewrite revEq $ concat_nil edgs in v `prependD` g
+
+  prependD v (IFlip {ins = Nil, ins' = Nil} g) impossible
+  
+  prependD v (VertexDU w {vins = Nil})    impossible
+  prependD v (VertexDU w {vins = (_::_)}) impossible
+
+  prependD v (VertexDD w {vins = Nil})    impossible
+  prependD v (VertexDD w {vins = (_::_)}) impossible
+
   {-
   export
   omap : {0 vertex : Vertex a}
