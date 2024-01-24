@@ -1,6 +1,6 @@
 module CFGNew
 
-import Data.DList
+--import Data.DList
 import Theory
 
 {-
@@ -174,28 +174,10 @@ namespace Graph
     Empty : {edges : Edges a}
          -> CFG vertex edges edges
     
-    --SingleVertex : {0 vertex : Vertex a}
-    --            -> {vins, vouts : Neighbors a}
-    --            -> vertex v vins vouts
-    --            -> CFG vertex (fromVIn vins v) (fromVOut v vouts)
-    VertexUU : {0 vertex : Vertex a}
-            -> vertex v Nothing Nothing
-            -> CFG vertex [Undefined v] [Undefined v]
-
-    VertexUD : {0 vertex : Vertex a}
-            -> {vouts : List a}
-            -> vertex v Nothing (Just vouts)
-            -> CFG vertex [Undefined v] (v ~>> vouts)
-
-    VertexDU : {0 vertex : Vertex a}
-            -> {vins : List a}
-            -> vertex v (Just vins) Nothing
-            -> CFG vertex (vins ~~> v) [Undefined v]
-
-    VertexDD : {0 vertex : Vertex a}
-            -> {vins, vouts : List a}
-            -> vertex v (Just vins) (Just vouts)
-            -> CFG vertex (vins ~~> v) (v ~>> vouts)
+    SingleVertex : {0 vertex : Vertex a}
+                -> {vins, vouts : Neighbors a}
+                -> vertex v vins vouts
+                -> CFG vertex (fromVIn vins v) (fromVOut v vouts)
 
     
     -- TODO consider `CFG (ins ++ edges) (outs ++ edges) -> CFG ins outs` instead of this
@@ -241,16 +223,6 @@ namespace Graph
        -> CFG vertex edges outs
        -> CFG vertex ins   outs
   (*->) = Series
-
-  public export
-  singleVertex : {0 vertex : Vertex a}
-              -> {vins, vouts : Neighbors a}
-              -> vertex v vins vouts
-              -> CFG vertex (fromVIn vins v) (fromVOut v vouts)
-  singleVertex {vins = Nothing,  vouts = Nothing}   v = VertexUU v
-  singleVertex {vins = Just ins, vouts = Nothing}   v = VertexDU v
-  singleVertex {vins = Nothing,  vouts = Just outs} v = VertexUD v
-  singleVertex {vins = Just ins, vouts = Just outs} v = VertexDD v
 
   {-
   public export
@@ -351,9 +323,12 @@ namespace Graph
     -> CFG {a} vertex (fromVIn vins lbl ++ gins) outs
   
   prepend v (Empty {edges = Undefined lbl :: gins})
-    = Parallel {ins = fromVIn vins lbl, ins' = gins} (singleVertex v) Empty
-  prepend v (VertexUU w) = rewrite concat_nil (fromVIn vins lbl) in singleVertex (cnct @{impl} v w)
-  prepend v (VertexUD w) = rewrite concat_nil (fromVIn vins lbl) in singleVertex (cnct @{impl} v w)
+    = Parallel {ins = fromVIn vins lbl, ins' = gins} (SingleVertex v) Empty
+  
+  prepend v (SingleVertex {vins = Nothing} w) = rewrite concat_nil (fromVIn vins lbl) in SingleVertex (cnct @{impl} v w)
+  prepend v (SingleVertex {vins = Just Nil} w) impossible
+  prepend v (SingleVertex {vins = Just (edg :: edgs)} w) impossible
+
   prepend v (Cycle {loopOuts} node loop)
     = let
         node' = rewrite revEq $ concat_assoc (fromVIn vins lbl) gins loopOuts
@@ -372,14 +347,6 @@ namespace Graph
   prepend v (IFlip {ins = Undefined v' :: edgs, ins' = Nil} g) = rewrite revEq $ concat_nil edgs in v `prepend` g
 
   prepend v (IFlip {ins = Nil, ins' = Nil} g) impossible
-  
-  prepend v (VertexDU w {vins = Nil})    impossible
-  prepend v (VertexDU w {vins = (_::_)}) impossible
-
-  prepend v (VertexDD w {vins = Nil})    impossible
-  prepend v (VertexDD w {vins = (_::_)}) impossible
-
-  
 
   {-
   export
