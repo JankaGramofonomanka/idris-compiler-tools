@@ -3,3 +3,4 @@ build
 tests/*.ll
 tests/*.bc
 tests/*.out
+.vscode/
