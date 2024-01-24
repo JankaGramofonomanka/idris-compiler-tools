@@ -290,7 +290,7 @@ record BasicBlock
   (label    : Label)
   (inputs   : List Label)
   (outputs  : List Label)
-where
+  where
   constructor MkBasicBlock
   theLabel  : The label
   phis      : List (PhiInstr inputs, Maybe String)
