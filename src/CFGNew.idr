@@ -343,6 +343,7 @@ namespace Graph
     = rewrite concat_assoc (fromVIn vins lbl) edgs ins'
       in Parallel (v `prepend` g) g'
   
+  -- TODO !!!!!!! this is an infinite loop. This requires extending the inputs of the parameter graph to `ins ++ (Undefined lbl :: ins')`
   prepend v (IFlip {ins, ins' = Undefined v' :: edgs'} g) = v `prepend` IFlip g
   prepend v (IFlip {ins = Undefined v' :: edgs, ins' = Nil} g) = rewrite revEq $ concat_nil edgs in v `prepend` g
 
