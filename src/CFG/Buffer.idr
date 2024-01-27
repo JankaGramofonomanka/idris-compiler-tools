@@ -158,6 +158,11 @@ namespace Graph
   data Buffers : (vertex : UVertex a) -> Direction -> (edgs : UEdges a) -> DList BufferType edgs -> Type where
     Nil : Buffers vertex dir Nil Nil
     (::) : Buffer vertex dir edg bt -> Buffers vertex dir edgs bts -> Buffers vertex dir (edg :: edgs) (bt :: bts)
+  
+  (++) : Buffers vertex dir edgs bts -> Buffers vertex dir edgs' bts' -> Buffers vertex dir (edgs ++ edgs') (bts ++ bts')
+  Nil             ++ buffs' = buffs'
+  (buff :: buffs) ++ buffs' = buff :: (buffs ++ buffs')
+
 
   public export
   UnU : Direction -> (edg : UEdge a) -> BufferType edg -> Edges a
@@ -174,6 +179,20 @@ namespace Graph
   Beginnings : (edgs : UEdges a) -> DList BufferType edgs -> Edges a
   Beginnings Nil Nil = Nil
   Beginnings (edg :: edgs) (bt :: bts) = UnU Post edg bt ++ Beginnings edgs bts
+
+  public export
+  ends_concat : (edgs, edgs' : UEdges a)
+             -> (bts : DList BufferType edgs)
+             -> (bts' : DList BufferType edgs')
+             -> Ends edgs bts ++ Ends edgs' bts'
+              = Ends (edgs ++ edgs') (bts ++ bts')
+
+  public export
+  beginnings_concat : (edgs, edgs' : UEdges a)
+             -> (bts : DList BufferType edgs)
+             -> (bts' : DList BufferType edgs')
+             -> Beginnings edgs bts ++ Beginnings edgs' bts'
+              = Beginnings (edgs ++ edgs') (bts ++ bts')
 
   {-
   TODO: Consider adding an `data` parameter to `CFG` that would be the type of
@@ -192,23 +211,35 @@ namespace Graph
     `vertex`  - constructor of vertex types.
   -}
   public export
-  record CFG (vertex : UVertex a) (ins : UEdges a) (outs : UEdges a) where
+  record UCFG (vertex : UVertex a) (ins : UEdges a) (outs : UEdges a) where
     constructor MkCFG
-    pereBTs : DList BufferType ins
-    pre : Buffers vertex Pre ins pereBTs
+    preBTs : DList BufferType ins
+    pre : Buffers vertex Pre ins preBTs
     postBTs : DList BufferType outs
     post : Buffers vertex Post outs postBTs
-    cfg : CFG.Graph.CFG (UnU vertex) (Ends ins pereBTs) (Beginnings outs postBTs)
+    cfg : CFG (UnU vertex) (Ends ins preBTs) (Beginnings outs postBTs)
 
-    
-  {-
-  infixr 4 |-|
+  
+  parallel : UCFG vertex ins outs
+          -> UCFG vertex ins' outs'
+          -> UCFG vertex (ins ++ ins') (outs ++ outs')
+  parallel cfg cfg' = MkCFG
+    { preBTs  = cfg.preBTs  ++ cfg'.preBTs
+    , pre     = cfg.pre     ++ cfg'.pre
+    , postBTs = cfg.postBTs ++ cfg'.postBTs
+    , post    = cfg.post    ++ cfg'.post
+    , cfg     = rewrite revEq $ ends_concat       ins  ins'  cfg.preBTs  cfg'.preBTs
+             in rewrite revEq $ beginnings_concat outs outs' cfg.postBTs cfg'.postBTs
+             in cfg.cfg |-| cfg'.cfg
+    }
+  
   public export
-  (|-|) : CFG vertex (Defined ins)           (Defined outs)
-       -> CFG vertex (Defined ins')          (Defined outs')
-       -> CFG vertex (Defined $ ins ++ ins') (Defined $ outs ++ outs')
-  (|-|) = Parallel
+  (|-|) : UCFG vertex ins outs
+       -> UCFG vertex ins' outs'
+       -> UCFG vertex (ins ++ ins') (outs ++ outs')
+  (|-|) = parallel
 
+  {-
   infixr 5 *->
   public export
   (*->) : CFG vertex ins (Defined edges)
