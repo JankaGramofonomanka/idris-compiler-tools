@@ -147,47 +147,34 @@ namespace Graph
     NoBuffer : BufferType (Defined edg)
     HalfBuffer : (outs : Neighbors a) -> BufferType {a} (Undefined v)
 
-  namespace Pre
-    public export
-    UnU : (edg : UEdge a) -> BufferType edg -> Edges a
-    UnU (Defined edg) NoBuffer = [edg]
-    UnU (Undefined v) (HalfBuffer outs) = v ~>> outs
+  data Direction = Pre | Post
 
-    public export
-    Ends : (edgs : UEdges a) -> DList BufferType edgs -> Edges a
-    Ends Nil Nil = Nil
-    Ends (edg :: edgs) (bt :: bts) = Pre.UnU edg bt ++ Ends edgs bts
+  data Buffer : (vertex : UVertex a) -> Direction -> (edg : UEdge a) -> BufferType edg -> Type where
+    NoBuff   : Buffer vertex dir (Defined edg) NoBuffer
+    PreBuff  : {0 v : a} -> vertex v Nothing    (Just outs) -> Buffer vertex Pre  (Undefined v) (HalfBuffer outs)
+    PostBuff : {0 v : a} -> vertex v (Just ins) Nothing     -> Buffer vertex Post (Undefined v) (HalfBuffer ins)
 
-    public export
-    data Buffer : (vertex : UVertex a) -> (edg : UEdge a) -> BufferType edg -> Type where
-      NoBuffer : Buffer vertex (Defined edg) NoBuffer
-      Pre : {0 v : a} -> vertex v Nothing (Just outs) -> Buffer vertex (Undefined v) (HalfBuffer outs)
+  public export
+  data Buffers : (vertex : UVertex a) -> Direction -> (edgs : UEdges a) -> DList BufferType edgs -> Type where
+    Nil : Buffers vertex dir Nil Nil
+    (::) : Buffer vertex dir edg bt -> Buffers vertex dir edgs bts -> Buffers vertex dir (edg :: edgs) (bt :: bts)
 
-    public export
-    data Buffers : (vertex : UVertex a) -> (edgs : UEdges a) -> DList BufferType edgs -> Type where
-      Nil : Buffers vertex Nil Nil
-      (::) : Pre.Buffer vertex edg bt -> Pre.Buffers vertex edgs bts -> Buffers vertex (edg :: edgs) (bt :: bts)
+  public export
+  UnU : Direction -> (edg : UEdge a) -> BufferType edg -> Edges a
+  UnU dir  (Defined edg) NoBuffer          = [edg]
+  UnU Pre  (Undefined v) (HalfBuffer outs) = v ~>> outs
+  UnU Post (Undefined v) (HalfBuffer ins)  = ins ~~> v
 
-  namespace Post
-    public export
-    UnU : (edg : UEdge a) -> BufferType edg -> Edges a
-    UnU (Defined edg) NoBuffer = [edg]
-    UnU (Undefined v) (HalfBuffer ins) = ins ~~> v
+  public export
+  Ends : (edgs : UEdges a) -> DList BufferType edgs -> Edges a
+  Ends Nil Nil = Nil
+  Ends (edg :: edgs) (bt :: bts) = UnU Pre edg bt ++ Ends edgs bts
 
-    public export
-    Beginnings : (edgs : UEdges a) -> DList BufferType edgs -> Edges a
-    Beginnings Nil Nil = Nil
-    Beginnings (edg :: edgs) (bt :: bts) = Post.UnU edg bt ++ Beginnings edgs bts
+  public export
+  Beginnings : (edgs : UEdges a) -> DList BufferType edgs -> Edges a
+  Beginnings Nil Nil = Nil
+  Beginnings (edg :: edgs) (bt :: bts) = UnU Post edg bt ++ Beginnings edgs bts
 
-    public export
-    data Buffer : (vertex : UVertex a) -> (edg : UEdge a) -> BufferType edg -> Type where
-      NoBuffer : Buffer vertex (Defined edg) NoBuffer
-      Post : {0 v : a} -> vertex v (Just ins) Nothing -> Buffer vertex (Undefined v) (HalfBuffer ins)
-    
-    public export
-    data Buffers : (vertex : UVertex a) -> (edgs : UEdges a) -> DList BufferType edgs -> Type where
-      Nil : Buffers vertex Nil Nil
-      (::) : Pre.Buffer vertex edg bt -> Post.Buffers vertex edgs bts -> Buffers vertex (edg :: edgs) (bt :: bts)
   {-
   TODO: Consider adding an `data` parameter to `CFG` that would be the type of
   data that would be stored alongside vertices.
@@ -208,9 +195,9 @@ namespace Graph
   record CFG (vertex : UVertex a) (ins : UEdges a) (outs : UEdges a) where
     constructor MkCFG
     pereBTs : DList BufferType ins
-    pre : Pre.Buffers vertex ins pereBTs
+    pre : Buffers vertex Pre ins pereBTs
     postBTs : DList BufferType outs
-    post : Post.Buffers vertex outs postBTs
+    post : Buffers vertex Post outs postBTs
     cfg : CFG.Graph.CFG (UnU vertex) (Ends ins pereBTs) (Beginnings outs postBTs)
 
     
