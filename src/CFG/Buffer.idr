@@ -171,28 +171,25 @@ namespace Graph
   UnU Post (Undefined v) (HalfBuffer ins)  = ins ~~> v
 
   public export
+  Links : Direction -> (edgs : UEdges a) -> DList BufferType edgs -> Edges a
+  Links dir Nil Nil = Nil
+  Links dir (edg :: edgs) (bt :: bts) = UnU dir edg bt ++ Links dir edgs bts
+
+  public export
   Ends : (edgs : UEdges a) -> DList BufferType edgs -> Edges a
-  Ends Nil Nil = Nil
-  Ends (edg :: edgs) (bt :: bts) = UnU Pre edg bt ++ Ends edgs bts
+  Ends = Links Pre
 
   public export
   Beginnings : (edgs : UEdges a) -> DList BufferType edgs -> Edges a
-  Beginnings Nil Nil = Nil
-  Beginnings (edg :: edgs) (bt :: bts) = UnU Post edg bt ++ Beginnings edgs bts
+  Beginnings = Links Post
 
   public export
-  ends_concat : (edgs, edgs' : UEdges a)
-             -> (bts : DList BufferType edgs)
-             -> (bts' : DList BufferType edgs')
-             -> Ends edgs bts ++ Ends edgs' bts'
-              = Ends (edgs ++ edgs') (bts ++ bts')
-
-  public export
-  beginnings_concat : (edgs, edgs' : UEdges a)
-             -> (bts : DList BufferType edgs)
-             -> (bts' : DList BufferType edgs')
-             -> Beginnings edgs bts ++ Beginnings edgs' bts'
-              = Beginnings (edgs ++ edgs') (bts ++ bts')
+  links_concat : (dir : Direction)
+              -> (edgs, edgs' : UEdges a)
+              -> (bts : DList BufferType edgs)
+              -> (bts' : DList BufferType edgs')
+              -> Links dir edgs bts ++ Links dir edgs' bts'
+               = Links dir (edgs ++ edgs') (bts ++ bts')
 
   {-
   TODO: Consider adding an `data` parameter to `CFG` that would be the type of
@@ -228,8 +225,8 @@ namespace Graph
     , pre     = cfg.pre     ++ cfg'.pre
     , postBTs = cfg.postBTs ++ cfg'.postBTs
     , post    = cfg.post    ++ cfg'.post
-    , cfg     = rewrite revEq $ ends_concat       ins  ins'  cfg.preBTs  cfg'.preBTs
-             in rewrite revEq $ beginnings_concat outs outs' cfg.postBTs cfg'.postBTs
+    , cfg     = rewrite revEq $ links_concat Pre  ins  ins'  cfg.preBTs  cfg'.preBTs
+             in rewrite revEq $ links_concat Post outs outs' cfg.postBTs cfg'.postBTs
              in cfg.cfg |-| cfg'.cfg
     }
   
