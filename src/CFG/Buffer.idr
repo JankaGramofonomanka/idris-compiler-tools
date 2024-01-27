@@ -142,54 +142,85 @@ namespace Graph
   fromVIn Nothing     v = [Undefined v]
   fromVIn (Just ins)  v = ins ~~> v
 
-  public export
-  data BufferType : UEdge a -> Type where
-    NoBuffer : BufferType (Defined edg)
-    HalfBuffer : (outs : Neighbors a) -> BufferType {a} (Undefined v)
+  namespace Buffer
+    public export
+    data BufferType : UEdge a -> Type where
+      NoBuffer : BufferType (Defined edg)
+      HalfBuffer : Neighbors a -> BufferType {a} (Undefined v)
 
-  data Direction = Pre | Post
+    public export
+    data Direction = Pre | Post
 
-  data Buffer : (vertex : UVertex a) -> Direction -> (edg : UEdge a) -> BufferType edg -> Type where
-    NoBuff   : Buffer vertex dir (Defined edg) NoBuffer
-    PreBuff  : {0 v : a} -> vertex v Nothing    (Just outs) -> Buffer vertex Pre  (Undefined v) (HalfBuffer outs)
-    PostBuff : {0 v : a} -> vertex v (Just ins) Nothing     -> Buffer vertex Post (Undefined v) (HalfBuffer ins)
+    public export
+    data Buffer : (vertex : UVertex a) -> Direction -> (edg : UEdge a) -> BufferType edg -> Type where
+      NoBuff   : Buffer vertex dir (Defined edg) NoBuffer
+      PreBuff  : {0 v : a} -> vertex v Nothing    (Just outs) -> Buffer vertex Pre  (Undefined v) (HalfBuffer outs)
+      PostBuff : {0 v : a} -> vertex v (Just ins) Nothing     -> Buffer vertex Post (Undefined v) (HalfBuffer ins)
 
-  public export
-  data Buffers : (vertex : UVertex a) -> Direction -> (edgs : UEdges a) -> DList BufferType edgs -> Type where
-    Nil : Buffers vertex dir Nil Nil
-    (::) : Buffer vertex dir edg bt -> Buffers vertex dir edgs bts -> Buffers vertex dir (edg :: edgs) (bt :: bts)
-  
-  (++) : Buffers vertex dir edgs bts -> Buffers vertex dir edgs' bts' -> Buffers vertex dir (edgs ++ edgs') (bts ++ bts')
-  Nil             ++ buffs' = buffs'
-  (buff :: buffs) ++ buffs' = buff :: (buffs ++ buffs')
+    public export
+    data Buffers : (vertex : UVertex a) -> Direction -> (edgs : UEdges a) -> DList BufferType edgs -> Type where
+      Nil : Buffers vertex dir Nil Nil
+      (::) : Buffer vertex dir edg bt -> Buffers vertex dir edgs bts -> Buffers vertex dir (edg :: edgs) (bt :: bts)
+    
+    public export
+    (++) : Buffers vertex dir edgs bts -> Buffers vertex dir edgs' bts' -> Buffers vertex dir (edgs ++ edgs') (bts ++ bts')
+    Nil             ++ buffs' = buffs'
+    (buff :: buffs) ++ buffs' = buff :: (buffs ++ buffs')
 
+    public export
+    UnU : Direction -> (edg : UEdge a) -> BufferType edg -> Edges a
+    UnU dir  (Defined edg) NoBuffer          = [edg]
+    UnU Pre  (Undefined v) (HalfBuffer outs) = v ~>> outs
+    UnU Post (Undefined v) (HalfBuffer ins)  = ins ~~> v
 
-  public export
-  UnU : Direction -> (edg : UEdge a) -> BufferType edg -> Edges a
-  UnU dir  (Defined edg) NoBuffer          = [edg]
-  UnU Pre  (Undefined v) (HalfBuffer outs) = v ~>> outs
-  UnU Post (Undefined v) (HalfBuffer ins)  = ins ~~> v
+    public export
+    Links : Direction -> (edgs : UEdges a) -> DList BufferType edgs -> Edges a
+    Links dir Nil Nil = Nil
+    Links dir (edg :: edgs) (bt :: bts) = UnU dir edg bt ++ Links dir edgs bts
 
-  public export
-  Links : Direction -> (edgs : UEdges a) -> DList BufferType edgs -> Edges a
-  Links dir Nil Nil = Nil
-  Links dir (edg :: edgs) (bt :: bts) = UnU dir edg bt ++ Links dir edgs bts
+    public export
+    Ends : (edgs : UEdges a) -> DList BufferType edgs -> Edges a
+    Ends = Links Pre
 
-  public export
-  Ends : (edgs : UEdges a) -> DList BufferType edgs -> Edges a
-  Ends = Links Pre
+    public export
+    Beginnings : (edgs : UEdges a) -> DList BufferType edgs -> Edges a
+    Beginnings = Links Post
 
-  public export
-  Beginnings : (edgs : UEdges a) -> DList BufferType edgs -> Edges a
-  Beginnings = Links Post
+    public export
+    links_concat : (dir : Direction)
+                -> (edgs, edgs' : UEdges a)
+                -> (bts : DList BufferType edgs)
+                -> (bts' : DList BufferType edgs')
+                -> Links dir edgs bts ++ Links dir edgs' bts'
+                = Links dir (edgs ++ edgs') (bts ++ bts')
 
-  public export
-  links_concat : (dir : Direction)
-              -> (edgs, edgs' : UEdges a)
-              -> (bts : DList BufferType edgs)
-              -> (bts' : DList BufferType edgs')
-              -> Links dir edgs bts ++ Links dir edgs' bts'
-               = Links dir (edgs ++ edgs') (bts ++ bts')
+    public export
+    unBuffer' : (impl : Connectable vertex)
+             => Buffer vertex Post (Undefined v) (HalfBuffer ins)
+             -> Buffer vertex Pre  (Undefined v) (HalfBuffer outs)
+             -> UnU vertex v ins outs
+    unBuffer' (PostBuff v) (PreBuff w) = (v `cnct` w) @{impl}
+    
+    public export
+    unBuffer : (impl : Connectable vertex)
+            => {edge : UEdge a}
+            -> {postBT, preBT : BufferType edge}
+            -> Buffer vertex Post edge postBT
+            -> Buffer vertex Pre  edge preBT
+            -> CFG (Vertex.UnU vertex) (Buffer.UnU Post edge postBT) (Buffer.UnU Pre edge preBT)
+    unBuffer (PostBuff v) (PreBuff w) = SingleVertex $ (v `cnct` w) @{impl}
+    unBuffer NoBuff NoBuff = Empty
+    
+    public export
+    unBuffers : (impl : Connectable vertex)
+             => {edgs : UEdges a}
+             -> {postBTs, preBTs : DList BufferType edgs}
+             -> Buffers vertex Post edgs postBTs
+             -> Buffers vertex Pre  edgs preBTs
+             -> CFG (Vertex.UnU vertex) (Beginnings edgs postBTs) (Ends edgs preBTs)
+    unBuffers Nil Nil = Empty
+    unBuffers (post :: posts) (pre :: pres) = unBuffer post pre |-| unBuffers posts pres
+    
 
   {-
   TODO: Consider adding an `data` parameter to `CFG` that would be the type of
