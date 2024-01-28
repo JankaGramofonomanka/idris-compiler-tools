@@ -1,4 +1,4 @@
-module CFG.Buffer
+module CFG.Buffer.Overthought
 
 import CFG
 import Data.DList
@@ -143,86 +143,84 @@ namespace Graph
   fromVIn (Just ins)  v = ins ~~> v
 
   namespace Buffer
+    public export
+    data BufferType : UEdge a -> Type where
+      NoBuffer : BufferType (Defined edg)
+      HalfBuffer : Neighbors a -> BufferType {a} (Undefined v)
 
     public export
-    data Buffer : (vertex : UVertex a) -> (ins, outs : UEdges a) -> Type where
-      NoBuff   : Buffer vertex [Defined edg] [Defined edg]
-      PreBuff  : {0 v : a} -> {outs : Neighbors a} -> vertex v Nothing    (Just outs) -> Buffer vertex [Undefined v] (v ~>> outs)
-      PostBuff : {0 v : a} -> {ins  : Neighbors a} -> vertex v (Just ins) Nothing     -> Buffer vertex (ins ~~> v)   [Undefined v]
+    data Direction = Pre | Post
 
     public export
-    data Buffers : UVertex a -> UEdges a -> UEdges a -> Type where
-      Nil : Buffers vertex Nil Nil
-      (::) : Buffer vertex ins outs
-          -> Buffers vertex ins' outs'
-          -> Buffers vertex (ins ++ ins') (outs ++ outs')
+    data Buffer : (vertex : UVertex a) -> Direction -> (edg : UEdge a) -> BufferType edg -> Type where
+      NoBuff   : Buffer vertex dir (Defined edg) NoBuffer
+      PreBuff  : {0 v : a} -> vertex v Nothing    (Just outs) -> Buffer vertex Pre  (Undefined v) (HalfBuffer outs)
+      PostBuff : {0 v : a} -> vertex v (Just ins) Nothing     -> Buffer vertex Post (Undefined v) (HalfBuffer ins)
 
     public export
-    (++) : Buffers vertex ins  outs
-        -> Buffers vertex ins'' outs''
-        -> Buffers vertex (ins ++ ins'') (outs ++ outs'')
+    data Buffers : (vertex : UVertex a) -> Direction -> (edgs : UEdges a) -> DList BufferType edgs -> Type where
+      Nil : Buffers vertex dir Nil Nil
+      (::) : Buffer vertex dir edg bt -> Buffers vertex dir edgs bts -> Buffers vertex dir (edg :: edgs) (bt :: bts)
+    
+    public export
+    (++) : Buffers vertex dir edgs bts -> Buffers vertex dir edgs' bts' -> Buffers vertex dir (edgs ++ edgs') (bts ++ bts')
     Nil             ++ buffs' = buffs'
-    ((buff :: buffs) {ins, ins', outs, outs'}) ++ buffs' = rewrite revEq $ concat_assoc ins ins' ins''
-                                                        in rewrite revEq $ concat_assoc outs outs' outs''
-                                                        in buff :: buffs ++ buffs'
-
-    {-
-    mergenilnil : (impl : Connectable vertex)
-               => Buffer vertex Nil edgs
-               -> Buffer vertex edgs Nil
-               -> CFG (UnU vertex) Nil Nil
-    mergenilnil {edgs = [Undefined v]} (PostBuff {v, ins = Nil} w) (PreBuff {v, outs = Nil} u) = ?hnilnil
-    
-    mergenilcons : (impl : Connectable vertex)
-                => {out : Edge a}
-                -> {outs : Edges a}
-                -> Buffer vertex Nil mids
-                -> Buffer vertex mids (map Defined (out :: outs))
-                -> CFG (UnU vertex) Nil (out :: outs)
-    mergenilcons {out = u ~> un, outs = u ~>> uns, mids = [Undefined v]} (PostBuff {v, ins = Nil} w) (PreBuff {outs = un :: uns} u) = ?hpost
-    
-    mergeconsnil : (impl : Connectable vertex)
-                => {in' : Edge a}
-                -> {ins : Edges a}
-                -> Buffer vertex (map Defined (in' :: ins)) edgs
-                -> Buffer vertex edgs Nil
-                -> CFG (UnU vertex) (in' :: ins) Nil
-
-    mergeconscons : (impl : Connectable vertex)
-                 => {in', out : Edge a}
-                 -> {ins, outs : Edges a}
-                 -> Buffer vertex (map Defined (in' :: ins)) edgs
-                 -> Buffer vertex edgs (map Defined (out :: outs))
-                 -> CFG (UnU vertex) (in' :: ins) (out :: outs)
+    (buff :: buffs) ++ buffs' = buff :: (buffs ++ buffs')
 
     public export
-    merge : (impl : Connectable vertex)
-         => {ins, outs : Edges a}
-         -> {edgs : UEdges a}
-         -> Buffer vertex (map Defined ins) edgs
-         -> Buffer vertex edgs (map Defined outs)
-         -> CFG (UnU vertex) ins outs
-    merge {ins = Nil, outs = Nil} = mergenilnil @{impl}
-    merge {ins = Nil, outs = out :: outs} = mergenilcons
-    merge {ins = in' :: ins, outs = Nil} = mergeconsnil
-    merge {ins = in' :: ins, outs = out :: outs} = mergeconscons
-    --merge {ins} = ?hmerge
-    -}
+    UnU : Direction -> (edg : UEdge a) -> BufferType edg -> Edges a
+    UnU dir  (Defined edg) NoBuffer          = [edg]
+    UnU Pre  (Undefined v) (HalfBuffer outs) = v ~>> outs
+    UnU Post (Undefined v) (HalfBuffer ins)  = ins ~~> v
+
+    public export
+    Links : Direction -> (edgs : UEdges a) -> DList BufferType edgs -> Edges a
+    Links dir Nil Nil = Nil
+    Links dir (edg :: edgs) (bt :: bts) = UnU dir edg bt ++ Links dir edgs bts
+
+    public export
+    Ends : (edgs : UEdges a) -> DList BufferType edgs -> Edges a
+    Ends = Links Pre
+
+    public export
+    Beginnings : (edgs : UEdges a) -> DList BufferType edgs -> Edges a
+    Beginnings = Links Post
+
+    public export
+    links_concat : (dir : Direction)
+                -> (edgs, edgs' : UEdges a)
+                -> (bts : DList BufferType edgs)
+                -> (bts' : DList BufferType edgs')
+                -> Links dir edgs bts ++ Links dir edgs' bts'
+                = Links dir (edgs ++ edgs') (bts ++ bts')
+
+    public export
+    unBuffer' : (impl : Connectable vertex)
+             => Buffer vertex Post (Undefined v) (HalfBuffer ins)
+             -> Buffer vertex Pre  (Undefined v) (HalfBuffer outs)
+             -> UnU vertex v ins outs
+    unBuffer' (PostBuff v) (PreBuff w) = (v `cnct` w) @{impl}
     
-    {-
+    public export
+    unBuffer : (impl : Connectable vertex)
+            => {edge : UEdge a}
+            -> {postBT, preBT : BufferType edge}
+            -> Buffer vertex Post edge postBT
+            -> Buffer vertex Pre  edge preBT
+            -> CFG (Vertex.UnU vertex) (Buffer.UnU Post edge postBT) (Buffer.UnU Pre edge preBT)
+    unBuffer (PostBuff v) (PreBuff w) = SingleVertex $ (v `cnct` w) @{impl}
+    unBuffer NoBuff NoBuff = Empty
+    
     public export
     unBuffers : (impl : Connectable vertex)
              => {edgs : UEdges a}
-             -> {ins, outs : Edges a}
-             -> Buffers vertex (map Defined ins) edgs
-             -> Buffers vertex edgs (map Defined outs)
-             -> CFG (UnU vertex) ins outs
-    unBuffers {ins = Nil, outs = Nil} Nil = ?hNilNil1
-    unBuffers {ins = Nil, outs = Nil} (post :: posts) = ?hNilNil2
-    unBuffers {ins = Nil, outs = put :: outs} _ = ?hunNilCons
-    unBuffers {ins = in' :: ins, outs = put :: outs} _ = ?hunConsCons
-    unBuffers {ins = in' :: ins, outs = Nil} _ = ?hunConsNil
-    -}
+             -> {postBTs, preBTs : DList BufferType edgs}
+             -> Buffers vertex Post edgs postBTs
+             -> Buffers vertex Pre  edgs preBTs
+             -> CFG (Vertex.UnU vertex) (Beginnings edgs postBTs) (Ends edgs preBTs)
+    unBuffers Nil Nil = Empty
+    unBuffers (post :: posts) (pre :: pres) = unBuffer post pre |-| unBuffers posts pres
+    
 
   {-
   TODO: Consider adding an `data` parameter to `CFG` that would be the type of
@@ -243,13 +241,13 @@ namespace Graph
   public export
   record UCFG (vertex : UVertex a) (ins : UEdges a) (outs : UEdges a) where
     constructor MkCFG
-    0 ins', outs' : Edges a
-    pre : Buffers vertex ins (map Defined ins')
-    post : Buffers vertex (map Defined outs') outs
-    cfg : CFG (UnU vertex) ins' outs'
+    preBTs : DList BufferType ins
+    pre : Buffers vertex Pre ins preBTs
+    postBTs : DList BufferType outs
+    post : Buffers vertex Post outs postBTs
+    cfg : CFG (UnU vertex) (Ends ins preBTs) (Beginnings outs postBTs)
 
   
-  {-
   parallel : UCFG vertex ins outs
           -> UCFG vertex ins' outs'
           -> UCFG vertex (ins ++ ins') (outs ++ outs')
@@ -268,7 +266,7 @@ namespace Graph
        -> UCFG vertex ins' outs'
        -> UCFG vertex (ins ++ ins') (outs ++ outs')
   (|-|) = parallel
-  -}
+
   {-
   infixr 5 *->
   public export
