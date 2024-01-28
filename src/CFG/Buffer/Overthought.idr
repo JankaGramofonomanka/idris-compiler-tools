@@ -203,8 +203,7 @@ namespace Graph
     
     public export
     unBuffer : (impl : Connectable vertex)
-            => {edge : UEdge a}
-            -> {postBT, preBT : BufferType edge}
+            => {postBT, preBT : BufferType edge}
             -> Buffer vertex Post edge postBT
             -> Buffer vertex Pre  edge preBT
             -> CFG (Vertex.UnU vertex) (Buffer.UnU Post edge postBT) (Buffer.UnU Pre edge preBT)
@@ -213,8 +212,7 @@ namespace Graph
     
     public export
     unBuffers : (impl : Connectable vertex)
-             => {edgs : UEdges a}
-             -> {postBTs, preBTs : DList BufferType edgs}
+             => {postBTs, preBTs : DList BufferType edgs}
              -> Buffers vertex Post edgs postBTs
              -> Buffers vertex Pre  edgs preBTs
              -> CFG (Vertex.UnU vertex) (Beginnings edgs postBTs) (Ends edgs preBTs)
@@ -267,15 +265,26 @@ namespace Graph
        -> UCFG vertex (ins ++ ins') (outs ++ outs')
   (|-|) = parallel
 
-  {-
-  infixr 5 *->
+  series : (impl : Connectable vertex)
+        => UCFG vertex ins edges
+        -> UCFG vertex edges outs
+        -> UCFG vertex ins outs
+  series pre post = MkCFG
+    { preBTs  = pre.preBTs
+    , pre     = pre.pre
+    , postBTs = post.postBTs
+    , post    = post.post
+    , cfg     = pre.cfg *-> unBuffers @{impl} pre.post post.pre *-> post.cfg 
+    }
+  
   public export
-  (*->) : CFG vertex ins (Defined edges)
-       -> CFG vertex (Defined edges) outs
-       -> CFG vertex ins outs
-  (*->) = Series
-          
+  (*->) : (impl : Connectable vertex)
+       => UCFG vertex ins edges
+       -> UCFG vertex edges outs
+       -> UCFG vertex ins outs
+  (*->) = series   
 
+  {-
   public export
   prepend : {0 vertex : Vertex a}
          -> {vins : Neighbors a}
