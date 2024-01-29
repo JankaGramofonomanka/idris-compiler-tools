@@ -226,13 +226,13 @@ namespace Graph
 
   {-
   public export
-  prepend : {0 vertex : Vertex a}
+  prepend'' : {0 vertex : Vertex a}
          -> {vins : Neighbors a}
          -> {vouts : List a}
          -> vertex v vins (Just vouts)
          -> CFG vertex (v ~>> vouts) gouts
          -> CFG vertex (fromVIn vins v) gouts
-  prepend v g = (SingleVertex v) *-> g
+  prepend'' v g = (SingleVertex v) *-> g
 
   public export
   append : {vins : List a}
@@ -251,7 +251,7 @@ namespace Graph
         -> (left  : CFG vertex [v ~> w]  (louts))
         -> (right : CFG vertex [v ~> w'] (routs))
         -> CFG vertex (fromVIn vins v) (louts ++ routs)
-  branch pre left right = pre `prepend` (left |-| right)
+  branch pre left right = pre `prepend''` (left |-| right)
 
   fullBranch : {0 vertex : Vertex a}
             -> {vins, vouts : Neighbors a}
@@ -318,36 +318,34 @@ namespace Graph
      : (impl : Connectable vertex)
     => {lbl : a}
     -> {vins : Neighbors a}
+    -> {lgins, rgins : Edges a}
+    -> ((lgins ++ Undefined lbl :: rgins) = gins)
     -> vertex lbl vins Undefined
-    -> CFG {a} vertex (Undefined lbl :: gins) outs
-    -> CFG {a} vertex (fromVIn vins lbl ++ gins) outs
+    -> CFG {a} vertex gins gouts
+    -> CFG {a} vertex (lgins ++ fromVIn vins lbl ++ rgins) gouts
   
-  prepend v (Empty {edges = Undefined lbl :: gins})
-    = Parallel {ins = fromVIn vins lbl, ins' = gins} (SingleVertex v) Empty
+  prepend prf v Empty             = ?hempty
+  prepend prf v (SingleVertex w)  = ?hsingle
+  prepend prf v (Cycle node loop) = ?hcycle
+  prepend prf v (Series g g')     = ?hseries
+  prepend prf v (OFlip g)         = ?hoflip
   
-  prepend v (SingleVertex {vins = Nothing} w) = rewrite concat_nil (fromVIn vins lbl) in SingleVertex (cnct @{impl} v w)
-  prepend v (SingleVertex {vins = Just Nil} w) impossible
-  prepend v (SingleVertex {vins = Just (edg :: edgs)} w) impossible
+  prepend prf v (Parallel g g') = ?hparallelni
+  prepend prf v (IFlip g)       = ?hiflip
+  
 
-  prepend v (Cycle {loopOuts} node loop)
-    = let
-        node' = rewrite revEq $ concat_assoc (fromVIn vins lbl) gins loopOuts
-                in prepend v node
-      in Cycle node' loop
 
-  prepend v (Series g g')     = Series (v `prepend` g) g'
-  prepend v (OFlip g)         = OFlip (v `prepend` g)
-  
-  prepend v (Parallel {ins = Nil} g g') = Parallel g (v `prepend` g')
-  prepend v (Parallel {ins = (Undefined v' :: edgs), ins'} g g')
-    = rewrite concat_assoc (fromVIn vins lbl) edgs ins'
-      in Parallel (v `prepend` g) g'
-  
-  -- TODO !!!!!!! this is an infinite loop. This requires extending the inputs of the parameter graph to `ins ++ (Undefined lbl :: ins')`
-  prepend v (IFlip {ins, ins' = Undefined v' :: edgs'} g) = v `prepend` IFlip g
-  prepend v (IFlip {ins = Undefined v' :: edgs, ins' = Nil} g) = rewrite revEq $ concat_nil edgs in v `prepend` g
+  prepend'
+     : (impl : Connectable vertex)
+    => {lbl : a}
+    -> {vins : Neighbors a}
+    -> {lgins, rgins : Edges a}
+    -> vertex lbl vins Undefined
+    -> CFG {a} vertex (lgins ++ Undefined lbl :: rgins) gouts
+    -> CFG {a} vertex (lgins ++ fromVIn vins lbl ++ rgins) gouts
+  prepend' = prepend Refl
 
-  prepend v (IFlip {ins = Nil, ins' = Nil} g) impossible
+
 
   {-
   export
