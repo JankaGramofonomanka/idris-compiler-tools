@@ -324,14 +324,9 @@ namespace Graph
     -> CFG {a} vertex gins gouts
     -> CFG {a} vertex (lgins ++ fromVIn vins lbl ++ rgins) gouts
   
-  prepend prf v (Empty)
-    = rewrite revEq prf
-   in Parallel {ins = lgins, ins' = fromVIn vins lbl ++ rgins, outs = lgins, outs' =  Undefined lbl :: rgins}
-               Empty
-               ( Parallel {ins = fromVIn vins lbl, ins' = rgins, outs = [Undefined lbl], outs' = rgins}
-                          (SingleVertex v)
-                          Empty
-               )
+  prepend prf v (Empty) = rewrite revEq prf
+                          in Empty |-| SingleVertex v |-| Empty
+
   prepend prf v (SingleVertex w)  = ?hsingle
   prepend prf v (Cycle node loop) = ?hcycle
   prepend prf v (Series g g')     = ?hseries
