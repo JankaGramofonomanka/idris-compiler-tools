@@ -345,8 +345,8 @@ namespace Graph
 
   prepend prf v (SingleVertex {vins = Just vins} w) = ?hsingleD
   prepend prf v (Cycle node loop) = ?hcycle
-  prepend prf v (Series g g')     = ?hseries
-  prepend prf v (OFlip g)         = ?hoflip
+  prepend prf v (Series g g')     = Series (prepend prf v g) g'
+  prepend prf v (OFlip g)         = OFlip (prepend prf v g)
   
   prepend prf v (Parallel g g') = ?hparallelni
   prepend prf v (IFlip g)       = ?hiflip
