@@ -148,6 +148,59 @@ namespace List
                     -> NonEmpty (map f xs ++ map g ys)
   nonempty_cmap_cmap {xs, ys, f, g} = nonempty_cmap_cmap' xs ys f g
 
+  total
+  export
+  head_eq : (ls, rs : List a) -> (l, r : a) -> l :: ls = r :: rs -> l = r
+  head_eq ls rs l r prf = case prf of
+    Refl => Refl
+
+  total
+  export
+  tail_eq : (ls, rs : List a) -> (l, r : a) -> l :: ls = r :: rs -> ls = rs
+  tail_eq ls rs l r prf = case prf of
+    Refl => Refl
+
+  total
+  export
+  concat_cons_not_nil : (ls, rs : List a) -> (x : a) -> ls ++ x :: rs = Nil -> Void
+  concat_cons_not_nil Nil       rs x Refl impossible
+  concat_cons_not_nil (l :: ls) rs x Refl impossible
+
+  total
+  export
+  concat_cons_is_single_then_prefix_is_nil : (ls, rs : List a) -> (x, y : a) -> ls ++ (x :: rs) = [y] -> ls = Nil
+  concat_cons_is_single_then_prefix_is_nil Nil rs x y prf = Refl
+  concat_cons_is_single_then_prefix_is_nil (l :: ls) rs x y prf = let
+    lsxrs_is_nil : (ls ++ x :: rs = Nil)
+    lsxrs_is_nil = tail_eq (ls ++ x :: rs) Nil l y prf
+    in exfalso $ concat_cons_not_nil ls rs x lsxrs_is_nil
+
+  total
+  export
+  concat_cons_is_single_then_postfix_is_nil : (ls, rs : List a) -> (x, y : a) -> ls ++ (x :: rs) = [y] -> rs = Nil
+  concat_cons_is_single_then_postfix_is_nil ls Nil x y prf = Refl
+  concat_cons_is_single_then_postfix_is_nil Nil (r :: rs) x y prf = let
+    rrs_is_nil : (r :: rs = Nil)
+    rrs_is_nil = tail_eq (r :: rs) Nil x y prf
+    in exfalso $ concat_cons_not_nil Nil rs r rrs_is_nil
+  concat_cons_is_single_then_postfix_is_nil (l :: ls) (r :: rs) x y prf = let
+    lsxrrs_is_nil : (ls ++ x :: r :: rs = Nil)
+    lsxrrs_is_nil = tail_eq (ls ++ x :: r :: rs) Nil l y prf
+    in exfalso $ concat_cons_not_nil ls (r :: rs) x lsxrrs_is_nil
+  
+  total
+  export
+  concat_cons_is_single_then_mid_is_the_elem : (ls, rs : List a) -> (x, y : a) -> ls ++ (x :: rs) = [y] -> x = y
+  concat_cons_is_single_then_mid_is_the_elem Nil rs x y prf = head_eq rs Nil x y prf
+  concat_cons_is_single_then_mid_is_the_elem (l :: ls) rs x y prf = let
+    lsxrs_is_nil : (ls ++ x :: rs = Nil)
+    lsxrs_is_nil = tail_eq (ls ++ x :: rs) Nil l y prf
+    in exfalso $ concat_cons_not_nil ls rs x lsxrs_is_nil
+  
+
+
+
+
 
 
 namespace List1

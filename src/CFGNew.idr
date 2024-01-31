@@ -327,7 +327,23 @@ namespace Graph
   prepend prf v (Empty) = rewrite revEq prf
                           in Empty |-| SingleVertex v |-| Empty
 
-  prepend prf v (SingleVertex w)  = ?hsingle
+  prepend prf u (SingleVertex {vins = Nothing, v} w) = let
+    
+    0 lgins_empty : (lgins = Nil)
+    lgins_empty = concat_cons_is_single_then_prefix_is_nil lgins rgins (Undefined lbl) (Undefined v) prf
+    0 rgins_empty : (rgins = Nil)
+    rgins_empty = concat_cons_is_single_then_postfix_is_nil lgins rgins (Undefined lbl) (Undefined v) prf
+    0 v_is_lbl : (v = lbl)
+    v_is_lbl = case concat_cons_is_single_then_mid_is_the_elem lgins rgins (Undefined lbl) (Undefined v) prf of
+      Refl => Refl
+
+    in rewrite lgins_empty
+    in rewrite rgins_empty
+    in rewrite v_is_lbl
+    in rewrite concat_nil (fromVIn vins lbl)
+    in SingleVertex (cnct @{impl} u (rewrite revEq v_is_lbl in w))
+
+  prepend prf v (SingleVertex {vins = Just vins} w) = ?hsingleD
   prepend prf v (Cycle node loop) = ?hcycle
   prepend prf v (Series g g')     = ?hseries
   prepend prf v (OFlip g)         = ?hoflip
