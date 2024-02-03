@@ -344,7 +344,19 @@ namespace Graph
     in SingleVertex (cnct @{impl} u (rewrite revEq v_is_lbl in w))
 
   prepend prf v (SingleVertex {vins = Just vins} w) = ?hsingleD
-  prepend prf v (Cycle node loop) = ?hcycle
+  prepend prf v (Cycle {loopIns, loopOuts} node loop) = let
+      
+      prf' : (lgins ++ Undefined lbl :: (rgins ++ loopOuts) = gins ++ loopOuts)
+      prf' = rewrite concat_assoc lgins (Undefined lbl :: rgins) loopOuts
+            in cong (++ loopOuts) prf
+  
+      node' : CFG vertex ((lgins ++ (fromVIn vins lbl ++ rgins)) ++ loopOuts) (loopIns ++ gouts)
+      node' = rewrite revEq $ concat_assoc lgins (fromVIn vins lbl ++ rgins) loopOuts
+           in rewrite revEq $ concat_assoc (fromVIn vins lbl) rgins loopOuts
+           in prepend {rgins = rgins ++ loopOuts, gouts = loopIns ++ gouts} prf' v node
+      
+    in Cycle node' loop
+
   prepend prf v (Series g g')     = Series (prepend prf v g) g'
   prepend prf v (OFlip g)         = OFlip (prepend prf v g)
   
