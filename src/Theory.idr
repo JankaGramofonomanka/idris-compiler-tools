@@ -17,6 +17,15 @@ export
 exfalso : Void -> a
 exfalso v = case v of {}
 
+total
+export
+exfalso' : (0 void : Void) -> a
+exfalso' void = let
+  0 everything_is_anything : {b, c : d} -> c = b
+  everything_is_anything = exfalso void
+
+  in rewrite everything_is_anything {d = Type, b = (), c = a} in ()
+
 namespace List
   ||| Concatenation of lists os associative
   total
@@ -197,8 +206,26 @@ namespace List
     lsxrs_is_nil = tail_eq (ls ++ x :: rs) Nil l y prf
     in exfalso $ concat_cons_not_nil ls rs x lsxrs_is_nil
   
+  total
+  export
+  concat_is_map_then_prefix_is_map : (f : a -> b) -> (xs : List a) -> (ls, rs : List b) -> ls ++ rs = map f xs -> (ls' ** ls = map f ls')
+  concat_is_map_then_prefix_is_map f xs Nil rs prf = (Nil ** Refl)
+  concat_is_map_then_prefix_is_map f (x :: xs) (l :: ls) rs prf = let
+    (ls' ** prf') = concat_is_map_then_prefix_is_map f xs ls rs (tail_eq (ls ++ rs) (map f xs) l (f x) prf)
+    prf'' : (l :: ls = f x :: map f ls')
+    prf'' = rewrite head_eq (ls ++ rs) (map f xs) l (f x) prf
+         in rewrite prf'
+         in Refl
 
+    in (x :: ls' ** prf'')
 
+  total
+  export
+  concat_is_map_then_postfix_is_map : (f : a -> b) -> (xs : List a) -> (ls, rs : List b) -> ls ++ rs = map f xs -> (rs' ** rs = map f rs')
+  concat_is_map_then_postfix_is_map f xs        Nil       rs prf = (xs ** prf)
+  concat_is_map_then_postfix_is_map f (x :: xs) (l :: ls) rs prf = let
+    prf' = tail_eq (ls ++ rs) (map f xs) l (f x) prf
+    in concat_is_map_then_postfix_is_map f xs ls rs prf'
 
 
 
