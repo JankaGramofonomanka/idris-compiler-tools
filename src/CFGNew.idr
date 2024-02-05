@@ -344,7 +344,16 @@ namespace Graph
     in rewrite concat_nil (fromVIn vins lbl)
     in SingleVertex (cnct @{impl} u (rewrite revEq v_is_lbl in w))
 
-  prepend prf v (SingleVertex {vins = Just vins} w) = ?hsingleD
+  prepend prf u (SingleVertex {v, vins = Just vins'} w) = let
+    x = 1
+    0 undef_cons_is_map = concat_is_map_then_postfix_is_map (Defined . (~> v)) vins' lgins (Undefined lbl :: rgins) (toEq prf)
+    0 undef_is_def = concat_is_map_then_prefix_is_map (Defined . (~> v)) undef_cons_is_map.fst [Undefined lbl] rgins undef_cons_is_map.snd
+    0 false = case undef_is_def of
+      ((l :: ls) ** prf) => let
+        x = 1
+        undef_is_def = head_eq Nil (map (Defined . (~> v)) ls) (Undefined lbl) (Defined (l ~> v)) prf
+        in case undef_is_def of {}
+    in exfalso' false
   prepend prf v (Cycle {loopIns, loopOuts} node loop) = let
       
       prf' : ListEq (lgins ++ Undefined lbl :: (rgins ++ loopOuts)) (gins ++ loopOuts)
