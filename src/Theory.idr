@@ -159,15 +159,25 @@ namespace List
 
   total
   export
-  head_eq : (ls, rs : List a) -> (l, r : a) -> l :: ls = r :: rs -> l = r
-  head_eq ls rs l r prf = case prf of
+  head_eq' : (ls, rs : List a) -> (l, r : a) -> l :: ls = r :: rs -> l = r
+  head_eq' ls rs l r prf = case prf of
     Refl => Refl
+  
+  total
+  export
+  head_eq : {ls, rs : List a} -> {l, r : a} -> l :: ls = r :: rs -> l = r
+  head_eq {ls, rs, l, r} prf = head_eq' ls rs l r prf
 
   total
   export
-  tail_eq : (ls, rs : List a) -> (l, r : a) -> l :: ls = r :: rs -> ls = rs
-  tail_eq ls rs l r prf = case prf of
+  tail_eq' : (ls, rs : List a) -> (l, r : a) -> l :: ls = r :: rs -> ls = rs
+  tail_eq' ls rs l r prf = case prf of
     Refl => Refl
+  
+  total
+  export
+  tail_eq : {ls, rs : List a} -> {l, r : a} -> l :: ls = r :: rs -> ls = rs
+  tail_eq {ls, rs, l, r} prf = tail_eq' ls rs l r prf
 
   total
   export
@@ -181,7 +191,7 @@ namespace List
   concat_cons_is_single_then_prefix_is_nil Nil rs x y prf = Refl
   concat_cons_is_single_then_prefix_is_nil (l :: ls) rs x y prf = let
     lsxrs_is_nil : (ls ++ x :: rs = Nil)
-    lsxrs_is_nil = tail_eq (ls ++ x :: rs) Nil l y prf
+    lsxrs_is_nil = tail_eq' (ls ++ x :: rs) Nil l y prf
     in exfalso $ concat_cons_not_nil ls rs x lsxrs_is_nil
 
   total
@@ -190,20 +200,20 @@ namespace List
   concat_cons_is_single_then_postfix_is_nil ls Nil x y prf = Refl
   concat_cons_is_single_then_postfix_is_nil Nil (r :: rs) x y prf = let
     rrs_is_nil : (r :: rs = Nil)
-    rrs_is_nil = tail_eq (r :: rs) Nil x y prf
+    rrs_is_nil = tail_eq' (r :: rs) Nil x y prf
     in exfalso $ concat_cons_not_nil Nil rs r rrs_is_nil
   concat_cons_is_single_then_postfix_is_nil (l :: ls) (r :: rs) x y prf = let
     lsxrrs_is_nil : (ls ++ x :: r :: rs = Nil)
-    lsxrrs_is_nil = tail_eq (ls ++ x :: r :: rs) Nil l y prf
+    lsxrrs_is_nil = tail_eq' (ls ++ x :: r :: rs) Nil l y prf
     in exfalso $ concat_cons_not_nil ls (r :: rs) x lsxrrs_is_nil
   
   total
   export
   concat_cons_is_single_then_mid_is_the_elem : (ls, rs : List a) -> (x, y : a) -> ls ++ (x :: rs) = [y] -> x = y
-  concat_cons_is_single_then_mid_is_the_elem Nil rs x y prf = head_eq rs Nil x y prf
+  concat_cons_is_single_then_mid_is_the_elem Nil rs x y prf = head_eq' rs Nil x y prf
   concat_cons_is_single_then_mid_is_the_elem (l :: ls) rs x y prf = let
     lsxrs_is_nil : (ls ++ x :: rs = Nil)
-    lsxrs_is_nil = tail_eq (ls ++ x :: rs) Nil l y prf
+    lsxrs_is_nil = tail_eq' (ls ++ x :: rs) Nil l y prf
     in exfalso $ concat_cons_not_nil ls rs x lsxrs_is_nil
   
   total
@@ -211,9 +221,9 @@ namespace List
   concat_is_map_then_prefix_is_map : (f : a -> b) -> (xs : List a) -> (ls, rs : List b) -> ls ++ rs = map f xs -> (ls' ** ls = map f ls')
   concat_is_map_then_prefix_is_map f xs Nil rs prf = (Nil ** Refl)
   concat_is_map_then_prefix_is_map f (x :: xs) (l :: ls) rs prf = let
-    (ls' ** prf') = concat_is_map_then_prefix_is_map f xs ls rs (tail_eq (ls ++ rs) (map f xs) l (f x) prf)
+    (ls' ** prf') = concat_is_map_then_prefix_is_map f xs ls rs (tail_eq' (ls ++ rs) (map f xs) l (f x) prf)
     prf'' : (l :: ls = f x :: map f ls')
-    prf'' = rewrite head_eq (ls ++ rs) (map f xs) l (f x) prf
+    prf'' = rewrite head_eq' (ls ++ rs) (map f xs) l (f x) prf
          in rewrite prf'
          in Refl
 
@@ -224,7 +234,7 @@ namespace List
   concat_is_map_then_postfix_is_map : (f : a -> b) -> (xs : List a) -> (ls, rs : List b) -> ls ++ rs = map f xs -> (rs' ** rs = map f rs')
   concat_is_map_then_postfix_is_map f xs        Nil       rs prf = (xs ** prf)
   concat_is_map_then_postfix_is_map f (x :: xs) (l :: ls) rs prf = let
-    prf' = tail_eq (ls ++ rs) (map f xs) l (f x) prf
+    prf' = tail_eq' (ls ++ rs) (map f xs) l (f x) prf
     in concat_is_map_then_postfix_is_map f xs ls rs prf'
 
 

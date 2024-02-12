@@ -144,12 +144,9 @@ namespace Eq
   split {lxs = (lx :: lxs), rxs, lys = Nil, rys = (ry :: rys)} prf
     = Left ((lx :: lxs) ** rxs ** (Refl, Refl, revEq prf))
   split {lxs = (lx :: lxs), rxs, lys = (ly :: lys), rys} prf
-    = let
-      head_prf = head_eq (lxs ++ rxs) (lys ++ rys) lx ly prf
-      tail_prf = tail_eq (lxs ++ rxs) (lys ++ rys) lx ly prf
-      in case split tail_prf of
-        Left  (lrys ** rrys ** (prf0, prf1, prf2)) => Left  (lrys       ** rrys ** (rewrite head_prf in cong (ly ::) prf0, prf1, prf2))
-        Right (llys ** rlys ** (prf0, prf1, prf2)) => Right (ly :: llys ** rlys ** (rewrite head_prf in cong (ly ::) prf0, prf1, cong (ly ::) prf2))
+    = case split (tail_eq prf) of
+        Left  (lrys ** rrys ** (prf0, prf1, prf2)) => Left  (lrys       ** rrys ** (rewrite head_eq prf in cong (ly ::) prf0, prf1, prf2))
+        Right (llys ** rlys ** (prf0, prf1, prf2)) => Right (ly :: llys ** rlys ** (rewrite head_eq prf in cong (ly ::) prf0, prf1, cong (ly ::) prf2))
 
   split' : {x : a}
         -> {lxs, rxs, lys, rys : List a}
@@ -171,18 +168,10 @@ namespace Eq
             )
   split' {x, lxs, rxs, lys, rys} prf = case split {lxs, rxs = x :: rxs, lys, rys} prf of
     Left (lrys ** rrys ** (prf0, prf1, prf2)) => case rrys of
-      rry :: rrys => let 
-        head_prf1 = head_eq rxs rrys x rry prf1
-        tail_prf1 = tail_eq rxs rrys x rry prf1
-
-        in Left (lrys ** rrys ** (prf0, tail_prf1, rewrite head_prf1 in prf2))
+      rry :: rrys => Left (lrys ** rrys ** (prf0, tail_eq prf1, rewrite head_eq prf1 in prf2))
 
     Right (llys ** rlys ** (prf0, prf1, prf2)) => case rlys of
-      rly :: rlys => let 
-        head_prf1 = head_eq rxs (rlys ++ rys) x rly prf1
-        tail_prf1 = tail_eq rxs (rlys ++ rys) x rly prf1
-
-        in Right (llys ** rlys ** (prf0, tail_prf1, rewrite head_prf1 in prf2))
+      rly :: rlys => Right (llys ** rlys ** (prf0, tail_eq prf1, rewrite head_eq prf1 in prf2))
       
       Nil => let
         prf0' : (lxs = lys ++ [])
