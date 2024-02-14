@@ -425,61 +425,62 @@ namespace Graph
     prepend = prepend' (fromEq Refl)
 
   namespace Mixed
+
     mutual
       prepend'
          : (impl : Connectable vertex)
         => {lbl : a}
         -> {vins : Neighbors a}
         -> {lgins, rgins : Edges a}
-        -> ListEq (lgins ++ Undefined lbl :: rgins) gins
+        -> lgins ++ Undefined lbl :: rgins = gins
         -> vertex lbl vins Undefined
         -> CFG {a} vertex gins gouts
         -> CFG {a} vertex (lgins ++ fromVIn vins lbl ++ rgins) gouts
       
       prepend' prf v (Parallel {ins, ins', outs, outs'} g g') = case split' prf of
         Left (lrys ** rrys ** (prf0, prf1, prf2))
-          => rewrite the (lgins = ins ++ lrys) (toEq prf0)
+          => rewrite the (lgins = ins ++ lrys) prf0
           in rewrite revEq $ concat_assoc ins lrys (fromVIn vins lbl ++ rgins)
-          in rewrite the (rgins = rrys) (toEq prf1)
-          in Parallel g (prepend' (rev prf2) v g')
+          in rewrite the (rgins = rrys) prf1
+          in Parallel g (prepend' (revEq prf2) v g')
 
         Right (llys ** rlys ** (prf0, prf1, prf2))
-          => rewrite toEq prf0
-          in rewrite toEq prf1
+          => rewrite prf0
+          in rewrite prf1
           in rewrite concat_assoc (fromVIn vins lbl) rlys ins'
           in rewrite concat_assoc llys (fromVIn vins lbl ++ rlys) ins'
-          in Parallel (prepend' (rev prf2) v g) g'
+          in Parallel (prepend' (revEq prf2) v g) g'
       
       prepend' prf v (IFlip {ins, ins'} g) = case split' prf of
         Left (lrys ** rrys ** (prf0, prf1, prf2))
           => let
-            prf' = rewrite concat_assoc lrys (Undefined lbl :: rrys) ins' in rev prf2 ++ fromEq Refl
+            prf' = rewrite concat_assoc lrys (Undefined lbl :: rrys) ins' in cong (++ ins') (revEq prf2)
 
             g' : CFG vertex ((lrys ++ (fromVIn vins lbl ++ rrys)) ++ ins') gouts
             g' = rewrite revEq $ concat_assoc lrys (fromVIn vins lbl ++ rrys) ins'
               in rewrite revEq $ concat_assoc (fromVIn vins lbl) rrys ins'
               in prepend' {lgins = lrys, rgins = rrys ++ ins'} prf' v g
 
-          in rewrite the (lgins = ins' ++ lrys) (toEq prf0)
+          in rewrite the (lgins = ins' ++ lrys) prf0
           in rewrite revEq $ concat_assoc ins' lrys (fromVIn vins lbl ++ rgins)
-          in rewrite the (rgins = rrys) (toEq prf1)
+          in rewrite the (rgins = rrys) prf1
           in IFlip g'
 
         Right (llys ** rlys ** (prf0, prf1, prf2))
           => let
             prf' = rewrite revEq $ concat_assoc ins llys (Undefined lbl :: rlys)
-                in fromEq Refl ++ (rev prf2)
+                in cong (ins ++) (revEq prf2)
 
             g' : CFG vertex (ins ++ (llys ++ (fromVIn vins lbl ++ rlys))) gouts
             g' = rewrite concat_assoc ins llys (fromVIn vins lbl ++ rlys)
               in prepend' {lgins = ins ++ llys, rgins = rlys} prf' v g
-          in rewrite toEq prf0
-          in rewrite toEq prf1
+          in rewrite prf0
+          in rewrite prf1
           in rewrite concat_assoc (fromVIn vins lbl) rlys ins
           in rewrite concat_assoc llys (fromVIn vins lbl ++ rlys) ins
           in IFlip g'
       
-      prepend' prf v g = Mixed.prepend {lgins, rgins} v (rewrite toEq prf in g)
+      prepend' prf v g = Mixed.prepend {lgins, rgins} v (rewrite prf in g)
 
 
       export
@@ -512,7 +513,7 @@ namespace Graph
       prepend v (Series g g') = Series (Mixed.prepend v g) g'
       prepend v (OFlip g) = OFlip (Mixed.prepend v g)
 
-      prepend v g = prepend' (fromEq Refl) v g
+      prepend v g = prepend' Refl v g
 
   
 

@@ -113,6 +113,9 @@ split' {x, lxs, rxs, lys, rys} prf = case split {lxs, rxs = x :: rxs, lys, rys} 
       in Left (Nil ** rxs ** (rewrite concat_nil lys in prf0', fromEq Refl, rev prf1))
       
 namespace Eq
+
+  total
+  export
   split
      : {lxs, rxs, lys, rys : List a}
     -> (lxs ++ rxs = lys ++ rys)
@@ -148,6 +151,8 @@ namespace Eq
         Left  (lrys ** rrys ** (prf0, prf1, prf2)) => Left  (lrys       ** rrys ** (rewrite head_eq prf in cong (ly ::) prf0, prf1, prf2))
         Right (llys ** rlys ** (prf0, prf1, prf2)) => Right (ly :: llys ** rlys ** (rewrite head_eq prf in cong (ly ::) prf0, prf1, cong (ly ::) prf2))
 
+  total
+  export
   split' : {x : a}
         -> {lxs, rxs, lys, rys : List a}
         -> (lxs ++ (x :: rxs) = lys ++ rys)
