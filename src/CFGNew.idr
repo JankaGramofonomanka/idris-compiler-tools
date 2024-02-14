@@ -321,22 +321,22 @@ namespace Graph
       => {lbl : a}
       -> {vins : Neighbors a}
       -> {lgins, rgins : Edges a}
-      -> ListEq (lgins ++ Undefined lbl :: rgins) gins
+      -> lgins ++ Undefined lbl :: rgins = gins
       -> vertex lbl vins Undefined
       -> CFG {a} vertex gins gouts
       -> CFG {a} vertex (lgins ++ fromVIn vins lbl ++ rgins) gouts
     
-    prepend' prf v (Empty) = rewrite revEq $ toEq prf
-                            in Empty |-| SingleVertex v |-| Empty
+    prepend' prf v (Empty) = rewrite revEq prf
+                          in Empty |-| SingleVertex v |-| Empty
 
     prepend' prf u (SingleVertex {vins = Nothing, v} w) = let
       
       0 lgins_empty : (lgins = Nil)
-      lgins_empty = concat_cons_is_single_then_prefix_is_nil lgins rgins (Undefined lbl) (Undefined v) (toEq prf)
+      lgins_empty = concat_cons_is_single_then_prefix_is_nil lgins rgins (Undefined lbl) (Undefined v) prf
       0 rgins_empty : (rgins = Nil)
-      rgins_empty = concat_cons_is_single_then_postfix_is_nil lgins rgins (Undefined lbl) (Undefined v) (toEq prf)
+      rgins_empty = concat_cons_is_single_then_postfix_is_nil lgins rgins (Undefined lbl) (Undefined v) prf
       0 v_is_lbl : (v = lbl)
-      v_is_lbl = case concat_cons_is_single_then_mid_is_the_elem lgins rgins (Undefined lbl) (Undefined v) (toEq prf) of
+      v_is_lbl = case concat_cons_is_single_then_mid_is_the_elem lgins rgins (Undefined lbl) (Undefined v) prf of
         Refl => Refl
 
       in rewrite lgins_empty
@@ -347,16 +347,16 @@ namespace Graph
 
     prepend' prf u (SingleVertex {v, vins = Just vins'} w) = let
       x = 1
-      0 undef_cons_is_map = concat_is_map_then_postfix_is_map (Defined . (~> v)) vins' lgins (Undefined lbl :: rgins) (toEq prf)
+      0 undef_cons_is_map = concat_is_map_then_postfix_is_map (Defined . (~> v)) vins' lgins (Undefined lbl :: rgins) prf
       0 undef_is_def = concat_is_map_then_prefix_is_map (Defined . (~> v)) undef_cons_is_map.fst [Undefined lbl] rgins undef_cons_is_map.snd
       0 false = case undef_is_def of
         ((l :: ls) ** prf) => case head_eq prf of {}
       in exfalso' false
     prepend' prf v (Cycle {loopIns, loopOuts} node loop) = let
         
-        prf' : ListEq (lgins ++ Undefined lbl :: (rgins ++ loopOuts)) (gins ++ loopOuts)
+        prf' : (lgins ++ Undefined lbl :: (rgins ++ loopOuts) = gins ++ loopOuts)
         prf' = rewrite concat_assoc lgins (Undefined lbl :: rgins) loopOuts
-              in prf ++ fromEq Refl
+              in cong (++ loopOuts) prf
     
         node' : CFG vertex ((lgins ++ (fromVIn vins lbl ++ rgins)) ++ loopOuts) (loopIns ++ gouts)
         node' = rewrite revEq $ concat_assoc lgins (fromVIn vins lbl ++ rgins) loopOuts
@@ -370,43 +370,43 @@ namespace Graph
     
     prepend' prf v (Parallel {ins, ins', outs, outs'} g g') = case split' prf of
       Left (lrys ** rrys ** (prf0, prf1, prf2))
-        => rewrite the (lgins = ins ++ lrys) (toEq prf0)
+        => rewrite the (lgins = ins ++ lrys) prf0
         in rewrite revEq $ concat_assoc ins lrys (fromVIn vins lbl ++ rgins)
-        in rewrite the (rgins = rrys) (toEq prf1)
-        in Parallel g (prepend' (rev prf2) v g')
+        in rewrite the (rgins = rrys) prf1
+        in Parallel g (prepend' (revEq prf2) v g')
 
       Right (llys ** rlys ** (prf0, prf1, prf2))
-        => rewrite toEq prf0
-        in rewrite toEq prf1
+        => rewrite prf0
+        in rewrite prf1
         in rewrite concat_assoc (fromVIn vins lbl) rlys ins'
         in rewrite concat_assoc llys (fromVIn vins lbl ++ rlys) ins'
-        in Parallel (prepend' (rev prf2) v g) g'
+        in Parallel (prepend' (revEq prf2) v g) g'
     
     prepend' prf v (IFlip {ins, ins'} g) = case split' prf of
       Left (lrys ** rrys ** (prf0, prf1, prf2))
         => let
-          prf' = rewrite concat_assoc lrys (Undefined lbl :: rrys) ins' in rev prf2 ++ fromEq Refl
+          prf' = rewrite concat_assoc lrys (Undefined lbl :: rrys) ins' in cong (++ ins') (revEq prf2)
 
           g' : CFG vertex ((lrys ++ (fromVIn vins lbl ++ rrys)) ++ ins') gouts
           g' = rewrite revEq $ concat_assoc lrys (fromVIn vins lbl ++ rrys) ins'
             in rewrite revEq $ concat_assoc (fromVIn vins lbl) rrys ins'
             in prepend' {lgins = lrys, rgins = rrys ++ ins'} prf' v g
 
-        in rewrite the (lgins = ins' ++ lrys) (toEq prf0)
+        in rewrite the (lgins = ins' ++ lrys) prf0
         in rewrite revEq $ concat_assoc ins' lrys (fromVIn vins lbl ++ rgins)
-        in rewrite the (rgins = rrys) (toEq prf1)
+        in rewrite the (rgins = rrys) prf1
         in IFlip g'
 
       Right (llys ** rlys ** (prf0, prf1, prf2))
         => let
           prf' = rewrite revEq $ concat_assoc ins llys (Undefined lbl :: rlys)
-              in fromEq Refl ++ (rev prf2)
+              in cong (ins ++) (revEq prf2)
 
           g' : CFG vertex (ins ++ (llys ++ (fromVIn vins lbl ++ rlys))) gouts
           g' = rewrite concat_assoc ins llys (fromVIn vins lbl ++ rlys)
             in prepend' {lgins = ins ++ llys, rgins = rlys} prf' v g
-        in rewrite toEq prf0
-        in rewrite toEq prf1
+        in rewrite prf0
+        in rewrite prf1
         in rewrite concat_assoc (fromVIn vins lbl) rlys ins
         in rewrite concat_assoc llys (fromVIn vins lbl ++ rlys) ins
         in IFlip g'
@@ -422,7 +422,7 @@ namespace Graph
       -> vertex lbl vins Undefined
       -> CFG {a} vertex (lgins ++ Undefined lbl :: rgins) gouts
       -> CFG {a} vertex (lgins ++ fromVIn vins lbl ++ rgins) gouts
-    prepend = prepend' (fromEq Refl)
+    prepend = prepend' Refl
 
   namespace Mixed
 
