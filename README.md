@@ -14,8 +14,8 @@ and the correctness of jumps between basic blocks of the target language code.
 
 To test the framework in practice, a compiler of a simple imperative language `LNG` is included in the project.
 
-## Key modules
-The entire source code is located in the folder `src`
+### Key modules
+The entire source code is located in the `src` folder.
 
 - Data definitions:
   - `LNG.Parsed` - a representation of `LNG` as it is returned by the **parser**.
@@ -34,6 +34,15 @@ The entire source code is located in the folder `src`
   - `LNG.Parse`, `Parse.[...]` - the parsing phase of the compiler.
   - `TypeCheck`, `TypeCheck.[...]` - the type-checking phase of the compiler.
   - `Compile`, `Compile.[...]` - the code-generating phase of the compiler.
+
+### The `LNG` language
+
+The `LNG` language is a simple typed imperative language.
+It has three data types (four including `void`): `boolean`, `int`, and `string`.
+It supports basic arithmetic, boolean logic, if-then-else statements, while loops,
+and allows defining and calling functions.
+
+You can see examples of `LNG` programs in the `test` folder.
 
 ## How to run the compiler
 
