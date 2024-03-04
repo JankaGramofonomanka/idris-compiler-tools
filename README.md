@@ -74,7 +74,7 @@ To test the compiled examples, run the following:
 ### The parser is broken
 
 The parser of the LNG language is broken.
-Whenever a function or variable identifier is prefixed by a keyword,
+Whenever a function or variable identifier contains a keyword as a prefix,
 the tokenizer will interpret the prefix as a keyword, and thus the program won't parse.
 For example, the instruction
 ```
