@@ -70,6 +70,9 @@ To test the compiled examples, run the following:
 ```
 
 ## Warning
+
+### The parser is broken
+
 The parser of the LNG language is broken.
 Whenever a function or variable identifier is prefixed by a keyword,
 the tokenizer will interpret the prefix as a keyword, and thus the program won't parse.
@@ -79,3 +82,7 @@ int elsewhere = 0;
 ```
 will not parse because the name of the variable starts with `else` which is a keyword.
 
+### The parser is slow when input is invalid
+
+Because the parser is based on the list monad,
+it is extremely slow to reject input that is not syntactically correct.
