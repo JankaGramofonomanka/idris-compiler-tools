@@ -215,7 +215,7 @@ data LLExpr : LLType -> Type where
   BinOperation : BinOperator tl tr t -> LLValue tl -> LLValue tr -> LLExpr t
   Call : LLValue (Ptr (FunType t ts)) -> DList LLValue ts -> LLExpr t
 
-  -- this does not express the ful functionality of the `getelementptr` instruction
+  -- this does not express the full functionality of the `getelementptr` instruction
   GetElementPtr : {t : LLType}
                -> {k : Nat}
                -> LLValue (Ptr (Array t k))
