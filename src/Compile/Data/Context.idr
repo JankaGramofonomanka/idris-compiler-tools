@@ -20,15 +20,13 @@ export
 FunCTX : Type
 FunCTX = DMap Fun' FunVal'
 
-{-
-A map, that stores the values of variables in a particular place in the control
-flow graph
--}
+||| A map, that stores the values of variables in a particular place in the control
+||| flow graph
 export
 VarCTX : Type
 VarCTX = DMap Variable (LLValue . GetLLType)
 
--- Same as `VarCTX` but every value is in a register
+||| Same as `VarCTX` but every value is in a register
 export
 VarCTX' : Type
 VarCTX' = DMap Variable (Reg . GetLLType)

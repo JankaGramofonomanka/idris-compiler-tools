@@ -1,7 +1,5 @@
-{-
-  A simple programming language, for testing the usefulness and demonstration
-  of compiler frameworks defined in this project.
--}
+||| A simple programming language, for testing the usefulness and demonstration
+||| of compiler frameworks defined in this project.
 module LNG.TypeChecked
 
 import Data.DList

@@ -63,15 +63,13 @@ compileLiteral labelIn (LitString s) = do
 
 mutual
 
-  {-
-  Returns
-    - a control flow graph that computes the expression `expr`
-    - the label of the block that the graph ends in.
-    - the value of the expression `expr`
-  The graph starts in a block labeled `labelIn`.
-  The context decribing values of variables stays the same through the entire
-  computation and is stored in the state.
-  -}
+  ||| Returns
+  |||   - a control flow graph that computes the expression `expr`
+  |||   - the label of the block that the graph ends in.
+  |||   - the value of the expression `expr`
+  ||| The graph starts in a block labeled `labelIn`.
+  ||| The context decribing values of variables stays the same through the entire
+  ||| computation and is stored in the state.
   export
   compileExpr : (labelIn : Label)
              -> (expr : Expr t)

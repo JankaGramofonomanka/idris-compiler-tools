@@ -126,11 +126,9 @@ mutual
   --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   -- UU -----------------------------------------------------------------------
   --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  {-
-  Returns a control flow graph that executes the instruction `instr`.
-  The graph starts in a block labeled `labelIn` with `ctx` describing values of
-  variables at the start of the graph.
-  -}
+  ||| Returns a control flow graph that executes the instruction `instr`.
+  ||| The graph starts in a block labeled `labelIn` with `ctx` describing values of
+  ||| variables at the start of the graph.
   export
   compileInstrUU : (labelIn : Label)
                 -> (ctx : labelIn :~: VarCTX)

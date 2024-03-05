@@ -154,10 +154,8 @@ segregate' {lbls = l :: ls}   (ctx :: ctxs) = addCTX ctx (segregate' ctxs)
 
 
 -- TODO: consider another name - `merge`
-{-
-Combine contexts from different branches by adding phi instructions in case of
-conflicting values
--}
+||| Combine contexts from different branches by adding phi instructions in case
+||| of conflicting values
 export
 segregate : {lbls : List Label}
          -> DList (:~: VarCTX) (lbls ~~> lbl)
