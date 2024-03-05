@@ -11,9 +11,9 @@ Consider singling out `Just []` / `Defined []` and use `List1` instead of `List`
 namespace Vertex  
   {-
   `Neighbors a` - neighbors of a vertex with identifier of type `a`
-  - `Just l` means that vertices identified by labels in `l` are neighbors of
-    our vertex
-  - `Nothing` means that we haven't yet defined the neghbors of our vertex.
+  - `Just l` means that the elements of `l` are the identifiers of the
+    neighbors of our vertex
+  - `Nothing` means that the neighbors of our vertex haven't been defined yet.
   -}
   public export
   Neighbors : Type -> Type
