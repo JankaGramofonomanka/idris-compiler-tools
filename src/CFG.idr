@@ -9,11 +9,12 @@ Consider singling out `Just []` / `Defined []` and use `List1` instead of `List`
 -}
 
 namespace Vertex  
-  ||| `Neighbors a` - neighbors of a vertex with identifier of type `a`
-  ||| - `Just l` means that the elements of `l` are the identifiers of the
+  ||| Neighbors of a vertex
+  ||| * `Just l` means that the elements of `l` are the identifiers of the
   |||   neighbors of our vertex
-  ||| - `Nothing` means that the neighbors of our vertex haven't been defined
+  ||| * `Nothing` means that the neighbors of our vertex haven't been defined
   |||   yet.
+  ||| @ a the type of vertex identifiers
   public export
   Neighbors : Type -> Type
   Neighbors a = Maybe (List a)
@@ -30,14 +31,14 @@ namespace Vertex
   Single : a -> Neighbors a
   Single x = Just [x]
 
-  ||| `Vertex a` - constructor of verteices of a directed graph, with
-  ||| identifiers of type `a`
-  ||| 
-  ||| if `vertex : Vertex a` then `vertex l ins outs` is a type of vertex with
-  ||| identifier `l`, inputs `ins` and outputs `outs`.
+  ||| a constructor of verteices of a directed graph
+  ||| @ a    the type of vertex identifiers
+  ||| @ v    the identifier              of the vertex
+  ||| @ ins  the inputs  (in-neighbors)  of the vertex
+  ||| @ outs the outputs (out-neighbors) of the vertex
   public export
   Vertex : Type -> Type
-  Vertex a = a -> Neighbors a -> Neighbors a -> Type
+  Vertex a = (v : a) -> (ins : Neighbors a) -> (outs : Neighbors a) -> Type
 
   public export
   interface Connectable (0 vertex : Vertex a) where
@@ -49,9 +50,9 @@ namespace Graph
 
   infix 6 ~>, <~
 
-  ||| `v ~> w` - an edge from `v` to `w`
   public export
   data Edge : Type -> Type where
+    ||| `v ~> w` - an edge from `v` to `w`
     (~>) : a -> a -> Edge a  
 
   public export
@@ -67,21 +68,21 @@ namespace Graph
   Origin (from ~> to) = from
 
 
-  ||| `Edges a` - edges of an incomplete graph, that have only one end in the
-  ||| graph
-  ||| 
-  ||| - `Undefined v` means the graph has one vertex labeled `v`, with
-  ||| undefined inputs (outputs). All other vertices have their inputs
-  ||| (outputs) in the graph.
-  ||| 
-  ||| - `Defined edges` means the vertices that are the destinations (origins)
-  ||| of edges in `edges` have inputs (outputs) that are the origins
-  ||| (destitnations) of edges in `edges`.
-  ||| More precisely, if `v ~> w` is a n element of `edges`, then `w` (`v`) is 
-  ||| in the graph and has input `v` (output `w`), but `v` (`w`) is not in the
-  ||| graph.
+  ||| edges of an incomplete graph, that have only one end in the graph
+  ||| @ a the type of vertex identifiers
   public export
-  data Edges a = Undefined a | Defined (List (Edge a))
+  data Edges a
+    = ||| `Undefined v` means the graph has one vertex labeled `v`, with
+      ||| undefined inputs (outputs). All other vertices have their inputs
+      ||| (outputs) in the graph.
+      Undefined a
+    | ||| `Defined edges` means the vertices that are the destinations (origins)
+      ||| of edges in `edges` have inputs (outputs) that are the origins
+      ||| (destitnations) of edges in `edges`.
+      ||| More precisely, if `v ~> w` is a n element of `edges`, then `w` (`v`) is 
+      ||| in the graph and has input `v` (output `w`), but `v` (`w`) is not in the
+      ||| graph.
+      Defined (List (Edge a))
 
   public export
   Closed : Edges a
@@ -147,12 +148,11 @@ namespace Graph
   -}
 
   ||| A potentially incomplete control flow graph.
-  ||| `CFG vertex ins outs` is a graph where:
-  |||   `ins`    - edges from "to be defined" vertices to vertices in the graph
-  |||   `outs`   - edges from vertices in the graph to "to be defined" vertices
-  |||   `vertex` - constructor of vertex types.
+  ||| @ ins    edges from "to be defined" vertices to vertices in the graph
+  ||| @ outs   edges from vertices in the graph to "to be defined" vertices
+  ||| @ vertex constructor of vertex types.
   public export
-  data CFG : Vertex a -> Edges a -> Edges a -> Type where
+  data CFG : (vertex : Vertex a) -> (ins : Edges a) -> (outs : Edges a) -> Type where
 
     SingleVertex : {0 vertex : Vertex a}
                 -> {vins, vouts : Neighbors a}
