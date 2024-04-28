@@ -13,12 +13,12 @@ import TypeCheck.Program
 
 import Utils
 
+||| Check the semantic correctness of a syntactically correct program
 export
 typeCheck : LNG.Program -> Either Error TC.Program
 typeCheck = evalStateT initState . typeCheckProgram where
 
   builtIns : FunCTX
   builtIns = foldr3 FunCTX.declareBuiltIn FunCTX.empty BuiltIns.TypeCheck.builtIns
-  
-  initState = MkTCST { funcs = builtIns }
 
+  initState = MkTCST { funcs = builtIns }

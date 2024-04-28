@@ -1,3 +1,5 @@
+||| A module, where I play around with putting semantics of JVM-like
+||| instructions to the type-level
 module StackMachine
 
 import Data.So
@@ -89,7 +91,7 @@ namespace Semantics
 
 
 data Instr : Semantics ts1 ts2 -> Type where
-  
+
   IPush : (x : JValue TInt) -> Instr (ipush x)
   DPush : (x : JValue TDouble) -> Instr (dpush x)
 
@@ -122,4 +124,3 @@ example : Optimisation semantics
 example (prog :+: IPush x :+: IPush y :+: IPush z :+: IAdd) = prog :+: IPush y :+: IPush z :+: IAdd :+: IPush x :+: Swap
 example (prog :+: instr) = example prog :+: instr
 example Empty = Empty
-

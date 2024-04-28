@@ -12,7 +12,6 @@ import Interpreter.Program
 import LNG.Parsed
 
 
-
+||| Run the interpreter
 interpreter : MonadError String m => ConsoleI m => ConsoleO m => Program -> EitherT Error m ()
 interpreter = evalStateT initState . interpretProgram
-

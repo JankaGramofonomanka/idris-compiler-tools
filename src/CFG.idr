@@ -32,7 +32,7 @@ TODO:
 Consider singling out `Just []` / `Defined []` and use `List1` instead of `List`
 -}
 
-namespace Vertex  
+namespace Vertex
   ||| Neighbors of a vertex
   ||| * `Just l` represents neighbors of a vertex that is complete at the
   |||    relevant end (beginning or end)
@@ -81,7 +81,7 @@ namespace Graph
   data Edge a
     = ||| `v ~> w` - an edge from `v` to `w`
       (~>) a a
-  
+
   public export
   (<~) : a -> a -> Edge a
   (<~) = flip (~>)
@@ -134,7 +134,7 @@ namespace Graph
   public export
   (<~~) : (v : a) -> (vs : List a) -> List (Edge a)
   (<~~) = flip (~~>)
-  
+
   ||| Flipped `(~>>)`
   public export
   (<<~) : (vs : List a) -> (v : a) -> List (Edge a)
@@ -183,7 +183,7 @@ namespace Graph
   {-
   TODO: Consider adding an `data` parameter to `CFG` that would be the type of
   data that would be stored alongside vertices.
-  
+
   The `data` could be:
     - the values of variables
     - variables that were changed
@@ -202,7 +202,7 @@ namespace Graph
                 -> {vins, vouts : Neighbors a}
                 -> vertex v vins vouts
                 -> CFG vertex (fromVIn vins v) (fromVOut v vouts)
-    
+
     ||| A graph that represents a while loop
     ||| @ node the graph in which the while condition is computed
     ||| @ loop the body of the loop
@@ -219,7 +219,7 @@ namespace Graph
     Series : (pre  : CFG vertex ins (Defined edges))
           -> (post : CFG vertex (Defined edges) outs)
           -> CFG vertex ins outs
-    
+
     ||| A partial sequential connection of two graphs
     ||| The left outputs of the predecessor are connected with all inputs of
     ||| the successor
@@ -231,7 +231,7 @@ namespace Graph
            -> (node   : CFG vertex ins (Defined $ ls ++ rs))
            -> (branch : CFG vertex (Defined ls) (Defined ls'))
            ->           CFG vertex ins (Defined $ ls' ++ rs)
-    
+
     ||| A partial sequential connection of two graphs
     ||| The right outputs of the predecessor are connected with all inputs of
     ||| the successor
@@ -255,7 +255,7 @@ namespace Graph
           -> (branch  : CFG vertex (Defined ls) (Defined ls'))
           -> (node    : CFG vertex (Defined $ ls' ++ rs) outs)
           ->            CFG vertex (Defined $ ls ++ rs) outs
-    
+
     ||| A partial sequential connection of two graphs
     ||| All outputs of the predecessor are connected with the right inputs of
     ||| the successor
@@ -267,7 +267,7 @@ namespace Graph
           -> (branch  : CFG vertex (Defined rs) (Defined rs'))
           -> (node    : CFG vertex (Defined $ ls ++ rs') outs)
           ->            CFG vertex (Defined $ ls ++ rs) outs
-         
+
     ||| A parallel connection of graphs
     ||| Two graphs are combined into one without any connections beetween them
     ||| The result has the inputs and outputs of both
@@ -276,14 +276,14 @@ namespace Graph
     Parallel : (left  : CFG vertex (Defined ins) (Defined outs))
             -> (right : CFG vertex (Defined ins') (Defined outs'))
             -> CFG vertex (Defined $ ins ++ ins') (Defined $ outs ++ outs')
-    
-    
+
+
     -- TODO: consider removing these constructors
     ||| Used to flip the inputs of a graph to make it connectable with another
     IFlip : {ins, ins' : List (Edge a)}
          -> CFG vertex (Defined $ ins ++ ins') outs
          -> CFG vertex (Defined $ ins' ++ ins) outs
-    
+
     ||| Used to flip the outputs of a graph to make it connectable with another
     OFlip : {outs, outs' : List (Edge a)}
          -> CFG vertex ins (Defined $ outs ++ outs')
@@ -301,16 +301,16 @@ namespace Graph
   public export
   append : {vins : List a}
         -> {vouts : Neighbors a}
-        
+
         -> CFG vertex gins (Defined $ vins ~~> v)
         -> vertex v (Just vins) vouts
         -> CFG vertex gins (fromVOut v vouts)
   append g v = Series g (SingleVertex v)
-  
+
   branch : {0 vertex : Vertex a}
         -> {vins : Neighbors a}
         -> {w, w' : a}
-        
+
         -> (pre   : vertex v vins (Just [w, w']))
         -> (left  : CFG vertex (Single v w)  (Defined louts))
         -> (right : CFG vertex (Single v w') (Defined routs))
@@ -327,7 +327,7 @@ namespace Graph
             -> (post   : vertex t (Just [u, u']) vouts)
             -> CFG vertex (fromVIn vins v) (fromVOut t vouts)
   fullBranch pre left right post = append (branch pre left right) post
-  
+
   ||| Apply a function to the undefined input vertex
   export
   imap : {0 vertex : Vertex a}
@@ -341,16 +341,16 @@ namespace Graph
   imap f (Series g g')                      = Series (imap f g) g'
   imap f (LBranch g g')                     = LBranch (imap f g) g'
   imap f (RBranch g g')                     = RBranch (imap f g) g'
-  
+
   imap f (OFlip g)                          = OFlip (imap f g)
-  
+
   imap f (SingleVertex {vins = Just ins} v) impossible
   imap f (Cycle node loop)                  impossible
   imap f (LMerge g g')                      impossible
   imap f (RMerge g g')                      impossible
   imap f (Parallel g g')                    impossible
   imap f (IFlip g)                          impossible
-  
+
   ||| Apply a function to the undefined output vertex
   export
   omap : {0 vertex : Vertex a}
@@ -365,7 +365,7 @@ namespace Graph
   omap f (LMerge g g')                        = LMerge g (omap f g')
   omap f (RMerge g g')                        = RMerge g (omap f g')
   omap f (IFlip g)                            = IFlip (omap f g)
-  
+
   omap f (SingleVertex {vouts = Just outs} v) impossible
   omap f (Cycle node loop)                    impossible
   omap f (LBranch g g')                       impossible
@@ -395,7 +395,7 @@ namespace Graph
   connect (RBranch g g')                        g' impossible
   connect (Parallel g g')                       g' impossible
   connect (OFlip g)                             g' impossible
-  
+
 
   export
   initGraph : {0 vertex : Vertex a}
@@ -414,7 +414,7 @@ namespace Graph
   iget f (LBranch g g')                     = iget f g
   iget f (RBranch g g')                     = iget f g
   iget f (OFlip g)                          = iget f g
-  
+
   iget f (SingleVertex {vins = Just ins} v) impossible
   iget f (Cycle node loop)                  impossible
   iget f (LMerge g g')                      impossible
@@ -434,7 +434,7 @@ namespace Graph
   oget f (LMerge g g')                        = oget f g'
   oget f (RMerge g g')                        = oget f g'
   oget f (IFlip g)                            = oget f g
-  
+
   oget f (SingleVertex {vouts = Just outs} v) impossible
   oget f (Cycle node loop)                    impossible
   oget f (LBranch g g')                       impossible
@@ -458,15 +458,15 @@ namespace Graph
 
   oget' f (LBranch g g')                          = let (lhs, rhs) = split (oget' f g)
                                                     in oget' f g' ++ rhs
-  
+
   oget' f (RBranch g g')                          = let (lhs, rhs) = split (oget' f g)
                                                     in lhs ++ oget' f g'
-  
+
   oget' f (LMerge g g')                           = oget' f g'
   oget' f (RMerge g g')                           = oget' f g'
   oget' f (Parallel g g')                         = oget' f g ++ oget' f g'
   oget' f (IFlip g)                               = oget' f g
-  
+
   oget' f (OFlip g)                               = let (lres, rres) = split (oget' f g)
                                                     in rres ++ lres
 

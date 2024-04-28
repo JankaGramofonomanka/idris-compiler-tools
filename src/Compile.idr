@@ -15,17 +15,16 @@ import Compile.Utils
 
 import Utils
 
+||| Compile a semantically correct program to LLVM
 export
 compile : LNG.Program -> Either Error LLVM.Program
 compile = evalStateT initState . compileProgram where
-  
+
   insert' : (t ** ts ** (Fun t ts, FunVal t ts)) -> FunCTX -> FunCTX
   insert' (t ** ts ** (key, val)) = FunCTX.insert key val
 
   builtIns : FunCTX
   builtIns = foldr insert' empty Compile.builtIns
-  
+
   initState : CompState
   initState = { funcs := builtIns } emptyState
-      
-
