@@ -100,8 +100,11 @@ voidNotEqComparable : EqComparable TVoid -> Void
 voidNotEqComparable prf = case prf of {}
 
 ||| A binary operator
+||| @ lhsT the type of the left operand
+||| @ rhsT the type of the right operand
+||| @ resT the type of the result
 public export
-data BinOperator : LNGType -> LNGType -> LNGType -> Type where
+data BinOperator : (lhsT : LNGType) -> (rhsT : LNGType) -> (resT : LNGType) -> Type where
   ||| `+`  - Addition
   Add : BinOperator TInt TInt TInt
   ||| `-`  - Subtraction
@@ -154,8 +157,10 @@ binRetTypeOf GT = MkThe TBool
 binRetTypeOf Concat = MkThe TString
 
 ||| An unary operator
+||| @ ot the type or the operand
+||| @ rt the type of the result
 public export
-data UnOperator : LNGType -> LNGType -> Type where
+data UnOperator : (ot : LNGType) -> (rt : LNGType) -> Type where
   ||| `-` - Arithmetic negation
   Neg : UnOperator TInt TInt
   ||| `!` - Logical negation
@@ -167,11 +172,18 @@ unRetTypeOf Neg = MkThe TInt
 unRetTypeOf Not = MkThe TBool
 
 ||| A Literal, such as `0`, `"hello"`, or `false`
+||| @ t the type of the literal
 public export
-data Literal : LNGType -> Type where
-  LitBool   : Bool    -> Literal TBool
-  LitInt    : Integer -> Literal TInt
-  LitString : String  -> Literal TString
+data Literal : (t : LNGType) -> Type where
+  ||| A boolean literal
+  ||| @ b the value of the literal
+  LitBool   : (b : Bool)    -> Literal TBool
+  ||| An integer literal
+  ||| @ i the value of the literal
+  LitInt    : (i : Integer) -> Literal TInt
+  ||| A string literal
+  ||| @ s the value of the literal
+  LitString : (s : String)  -> Literal TString
 
 export
 implementation Typed Literal where
@@ -180,14 +192,21 @@ implementation Typed Literal where
   typeOf (LitString s)  = MkThe TString
 
 ||| An identifier of a variable
+||| @ t the type of the variable
 public export
-data VarId : LNGType -> Type where
-  MkVarId : String -> VarId t
+data VarId : (t : LNGType) -> Type where
+  ||| Make a variable identifier
+  ||| @ name the name of the variable
+  MkVarId : (name : String) -> VarId t
 
 ||| An identifier of a variable with a runtime representation of its type
+||| @ t the type of the variable
 public export
-data Variable : LNGType -> Type where
-  MkVar : (t : LNGType) -> VarId t -> Variable t
+data Variable : (t : LNGType) -> Type where
+  ||| Make a `Variable` out of `VarId`
+  ||| @ t     the type of the variable
+  ||| @ varId the variable identifier
+  MkVar : (t : LNGType) -> (varId : VarId t) -> Variable t
 
 export
 implementation GEq Variable where
@@ -207,16 +226,26 @@ implementation Typed Variable where
   typeOf (MkVar t id) = MkThe t
 
 ||| An identifier of a function
+||| @ t  the return type of the function
+||| @ ts the parameter types of the function
 public export
-data FunId : LNGType -> List LNGType -> Type where
-  MkFunId : String -> FunId t ts
+data FunId : (t : LNGType) -> (ts : List LNGType) -> Type where
+  ||| Make a function identifier
+  ||| @ name the name of the function
+  MkFunId : (name : String) -> FunId t ts
 
 -- TODO: should this be public?
 ||| An identifier of a function with a runtime representation of its return and
 ||| parameter types
+||| @ t  the return type of the function
+||| @ ts the parameter types of the function
 public export
-data Fun : LNGType -> List LNGType -> Type where
-  MkFun : (t : LNGType) -> (ts : List LNGType) -> FunId t ts -> Fun t ts
+data Fun : (t : LNGType) -> (ts : List LNGType) -> Type where
+  ||| Make a `Fun` oot of `FunId`
+  ||| @ t     the return type of the function
+  ||| @ ts    the parameter types of the function
+  ||| @ funId the function identifier
+  MkFun : (t : LNGType) -> (ts : List LNGType) -> (funId : FunId t ts) -> Fun t ts
 
 ||| Extracts a `FunId` out of `Fun` by dropping the type representation
 export
@@ -305,19 +334,28 @@ public export
 data Expr : LNGType -> Type where
 
   ||| A literal
-  Lit : Literal t -> Expr t
+  ||| @ lit the literal
+  Lit : (lit : Literal t) -> Expr t
 
   ||| A variable
-  Var : Variable t -> Expr t
+  ||| @ var the variable identifier
+  Var : (var : Variable t) -> Expr t
 
   ||| A binary operation
-  BinOperation : BinOperator t1 t2 t3 -> Expr t1 -> Expr t2 -> Expr t3
+  ||| @ op  the operator
+  ||| @ lhs the left operand
+  ||| @ rhs the right operand
+  BinOperation : (op : BinOperator t1 t2 t3) -> (lhs : Expr t1) -> (rhs : Expr t2) -> Expr t3
 
   ||| An unary operation
-  UnOperation : UnOperator t1 t2 -> Expr t1 -> Expr t2
+  ||| @ op   the operator
+  ||| @ expr the operand
+  UnOperation : (op : UnOperator t1 t2) -> (expr : Expr t1) -> Expr t2
 
   ||| A function call
-  Call : Fun t ts -> DList Expr ts -> Expr t
+  ||| @ fun the function identifier
+  ||| @ the arguments passed to the function
+  Call : (fun : Fun t ts) -> (args : DList Expr ts) -> Expr t
 
 export
 implementation Typed Expr where
@@ -348,35 +386,59 @@ BrKind Returning  Returning = Returning
 
 mutual
   ||| An LNG Instruction
+  ||| @ returnType the return type of the function the instruction is part of,
+  |||              used to enforce the correct type of returned values
+  ||| @ kind       the kind of the instruction - simple or returning
   public export
   data Instr : (returnType : LNGType) -> (kind : InstrKind) -> Type where
 
-    ||| a block of instructions wrapped in curly braces
-    Block : Instrs rt k -> Instr rt k
+    ||| A block of instructions wrapped in curly braces
+    ||| @ instrs the instructions that make up the block
+    Block : (instrs : Instrs rt k) -> Instr rt k
 
     ||| An assignment of a value to a variable
-    Assign : Variable t -> Expr t -> Instr rt Simple
+    ||| @ var  the variable to assign value to
+    ||| @ expr the expression whose value will be assigned to the variable
+    Assign : (var : Variable t) -> (expr : Expr t) -> Instr rt Simple
 
-    ||| An evaluation of an expression
-    Exec : Expr TVoid -> Instr rt Simple
+    ||| An evaluation of a void expression
+    ||| @ expr the expression to evaluate
+    Exec : (expr : Expr TVoid) -> Instr rt Simple
 
     ||| An if-then statement
-    If : Expr TBool -> Instr rt k -> Instr rt Simple
+    ||| @ cond the "if" condition
+    ||| @ branch the instruction to execute, when the condition is true
+    If : (cond : Expr TBool) -> (branch : Instr rt k) -> Instr rt Simple
 
     ||| An if-then-else statement
-    IfElse : {k, k' : InstrKind} -> Expr TBool -> Instr rt k -> Instr rt k' -> Instr rt (BrKind k k')
+    ||| @ cond the "if" condition
+    ||| @ thn the "then" branch - the instruction to execute, when the
+    |||       condition is true
+    ||| @ els the "else" branch - the instruction to execute, when the
+    |||       condition is false
+    IfElse : {k, k' : InstrKind}
+          -> (cond : Expr TBool)
+          -> (thn : Instr rt k)
+          -> (els : Instr rt k')
+          -> Instr rt (BrKind k k')
 
     ||| A while loop
-    While : Expr TBool -> Instr rt k -> Instr rt Simple
+    ||| @ cond the "while" condition
+    ||| @ body the body of the loop
+    While : (cond : Expr TBool) -> (body : Instr rt k) -> Instr rt Simple
 
     ||| A return statement with a return value
-    Return : Expr t -> Instr t Returning
+    ||| @ expr the returned expression
+    Return : (expr : Expr t) -> Instr t Returning
 
     ||| A return statement without a return value
     RetVoid : Instr TVoid Returning
     -- TODO: Add `WhileTrue`
 
   ||| A list of simple in structions, followed by a simple or a returning instructions
+  ||| @ returnType the return type of the function the instructions are part of,
+  |||              used to enforce the correct type of returned values
+  ||| @ kind       the kind of the instruction list - simple or returning
   public export
   data Instrs : (returnType : LNGType) -> (kind : InstrKind) -> Type where
 
@@ -384,10 +446,13 @@ mutual
     Nil : Instrs rt Simple
 
     ||| A singleton list containing a returning instruction (a terminator)
-    TermSingleton : Instr rt Returning -> Instrs rt Returning
+    ||| @ term the terminator
+    TermSingleton : (term : Instr rt Returning) -> Instrs rt Returning
 
     ||| A simple instruction prepended to a list of instructions
-    (::) : Instr rt Simple -> Instrs rt k -> Instrs rt k
+    ||| @ hd the head of the list
+    ||| @ tl the tail of the list
+    (::) : (hd : Instr rt Simple) -> (tl : Instrs rt k) -> Instrs rt k
 
 ||| A definition of a function
 public export
