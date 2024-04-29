@@ -1,4 +1,5 @@
-||| Copied from haskell's dependent-map package
+||| A module describing the dependent map (`DMap`).
+||| Copied from haskell's "dependent-map" package.
 module Data.DMap
 
 import Control.Monad.State
@@ -896,13 +897,13 @@ unionWithKey : GCompare k => ({0 v : a} -> k v -> f v -> f v -> f v) -> DMap k f
 unionWithKey _ t1 Tip  = t1
 unionWithKey _ Tip t2  = t2
 unionWithKey f (Bin _ k1 x1 l1 r1) t2 = case splitLookup k1 t2 of
-  (l2, mx2, r2) => let 
+  (l2, mx2, r2) => let
       l1l2 = unionWithKey f l1 l2
       r1r2 = unionWithKey f r1 r2
     in case mx2 of
       Nothing => combine k1 x1 l1l2 r1r2
       Just x2 => combine k1 (f k1 x1 x2) l1l2 r1r2
-    
+
 ||| The union of a list of maps, with a combining operation:
 |||   (`'unionsWithKey' f == 'Prelude.foldl' ('unionWithKey' f) 'empty'`).
 export
@@ -947,7 +948,7 @@ differenceWithKey f (Bin _ k1 x1 l1 r1) t2 = case splitLookup k1 t2 of
       Just x2 => case f k1 x1 x2 of
         Nothing   => merge l1l2 r1r2
         Just x1x2 => combine k1 x1x2 l1l2 r1r2
-    
+
 
 {--------------------------------------------------------------------
   Intersection
@@ -1198,7 +1199,7 @@ fromDistinctAscList xs = build const (cast $ length xs) xs
         _ => assert_total $ idris_crash "fromDistinctAscList build"
       build c n xs' = build (buildR nr c) nl xs'
         where
-          nl, nr : Int  
+          nl, nr : Int
           nl = n `div` 2
           nr = n - nl - 1
 
@@ -1206,7 +1207,7 @@ fromDistinctAscList xs = build const (cast $ length xs) xs
       buildR n c l ((k :=> x) :: ys) = build (buildB l k x c) n ys
       buildR _ _ _ []                = assert_total $ idris_crash "fromDistinctAscList buildR []"
 
-    
+
 
 ||| *O(n)*. Build a map from an ascending list in linear time with a
 ||| combining function for equal keys.
@@ -1220,7 +1221,7 @@ fromAscListWithKey func xs = fromDistinctAscList (combineEq func xs)
     combineEq' f z@(kz :=> zz) (x@(kx :=> xx) :: xs') = case geq kx kz @{impl} of
       Just Refl   => let yy = func kx xx zz in combineEq' f (kx :=> yy) xs'
       Nothing     => z :: combineEq' func x xs'
-    
+
     -- [combineEq f xs] combines equal elements with function [f] in an ordered list [xs]
     combineEq : ({0 v : a} -> k v -> f v -> f v -> f v) -> List (DSum k f) -> List (DSum k f)
     combineEq _ xs' = case xs' of
