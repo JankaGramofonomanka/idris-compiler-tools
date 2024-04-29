@@ -47,7 +47,7 @@ You can see examples of `LNG` programs in the `test` folder.
 ## How to run the compiler
 
 ### Idris version
-This project is built using Idris 2 version `0.5.1-a4b99bd81`
+This project is built using Idris 2 version `0.7.0-1dc7b74e4`
 
 ### Build the compiler:
 ```
