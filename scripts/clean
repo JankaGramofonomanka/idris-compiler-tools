@@ -1,0 +1,5 @@
+#!/bin/bash
+
+rm tests/*.ll
+rm tests/*.bc
+rm tests/*.out

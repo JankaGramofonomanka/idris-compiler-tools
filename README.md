@@ -87,6 +87,11 @@ To test the compiled examples, run the following:
 ./scripts/test
 ```
 
+You can clean the files generated during the compilation and testing:
+```
+./scripts/clean
+```
+
 ## Warning
 
 ### The parser is broken
