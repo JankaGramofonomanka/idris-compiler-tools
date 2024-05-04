@@ -7,5 +7,5 @@ do
     filename="$(basename $source .lng)"
     dest="$dir/$filename.ll"
 
-    ./build/exec/compile $source $dest
+    pack run compiler-tools $source $dest
 done

@@ -1,0 +1,4 @@
+[custom.all.compiler-tools]
+type = "local"
+path = "."
+ipkg = "compiler-tools.ipkg"
