@@ -1,0 +1,9 @@
+#!/bin/bash
+
+llfile=$1
+dir="$(dirname $llfile)"
+filename="$(basename $llfile .ll)"
+bcfile="$dir/$filename.bc"
+
+llvm-link -o $bcfile $llfile lib.ll
+lli $bcfile

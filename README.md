@@ -72,8 +72,7 @@ pack run compiler-tools <SOURCE_DIR>.lng <SOURCE_DIR>.ll
 ### Run the compiled code
 To execute the compiled file `DIR.ll` run the following
 ```
-llvm-link -o out.bc <DIR>.ll lib.ll
-lli out.bc
+./scripts/run <DIR>.ll
 ```
 
 ### Tests
