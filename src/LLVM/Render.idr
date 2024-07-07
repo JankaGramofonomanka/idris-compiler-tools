@@ -1,3 +1,4 @@
+||| A module that defines how to render the LLVM representation to text format
 module LLVM.Render
 
 import Data.Vect
@@ -11,12 +12,15 @@ import Data.Typed
 import LLVM
 import Utils
 
+||| Separate the elements of a list by commas
 prtItems : List String -> String
 prtItems l = concat (intersperse ", " l)
 
+||| Separate the elements of a list by commas and put them in parentheses
 prtArgs : List String -> String
 prtArgs l = "(" ++ prtItems l ++ ")"
 
+||| Print a function name with its arguments/parameters in parentheses
 prtFun : String -> String -> List String -> String
 prtFun retTy fun args = mkSentence [retTy, fun ++ prtArgs args]
 
@@ -122,10 +126,12 @@ export
 implementation DocItem Label where
   prt = prtLabel
 
+||| Print the block label as it appears at the block entry
 export
 implementation [blockEntry] DocItem Label where
   prt (MkLabel s) = s ++ ":"
 
+||| Print the block label as it appears in the branch instructions
 export
 implementation [branch] DocItem Label where
   prt lbl = "label " ++ prtLabel lbl
@@ -211,7 +217,7 @@ printCFG (IFlip cfg) = printCFG cfg
 printCFG (OFlip cfg) = printCFG cfg
 
 implementation [cfg] Document (CFG (BlockVertex rt) (Defined ins) (Defined outs)) where
-  print = printCFG where
+  print = printCFG
 
 -- TODO for some reason idris can't find this implementation,
 -- therefore I had to add the `cfg` implementation and the `printCFG` function

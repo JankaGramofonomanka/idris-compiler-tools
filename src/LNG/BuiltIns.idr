@@ -1,3 +1,4 @@
+||| Representations of the built-in LNG functions
 module LNG.BuiltIns
 
 import Control.Monad.Either

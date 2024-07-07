@@ -1,3 +1,4 @@
+||| A module that defines how to print the relevant not type-checked LNG items
 module LNG.Parsed.Render
 
 import Data.Doc

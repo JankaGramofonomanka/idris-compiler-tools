@@ -164,6 +164,7 @@ token = keyword <|> specialSign <|> bracket <|> tokType <|> num <|> bool <|> str
 tokens : SimpleParser (List $ ^Token)
 tokens = (^^) <$> many (ws *> token) <* ws <* eof
 
+||| Convert a string into a list of tokens
 export
 tokenize : String -> Maybe (List (^Token))
 tokenize = simpleParse tokens

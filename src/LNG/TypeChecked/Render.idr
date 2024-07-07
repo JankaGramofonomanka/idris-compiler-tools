@@ -1,3 +1,4 @@
+||| A module that defines how to print the relevant type-checked LNG items
 module LNG.TypeChecked.Render
 
 import Data.String
@@ -6,8 +7,9 @@ import Data.Doc
 import LNG.TypeChecked
 import Utils
 
-brkts : String -> String
-brkts s = "(" ++ s ++ ")"
+||| Puts a string in parentheses
+prnthss : String -> String
+prnthss s = "(" ++ s ++ ")"
 
 export
 implementation DocItem LNGType where
@@ -35,7 +37,7 @@ implementation [infixx] DocItem (BinOperator t1 t2 t3) where
 
 export
 implementation DocItem (BinOperator t1 t2 t3) where
-  prt op = brkts (prt @{infixx} op)
+  prt op = prnthss (prt @{infixx} op)
 
 export
 implementation [prefixx] DocItem (UnOperator t1 t2) where
@@ -44,7 +46,7 @@ implementation [prefixx] DocItem (UnOperator t1 t2) where
 
 export
 implementation DocItem (UnOperator t1 t2) where
-  prt op = brkts (prt @{prefixx} op)
+  prt op = prnthss (prt @{prefixx} op)
 
 
 export
@@ -73,9 +75,9 @@ export
 implementation DocItem (Expr t) where
   prt (Lit lit) = prt lit
   prt (Var var) = prt var
-  prt (BinOperation op lhs rhs) = mkSentence [brkts (prt lhs), prt op @{infixx}, brkts (prt rhs)]
-  prt (UnOperation op expr) = prt op @{prefixx} ++ brkts (prt expr)
-  prt (Call fun args) = prt fun ++ brkts (concat . intersperse ", " $ undmap prt args)
+  prt (BinOperation op lhs rhs) = mkSentence [prnthss (prt lhs), prt op @{infixx}, prnthss (prt rhs)]
+  prt (UnOperation op expr) = prt op @{prefixx} ++ prnthss (prt expr)
+  prt (Call fun args) = prt fun ++ prnthss (concat . intersperse ", " $ undmap prt args)
 
 export
 implementation DocItem (Instr rt k) where
@@ -84,9 +86,9 @@ implementation DocItem (Instr rt k) where
     (Block instrs) => concat . intersperse "\n" $ ["{"] ++ map ("    " ++) (prt' instrs) ++ ["}"]
     (Assign var expr) => mkSentence [prt var, "=", prt expr]
     (Exec expr) => prt expr
-    (If cond thn) => mkSentence ["if" ++ brkts (prt cond), prt thn]
-    (IfElse cond thn els) => mkSentence ["if" ++ brkts (prt cond), prt thn, "else", prt els]
-    (While cond body) => mkSentence ["while" ++ brkts (prt cond), prt body]
+    (If cond thn) => mkSentence ["if" ++ prnthss (prt cond), prt thn]
+    (IfElse cond thn els) => mkSentence ["if" ++ prnthss (prt cond), prt thn, "else", prt els]
+    (While cond body) => mkSentence ["while" ++ prnthss (prt cond), prt body]
     (Return expr) => mkSentence ["return", prt expr]
     RetVoid => "return"
 
