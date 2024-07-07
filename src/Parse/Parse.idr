@@ -1,4 +1,4 @@
-module LNG.Parse
+module Parse.Parse
 
 import Control.Monad.State
 

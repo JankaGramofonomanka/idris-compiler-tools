@@ -6,12 +6,12 @@ import System.File
 import Data.Doc
 import LLVM
 import LLVM.Render
-import LNG.Parse
 import LNG.Parsed
 import LNG.TypeChecked
 import Parse.Data.Parser
 import Parse.Data.Position
 import Parse.Data.Token
+import Parse.Parse
 import Parse.Tokenize
 import TypeCheck
 import TypeCheck.Data.Error

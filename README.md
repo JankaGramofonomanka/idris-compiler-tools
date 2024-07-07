@@ -31,7 +31,7 @@ The entire source code is located in the `src` folder.
 
 - The compiler:
   - `Main` - the main program of the compiler.
-  - `LNG.Parse`, `Parse.[...]` - the parsing phase of the compiler.
+  - `Parse.Parse`, `Parse.[...]` - the parsing phase of the compiler.
   - `TypeCheck`, `TypeCheck.[...]` - the type-checking phase of the compiler.
   - `Compile`, `Compile.[...]` - the code-generating phase of the compiler.
 
