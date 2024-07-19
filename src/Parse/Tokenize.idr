@@ -14,20 +14,20 @@ Tokenizer : Type -> Type
 Tokenizer = SimplePosParser
 
 -- Keyword --------------------------------------------------------------------
-returnKW, whileKW, ifKW, elseKW : String
-returnKW  = "return"
-ifKW      = "if"
-elseKW    = "else"
-whileKW   = "while"
+returnS, whileS, ifS, elseS : String
+returnS = "return"
+ifS     = "if"
+elseS   = "else"
+whileS  = "while"
 
 keywords : List String
-keywords = [returnKW, ifKW, elseKW, whileKW]
+keywords = [returnS, ifS, elseS, whileS]
 
 kwReturn, kwWhile, kwIf, kwElse : Tokenizer Keyword
-kwReturn  = overwrite Return  (theString returnKW)
-kwIf      = overwrite If      (theString ifKW)
-kwElse    = overwrite Else    (theString elseKW)
-kwWhile   = overwrite While   (theString whileKW)
+kwReturn = overwrite Return  (theString returnS)
+kwIf     = overwrite If      (theString ifS)
+kwElse   = overwrite Else    (theString elseS)
+kwWhile  = overwrite While   (theString whileS)
 
 keyword' : Tokenizer Keyword
 keyword' = kwReturn <|> kwWhile <|> kwIf <|> kwElse
@@ -72,12 +72,12 @@ specialSign = map Sp <$> specialSign'
 
 -- Bracket --------------------------------------------------------------------
 leftBracket, rightBracket, leftCurlyBrace, rightCurlyBrace, leftSquareBracket, rightSquareBracket : Tokenizer Bracket
-leftBracket         = overwrite LeftBracket        (theChar '(')
-rightBracket        = overwrite RightBracket       (theChar ')')
-leftCurlyBrace      = overwrite LeftCurlyBrace     (theChar '{')
-rightCurlyBrace     = overwrite RightCurlyBrace    (theChar '}')
-leftSquareBracket   = overwrite LeftSquareBracket  (theChar '[')
-rightSquareBracket  = overwrite RightSquareBracket (theChar ']')
+leftBracket        = overwrite LeftBracket        (theChar '(')
+rightBracket       = overwrite RightBracket       (theChar ')')
+leftCurlyBrace     = overwrite LeftCurlyBrace     (theChar '{')
+rightCurlyBrace    = overwrite RightCurlyBrace    (theChar '}')
+leftSquareBracket  = overwrite LeftSquareBracket  (theChar '[')
+rightSquareBracket = overwrite RightSquareBracket (theChar ']')
 
 bracket' : Tokenizer Bracket
 bracket' = leftBracket <|> rightBracket <|> leftCurlyBrace <|> rightCurlyBrace <|> leftSquareBracket <|> rightSquareBracket
@@ -86,11 +86,20 @@ bracket : Tokenizer Token
 bracket = map Br <$> bracket'
 
 -- TokType --------------------------------------------------------------------
+intS, booleanS, stringS, voidS : String
+intS     = "int"
+booleanS = "boolean"
+stringS  = "string"
+voidS    = "void"
+
+types : List String
+types = [intS, booleanS, stringS, voidS]
+
 tint, tbool, tvoid : Tokenizer TokType
-tint    = overwrite TokInt    (theString "int")
-tbool   = overwrite TokBool   (theString "boolean")
-tstring = overwrite TokString (theString "string")
-tvoid   = overwrite TokVoid   (theString "void")
+tint    = overwrite TokInt    (theString intS)
+tbool   = overwrite TokBool   (theString booleanS)
+tstring = overwrite TokString (theString stringS)
+tvoid   = overwrite TokVoid   (theString voidS)
 
 tokType' : Tokenizer TokType
 tokType' = tint <|> tbool <|> tstring <|> tvoid
@@ -103,9 +112,16 @@ num : Tokenizer Token
 num = map Num <$> integer
 
 -- Boo ------------------------------------------------------------------------
+trueS, falseS : String
+trueS  = "true"
+falseS = "false"
+
+booleans : List String
+booleans = [trueS, falseS]
+
 true, false : Tokenizer Bool
-true  = overwrite True  (theString "true")
-false = overwrite False (theString "false")
+true  = overwrite True  (theString trueS)
+false = overwrite False (theString falseS)
 
 bool' : Tokenizer Bool
 bool' = true <|> false
@@ -128,29 +144,32 @@ string' = do
         '\\' => do
           p' |^ ch' <- the (Tokenizer Char) item
           case ch' of
-            'a'   => p <<^> map ('\a'   ::) <$> stopOnRQuote
-            'b'   => p <<^> map ('\b'   ::) <$> stopOnRQuote
-            'e'   => p <<^> map ('\ESC' ::) <$> stopOnRQuote
-            'f'   => p <<^> map ('\f'   ::) <$> stopOnRQuote
-            'n'   => p <<^> map ('\n'   ::) <$> stopOnRQuote
-            'r'   => p <<^> map ('\r'   ::) <$> stopOnRQuote
-            't'   => p <<^> map ('\t'   ::) <$> stopOnRQuote
-            'v'   => p <<^> map ('\v'   ::) <$> stopOnRQuote
-            '\\'  => p <<^> map ('\\'   ::) <$> stopOnRQuote
-            '\''  => p <<^> map ('\''   ::) <$> stopOnRQuote
-            '"'   => p <<^> map ('\"'   ::) <$> stopOnRQuote
-            '?'   => p <<^> map ('\?'   ::) <$> stopOnRQuote
-            ch'   => p <<^> map (ch'    ::) <$> stopOnRQuote
+            'a'  => p <<^> map ('\a'   ::) <$> stopOnRQuote
+            'b'  => p <<^> map ('\b'   ::) <$> stopOnRQuote
+            'e'  => p <<^> map ('\ESC' ::) <$> stopOnRQuote
+            'f'  => p <<^> map ('\f'   ::) <$> stopOnRQuote
+            'n'  => p <<^> map ('\n'   ::) <$> stopOnRQuote
+            'r'  => p <<^> map ('\r'   ::) <$> stopOnRQuote
+            't'  => p <<^> map ('\t'   ::) <$> stopOnRQuote
+            'v'  => p <<^> map ('\v'   ::) <$> stopOnRQuote
+            '\\' => p <<^> map ('\\'   ::) <$> stopOnRQuote
+            '\'' => p <<^> map ('\''   ::) <$> stopOnRQuote
+            '"'  => p <<^> map ('\"'   ::) <$> stopOnRQuote
+            '?'  => p <<^> map ('\?'   ::) <$> stopOnRQuote
+            ch'  => p <<^> map (ch'    ::) <$> stopOnRQuote
           
-        '"'   => pure (p |^ Nil)
-        ch    => p <<^> map (ch ::) <$> stopOnRQuote
+        '"' => pure (p |^ Nil)
+        ch  => p <<^> map (ch ::) <$> stopOnRQuote
 
 string : Tokenizer Token
 string = map Str <$> string'      
 
 -- Id -------------------------------------------------------------------------
+reservedWords : List String
+reservedWords = keywords ++ types ++ booleans
+
 ident : Tokenizer Token
-ident = map Id <$> (ident' `suchThat` not . (`elem` keywords)) where
+ident = map Id <$> (ident' `suchThat` not . (`elem` reservedWords)) where
   ident' : Tokenizer String
   ident' = do
     pfst  |^ first  <- sat isLower <|> floor
@@ -159,7 +178,7 @@ ident = map Id <$> (ident' `suchThat` not . (`elem` keywords)) where
 
 -- Token ----------------------------------------------------------------------
 token : Tokenizer Token
-token = keyword <|> specialSign <|> bracket <|> tokType <|> num <|> bool <|> string <|> ident
+token = ident <|> keyword <|> specialSign <|> bracket <|> tokType <|> num <|> bool <|> string
 
 tokens : SimpleParser (List $ ^Token)
 tokens = (^^) <$> many (ws *> token) <* ws <* eof
