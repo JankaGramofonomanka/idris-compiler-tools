@@ -1,5 +1,5 @@
 package compiler-tools
--- version =
+version = 0.0.1
 authors = "Jan Serwatka"
 -- maintainers =
 -- license =
@@ -10,13 +10,67 @@ authors = "Jan Serwatka"
 -- bugtracker =
 
 -- the Idris2 version required (e.g. langversion >= 0.5.1)
--- langversion
+langversion >= 0.5.1
 
 -- packages to add to search path
-depends = contrib
+depends = base >= 0.5.1
+        , contrib
 
 -- modules to install
--- modules =
+modules = Compile.Data.Context.Utils
+        , Compile.Data.CBlock
+        , Compile.Data.CompileResult
+        , Compile.Data.CompM
+        , Compile.Data.Context
+        , Compile.Data.Error
+        , Compile.Expr
+        , Compile.FunDef
+        , Compile.Instr
+        , Compile.Program
+        , Compile.Utils
+        , Data.Attached
+        , Data.DList
+        , Data.DMap
+        , Data.Doc
+        , Data.DSum
+        , Data.GCompare
+        , Data.GEq
+        , Data.ShowS
+        , Data.Some
+        , Data.The
+        , Data.Typed
+        , LLVM.Render
+        , LNG.Parsed.Render
+        , LNG.TypeChecked.Render
+        , LNG.BuiltIns
+        , LNG.Parsed
+        , LNG.TypeChecked
+        , Parse.Data.Parser
+        , Parse.Data.Position
+        , Parse.Data.Token
+        , Parse.Data.Tokenize
+        , Parse.Combinators
+        , Parse.Parse
+        , Parse.Tokenize
+        , Prop.Elem.Eq
+        , Prop.Elem
+        , Prop.Forall
+        , TypeCheck.Data.Context
+        , TypeCheck.Data.Error
+        , TypeCheck.Data.TypeCheckM
+        , TypeCheck.Expr
+        , TypeCheck.FunDef
+        , TypeCheck.Instr
+        , TypeCheck.Program
+        , TypeCheck.Utils
+        , CFG
+        , Compile
+        , LLVM
+        , Main
+        , Theory
+        , TypeCheck
+        , Utils
+
 
 -- main file (i.e. file to load at REPL)
 main = Main

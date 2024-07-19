@@ -2,3 +2,9 @@
 type = "local"
 path = "."
 ipkg = "compiler-tools.ipkg"
+test = "test/compiler-tools-test.ipkg"
+
+[custom.all.compiler-tools-test]
+type="local"
+path="test"
+ipkg="compiler-tools-test.ipkg"

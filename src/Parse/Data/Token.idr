@@ -16,6 +16,13 @@ implementation Eq Keyword where
   While   == While  = True
   _       == _      = False
 
+export
+implementation Show Keyword where
+  show Return = "Return"
+  show If     = "If"
+  show Else   = "Else"
+  show While  = "While"
+
 public export
 data SpecialSign
   = Plus
@@ -59,6 +66,27 @@ implementation Eq SpecialSign where
   Semicolon         == Semicolon          = True
   _                 == _                  = False
 
+export
+implementation Show SpecialSign where
+  show Plus              = "Plus"
+  show Minus             = "Minus"
+  show Star              = "Star"
+  show Slash             = "Slash"
+  show Percent           = "Percent"
+  show PlusPlus          = "PlusPlus"
+  show AndAnd            = "AndAnd"
+  show OrOr              = "OrOr"
+  show Equals            = "Equals"
+  show ExclamationEquals = "ExclamationEquals"
+  show DoubleEquals      = "DoubleEquals"
+  show LesserEquals      = "LesserEquals"
+  show Lesser            = "Lesser"
+  show GreaterEquals     = "GreaterEquals"
+  show Greater           = "Greater"
+  show Exclamation       = "Exclamation"
+  show Comma             = "Comma"
+  show Semicolon         = "Semicolon"
+
 public export
 data Bracket
   = LeftBracket
@@ -67,6 +95,15 @@ data Bracket
   | RightCurlyBrace
   | LeftSquareBracket
   | RightSquareBracket
+
+export
+implementation Show Bracket where
+  show LeftBracket        = "LeftBracket"
+  show RightBracket       = "RightBracket"
+  show LeftCurlyBrace     = "LeftCurlyBrace"
+  show RightCurlyBrace    = "RightCurlyBrace"
+  show LeftSquareBracket  = "LeftSquareBracket"
+  show RightSquareBracket = "RightSquareBracket"
 
 export
 implementation Eq Bracket where
@@ -93,6 +130,13 @@ implementation Eq TokType where
   TokVoid   == TokVoid    = True
   _         == _          = False
 
+export
+implementation Show TokType where
+  show TokInt    = "TokInt"
+  show TokBool   = "TokBool"
+  show TokString = "TokString"
+  show TokVoid   = "TokVoid"
+
 public export
 data Token
   = Kw Keyword
@@ -115,4 +159,13 @@ implementation Eq Token where
   Boo boo1  == Boo boo2 = boo1  == boo2
   _         == _        = False
   
-
+export
+implementation Show Token where
+  show (Kw kw) = "Kw " ++ show kw
+  show (Sp sp) = "Sp " ++ show sp
+  show (Br br) = "Br " ++ show br
+  show (Ty ty) = "Ty " ++ show ty
+  show (Id id) = "Id " ++ show id
+  show (Num num) = "Num " ++ show num
+  show (Boo boo) = "Boo " ++ show boo
+  show (Str str) = "Str " ++ show str
