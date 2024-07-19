@@ -176,9 +176,35 @@ ident = map Id <$> (ident' `suchThat` not . (`elem` reservedWords)) where
     prest |^ rest   <- many (sat isAlphaNum <|> floor)
     pure (fromTo pfst prest |^ (pack $ first :: map unPos rest))
 
+-- Words: Kewywords, Booleans, Types, Identifiers -----------------------------
+word : Tokenizer Token
+word = map toToken <$> word' where
+  word' : Tokenizer String
+  word' = do
+    pfst  |^ first  <- sat isLower <|> floor
+    prest |^ rest   <- many (sat isAlphaNum <|> floor)
+    pure (fromTo pfst prest |^ (pack $ first :: map unPos rest))
+
+  toToken : String -> Token
+  toToken s = case s of
+    "return"  => Kw Return
+    "if"      => Kw If
+    "else"    => Kw Else
+    "while"   => Kw While
+
+    "int"     => Ty TokInt
+    "boolean" => Ty TokBool
+    "string"  => Ty TokString
+    "void"    => Ty TokVoid
+
+    "true"    => Boo True
+    "false"   => Boo False
+
+    s         => Id s
+
 -- Token ----------------------------------------------------------------------
 token : Tokenizer Token
-token = ident <|> keyword <|> specialSign <|> bracket <|> tokType <|> num <|> bool <|> string
+token = word <|> specialSign <|> bracket <|> num <|> string
 
 tokens : SimpleParser (List $ ^Token)
 tokens = (^^) <$> many (ws *> token) <* ws <* eof
