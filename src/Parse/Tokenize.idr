@@ -13,28 +13,6 @@ import Parse.Data.Tokenize
 Tokenizer : Type -> Type
 Tokenizer = SimplePosParser
 
--- Keyword --------------------------------------------------------------------
-returnS, whileS, ifS, elseS : String
-returnS = "return"
-ifS     = "if"
-elseS   = "else"
-whileS  = "while"
-
-keywords : List String
-keywords = [returnS, ifS, elseS, whileS]
-
-kwReturn, kwWhile, kwIf, kwElse : Tokenizer Keyword
-kwReturn = overwrite Return  (theString returnS)
-kwIf     = overwrite If      (theString ifS)
-kwElse   = overwrite Else    (theString elseS)
-kwWhile  = overwrite While   (theString whileS)
-
-keyword' : Tokenizer Keyword
-keyword' = kwReturn <|> kwWhile <|> kwIf <|> kwElse
-
-keyword : Tokenizer Token
-keyword = map Kw <$> keyword'
-
 -- SpecialSign ----------------------------------------------------------------
 plusplus, andand, oror, exclamationEquals, doubleEquals, greaterEquals, 
 lesserEquals, plus, minus, star, slash, percent, equals, lesser, greater, 
@@ -85,49 +63,9 @@ bracket' = leftBracket <|> rightBracket <|> leftCurlyBrace <|> rightCurlyBrace <
 bracket : Tokenizer Token
 bracket = map Br <$> bracket'
 
--- TokType --------------------------------------------------------------------
-intS, booleanS, stringS, voidS : String
-intS     = "int"
-booleanS = "boolean"
-stringS  = "string"
-voidS    = "void"
-
-types : List String
-types = [intS, booleanS, stringS, voidS]
-
-tint, tbool, tvoid : Tokenizer TokType
-tint    = overwrite TokInt    (theString intS)
-tbool   = overwrite TokBool   (theString booleanS)
-tstring = overwrite TokString (theString stringS)
-tvoid   = overwrite TokVoid   (theString voidS)
-
-tokType' : Tokenizer TokType
-tokType' = tint <|> tbool <|> tstring <|> tvoid
-
-tokType : Tokenizer Token
-tokType = map Ty <$> tokType'
-
 -- Num ------------------------------------------------------------------------
 num : Tokenizer Token
 num = map Num <$> integer
-
--- Boo ------------------------------------------------------------------------
-trueS, falseS : String
-trueS  = "true"
-falseS = "false"
-
-booleans : List String
-booleans = [trueS, falseS]
-
-true, false : Tokenizer Bool
-true  = overwrite True  (theString trueS)
-false = overwrite False (theString falseS)
-
-bool' : Tokenizer Bool
-bool' = true <|> false
-
-bool : Tokenizer Token
-bool = map Boo <$> bool'
 
 -- Str ------------------------------------------------------------------------
 string' : Tokenizer String
@@ -163,18 +101,6 @@ string' = do
 
 string : Tokenizer Token
 string = map Str <$> string'      
-
--- Id -------------------------------------------------------------------------
-reservedWords : List String
-reservedWords = keywords ++ types ++ booleans
-
-ident : Tokenizer Token
-ident = map Id <$> (ident' `suchThat` not . (`elem` reservedWords)) where
-  ident' : Tokenizer String
-  ident' = do
-    pfst  |^ first  <- sat isLower <|> floor
-    prest |^ rest   <- many (sat isAlphaNum <|> floor)
-    pure (fromTo pfst prest |^ (pack $ first :: map unPos rest))
 
 -- Words: Kewywords, Booleans, Types, Identifiers -----------------------------
 word : Tokenizer Token
