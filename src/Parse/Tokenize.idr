@@ -1,141 +1,117 @@
 module Parse.Tokenize
 
-import Control.Monad.State
-
-import Data.List.Lazy
-
-import Parse.Combinators
-import Parse.Data.Parser
+import Data.List
+import Data.String.Extra
+import Text.Lexer
 import Parse.Data.Position
 import Parse.Data.Token
-import Parse.Data.Tokenize
 
-Tokenizer : Type -> Type
-Tokenizer = SimplePosParser
+myTokenMap : TokenMap Token
+myTokenMap = [(is 'a', Str)]
+
+implementation [tokenMap] Functor TokenMap where
+  map f tokenMap = map (map (f .)) tokenMap
 
 -- SpecialSign ----------------------------------------------------------------
-plusplus, andand, oror, exclamationEquals, doubleEquals, greaterEquals, 
-lesserEquals, plus, minus, star, slash, percent, equals, lesser, greater, 
-exclamation, comma, semicolon : Tokenizer SpecialSign
-
-plusplus          = overwrite PlusPlus          (theString "++")
-andand            = overwrite AndAnd            (theString "&&")
-oror              = overwrite OrOr              (theString "||")
-exclamationEquals = overwrite ExclamationEquals (theString "!=")
-doubleEquals      = overwrite DoubleEquals      (theString "==")
-greaterEquals     = overwrite GreaterEquals     (theString ">=")
-lesserEquals      = overwrite LesserEquals      (theString "<=")
-plus              = overwrite Plus              (theString "+")
-minus             = overwrite Minus             (theString "-")
-star              = overwrite Star              (theString "*")
-slash             = overwrite Slash             (theString "/")
-percent           = overwrite Percent           (theString "%")
-equals            = overwrite Equals            (theString "=")
-lesser            = overwrite Lesser            (theString "<")
-greater           = overwrite Greater           (theString ">")
-exclamation       = overwrite Exclamation       (theString "!")
-comma             = overwrite Comma             (theString ",")
-semicolon         = overwrite Semicolon         (theString ";")
-
--- Double character signs should be first
-specialSign' : Tokenizer SpecialSign
-specialSign'
-    = plusplus <|> andand <|> oror <|> exclamationEquals <|> doubleEquals
-  <|> greaterEquals <|> lesserEquals <|> plus <|> minus <|> star <|> slash
-  <|> percent <|> equals <|> lesser <|> greater <|> exclamation <|> comma
-  <|> semicolon
-
-specialSign : Tokenizer Token
-specialSign = map Sp <$> specialSign'
+specialSigns : TokenMap SpecialSign
+specialSigns
+  = [ (exact "++", const PlusPlus)
+    , (exact "&&", const AndAnd)
+    , (exact "||", const OrOr)
+    , (exact "!=", const ExclamationEquals)
+    , (exact "==", const DoubleEquals)
+    , (exact ">=", const GreaterEquals)
+    , (exact "<=", const LesserEquals)
+    , (exact "+",  const Plus)
+    , (exact "-",  const Minus)
+    , (exact "*",  const Star)
+    , (exact "/",  const Slash)
+    , (exact "%",  const Percent)
+    , (exact "=",  const Equals)
+    , (exact "<",  const Lesser)
+    , (exact ">",  const Greater)
+    , (exact "!",  const Exclamation)
+    , (exact ",",  const Comma)
+    , (exact ";",  const Semicolon)
+    ]
 
 -- Bracket --------------------------------------------------------------------
-leftBracket, rightBracket, leftCurlyBrace, rightCurlyBrace, leftSquareBracket, rightSquareBracket : Tokenizer Bracket
-leftBracket        = overwrite LeftBracket        (theChar '(')
-rightBracket       = overwrite RightBracket       (theChar ')')
-leftCurlyBrace     = overwrite LeftCurlyBrace     (theChar '{')
-rightCurlyBrace    = overwrite RightCurlyBrace    (theChar '}')
-leftSquareBracket  = overwrite LeftSquareBracket  (theChar '[')
-rightSquareBracket = overwrite RightSquareBracket (theChar ']')
-
-bracket' : Tokenizer Bracket
-bracket' = leftBracket <|> rightBracket <|> leftCurlyBrace <|> rightCurlyBrace <|> leftSquareBracket <|> rightSquareBracket
-
-bracket : Tokenizer Token
-bracket = map Br <$> bracket'
+brackets : TokenMap Bracket
+brackets
+  = [ (is '(', const LeftBracket)
+    , (is ')', const RightBracket)
+    , (is '{', const LeftCurlyBrace)
+    , (is '}', const RightCurlyBrace)
+    , (is '[', const LeftSquareBracket)
+    , (is ']', const RightSquareBracket)
+    ]
 
 -- Num ------------------------------------------------------------------------
-num : Tokenizer Token
-num = map Num <$> integer
+num : TokenMap Integer
+num = [ (intLit, cast) ]
 
 -- Str ------------------------------------------------------------------------
-string' : Tokenizer String
-string' = do
-  lp |^ lquote <- theChar '"'
-  rp |^ s <-map  pack <$> stopOnRQuote
-  pure (fromTo lp rp |^ s)
-
-  where
-    stopOnRQuote : Tokenizer (List Char)
-    stopOnRQuote = do
-      p |^ ch <- the (Tokenizer Char) item
-      case ch of
-        '\\' => do
-          p' |^ ch' <- the (Tokenizer Char) item
-          case ch' of
-            'a'  => p <<^> map ('\a'   ::) <$> stopOnRQuote
-            'b'  => p <<^> map ('\b'   ::) <$> stopOnRQuote
-            'e'  => p <<^> map ('\ESC' ::) <$> stopOnRQuote
-            'f'  => p <<^> map ('\f'   ::) <$> stopOnRQuote
-            'n'  => p <<^> map ('\n'   ::) <$> stopOnRQuote
-            'r'  => p <<^> map ('\r'   ::) <$> stopOnRQuote
-            't'  => p <<^> map ('\t'   ::) <$> stopOnRQuote
-            'v'  => p <<^> map ('\v'   ::) <$> stopOnRQuote
-            '\\' => p <<^> map ('\\'   ::) <$> stopOnRQuote
-            '\'' => p <<^> map ('\''   ::) <$> stopOnRQuote
-            '"'  => p <<^> map ('\"'   ::) <$> stopOnRQuote
-            '?'  => p <<^> map ('\?'   ::) <$> stopOnRQuote
-            ch'  => p <<^> map (ch'    ::) <$> stopOnRQuote
-          
-        '"' => pure (p |^ Nil)
-        ch  => p <<^> map (ch ::) <$> stopOnRQuote
-
-string : Tokenizer Token
-string = map Str <$> string'      
+string : TokenMap String
+string = [ (stringLit, shrink 1) ]
 
 -- Words: Kewywords, Booleans, Types, Identifiers -----------------------------
-word : Tokenizer Token
-word = map toToken <$> word' where
-  word' : Tokenizer String
-  word' = do
-    pfst  |^ first  <- sat isLower <|> floor
-    prest |^ rest   <- many (sat isAlphaNum <|> floor)
-    pure (fromTo pfst prest |^ (pack $ first :: map unPos rest))
+word : Lexer
+word = (lower <|> is '_') <+> many (alphaNum <|> is '_')
 
+words : TokenMap Token
+words = [ (word, toToken)] where
   toToken : String -> Token
   toToken s = case s of
+
+    -- Keywords
     "return"  => Kw Return
     "if"      => Kw If
     "else"    => Kw Else
     "while"   => Kw While
 
+    -- Types
     "int"     => Ty TokInt
     "boolean" => Ty TokBool
     "string"  => Ty TokString
     "void"    => Ty TokVoid
 
+    -- Booleans
     "true"    => Boo True
     "false"   => Boo False
 
+    -- Idents
     s         => Id s
 
 -- Token ----------------------------------------------------------------------
-token : Tokenizer Token
-token = word <|> specialSign <|> bracket <|> num <|> string
+tokens : TokenMap Token
+tokens
+   = map @{tokenMap} Sp specialSigns
+  ++ map @{tokenMap} Br brackets
+  ++ map @{tokenMap} Num num
+  ++ map @{tokenMap} Str string
+  ++ words
 
-tokens : SimpleParser (List $ ^Token)
-tokens = (^^) <$> many (ws *> token) <* ws <* eof
+whitespace : TokenMap (Maybe Token)
+whitespace = [ (some (space <|> newline), const Nothing)]
 
-||| Convert a string into a list of tokens
+tokensAndWhitespace : TokenMap (Maybe Token)
+tokensAndWhitespace
+   = map @{tokenMap} Just tokens
+  ++ whitespace
+
+boundsToPos : Bounds -> Pos
+boundsToPos bounds
+  = MkPos
+  { from = MkPosition { line = 1 + bounds.startLine, column = 1 + bounds.startCol }
+  , to   = MkPosition { line = 1 + bounds.endLine,   column = 1 + bounds.endCol   }
+  }
+
+toPosToken : WithBounds Token -> ^Token
+toPosToken token = boundsToPos token.bounds |^ token.val
+
 export
 tokenize : String -> Maybe (List (^Token))
-tokenize = simpleParse tokens
+tokenize s = case lex tokensAndWhitespace s of
+  -- Ensure that the entire string parses, by checking that the remainer is empty
+  (tokens, (_, _, "")) => Just (map toPosToken . catMaybes . map sequence $ tokens)
+  _ => Nothing
