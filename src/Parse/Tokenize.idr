@@ -113,5 +113,12 @@ export
 tokenize : String -> Maybe (List (^Token))
 tokenize s = case lex tokensAndWhitespace s of
   -- Ensure that the entire string parses, by checking that the remainer is empty
-  (tokens, (_, _, "")) => Just (map toPosToken . catMaybes . map sequence $ tokens)
+  (tokens, (_, _, ""))
+    => Just
+     . map toPosToken
+     . catMaybes
+     
+     -- this convertes the `WithBounds (Maybe a)` to `Maybe (WithBoounds a)`
+     . map sequence
+     $ tokens
   _ => Nothing
