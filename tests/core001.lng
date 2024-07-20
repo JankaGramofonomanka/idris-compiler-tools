@@ -2,7 +2,7 @@ int main() {
 	printInt(fac(10));
 	printInt(rfac(10));
 	printInt(mfac(10));
-        printInt(i_fac(10));
+        printInt(ifac(10));
         string r = "" ; 
 	{
 	  int n = 10;
@@ -53,16 +53,16 @@ int nfac(int n) {
 	  return 1;
 }
 
-int i_fac(int n) { return i_fac2f(1,n); }
+int ifac(int n) { return ifac2f(1,n); }
 
-int i_fac2f(int l, int h) {
+int ifac2f(int l, int h) {
         if (l == h)
           return l;
         if (l > h)
           return 1;
         int m = 0;
         m = (l + h) / 2;
-        return i_fac2f(l,m) * i_fac2f(m+1,h);
+        return ifac2f(l,m) * ifac2f(m+1,h);
 }
 
 string repStr(string s, int n) {
