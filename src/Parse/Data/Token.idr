@@ -150,14 +150,15 @@ data Token
 
 export
 implementation Eq Token where
-  Kw kw1    == Kw kw2   = kw1   == kw2
-  Sp sp1    == Sp sp2   = sp1   == sp2
-  Br br1    == Br br2   = br1   == br2
-  Ty ty1    == Ty ty2   = ty1   == ty2
-  Id id1    == Id id2   = id1   == id2
-  Num num1  == Num num2 = num1  == num2
-  Boo boo1  == Boo boo2 = boo1  == boo2
-  _         == _        = False
+  Kw kw1   == Kw kw2   = kw1  == kw2
+  Sp sp1   == Sp sp2   = sp1  == sp2
+  Br br1   == Br br2   = br1  == br2
+  Ty ty1   == Ty ty2   = ty1  == ty2
+  Id id1   == Id id2   = id1  == id2
+  Num num1 == Num num2 = num1 == num2
+  Boo boo1 == Boo boo2 = boo1 == boo2
+  Str s1   == Str s2   = s1   == s2
+  _        == _        = False
   
 export
 implementation Show Token where
