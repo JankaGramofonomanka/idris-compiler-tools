@@ -69,3 +69,22 @@ inSome (Attach x (MkSome y)) = MkSome (Attach x y)
 export
 outOfSome : Some (Attached x . f) -> Attached x (Some f)
 outOfSome (MkSome (Attach x y)) = Attach x (MkSome y)
+
+infix 8 :~
+infix 7 ~:
+infix 6 :~~:
+
+export
+(:~) : a -> Type -> a -> Type
+x :~ t = \y => (x, y) :~: t
+
+export
+(~:) : (a -> Type) -> a -> Type
+mkAttachment ~: y = mkAttachment y
+
+export
+(:~~:) : a -> Type -> Type
+lbl :~~: x = lbl :~ x ~: lbl
+
+combine2 : (a -> b -> c) -> lbl :~ a ~: lbl' -> lbl' :~ b ~: lbl'' -> lbl :~ c ~: lbl''
+combine2 f (Attach (lbl, lbl') x) (Attach (lbl', lbl'') y) = (Attach (lbl, lbl'') (f x y))

@@ -63,7 +63,7 @@ collectOuts {labelPost} (lbls ** g) = do
 
   let post : CFG (CBlock rt) (Defined $ lbls ~~> labelPost) (Undefined labelPost)
       post = SingleVertex (phis |++:> emptyCBlock ctxPost)
-  
+
   let final = Series g post
 
   pure (labelPost ** final)
@@ -80,7 +80,7 @@ ifology' : (labelIn : Label)
                   )
 ifology' labelIn ctx expr lblT lblF = evalStateT (detach ctx) $ ifology labelIn expr lblT lblF
 
-                  
+
 
 compileExpr' : (labelIn : Label)
             -> (ctx : labelIn :~: VarCTX)
@@ -113,7 +113,7 @@ mutual
   suffix <X><Y> where:
   - <X> describes the kind of expected input of a graph
   - <Y> describes the kind of expected output of a graph
-  
+
   <X> and <Y> can be one of two values:
   - 'U' (undefined) - the graph can have one undefined endpoint, that is
     a vertex without specified inputs or outputs
@@ -145,10 +145,10 @@ mutual
            -> (ctx : labelIn :~: VarCTX)
            -> (instrs : Instrs rt Simple)
            -> CompM (labelOut **  CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Undefined labelOut))
-    compile labelIn ctx Nil = pure (labelIn ** emptyCFG ctx)
+    compile labelIn ctx Nil = pure (labelIn ** emptyCFG)
     compile labelIn ctx (instr :: instrs) = do
       (lbl ** g) <- compileInstrUU labelIn ctx instr
-      (lbl' ** g') <- compile lbl (getContext g) instrs
+      (lbl' ** g') <- compile lbl (combine ($) (getEffect g) ctx) instrs
       pure $ (lbl' ** connect g g')
 
   -- Assign -------------------------------------------------------------------
@@ -156,16 +156,16 @@ mutual
 
     -- TODO: consider having attached context in the state
     ((lbl ** g), val) <- compileExpr' labelIn ctx expr
-    
+
     let g' = omap (assign var val . (<: prt instr)) g
 
     pure (lbl ** g')
-    
+
   -- Exec ---------------------------------------------------------------------
   compileInstrUU labelIn ctx (Exec expr) = do
     ((lbl ** g), val) <- compileExpr' labelIn ctx expr
     pure (lbl ** g)
-    
+
   -- If -----------------------------------------------------------------------
   compileInstrUU labelIn ctx instr@(If cond instrThen)
     = compileInstrUD' labelIn !freshLabel ctx instr >>= collectOuts
@@ -210,7 +210,7 @@ mutual
   -- Assign -------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx instr@(Assign var expr)
     = jumpTo labelPost <$> compileInstrUU labelIn ctx instr
-  
+
   -- Exec ---------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx instr@(Exec expr)
     = jumpTo labelPost <$> compileInstrUU labelIn ctx instr
@@ -218,13 +218,13 @@ mutual
   -- Return -------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx instr@(Return expr) = do
       ((_ ** g), val) <- compileExpr' labelIn ctx expr
-      
+
       let g' = omap (<+| Ret val) g
       pure (CRR g')
 
   -- RetVoid ------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx instr@RetVoid = do
-      let g = omap (<+| RetVoid) (emptyCFG ctx)
+      let g = omap (<+| RetVoid) emptyCFG
       pure (CRR g)
 
 
@@ -233,14 +233,14 @@ mutual
   -- Block --------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctx (Block instrs)
     = compile labelIn ctx instrs
-    
+
     where
 
       compile : (labelIn : Label)
              -> (ctx : labelIn :~: VarCTX)
              -> (instrs : Instrs rt k)
              -> CompM (CompileResult (GetLLType rt) (Undefined labelIn) labelPost k)
-      compile labelIn ctx Nil = pure (emptyCR labelIn labelPost ctx)
+      compile labelIn ctx Nil = pure (emptyCR labelIn labelPost)
       compile labelIn ctx (TermSingleton instr) = compileInstrUD labelIn labelPost ctx instr
       compile labelIn ctx (instr :: instrs) = do
         (lbl ** g) <- compileInstrUU labelIn ctx instr
@@ -254,15 +254,15 @@ mutual
     labelThen <- freshLabel
     (outsT ** outsF ** condG) <- ifology' labelIn ctx cond labelThen labelPost
     let (ctxsT, ctxsF) = split (getContexts condG)
-    
+
     (branchOuts ** thenG) <- compileInstrDD' outsT labelThen labelPost ctxsT instrThen
-    
+
     let final : CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Defined $ (branchOuts ++ outsF) ~~> labelPost)
         final = rewrite collect_concat labelPost branchOuts outsF
                 in LBranch condG thenG
-    
+
     pure $ CRS (branchOuts ++ outsF ** final)
-    
+
 
 
 
@@ -288,7 +288,7 @@ mutual
 
   -- While --------------------------------------------------------------------
   compileInstrUD labelIn labelPost ctxIn instr@(While cond loop) = do
-  
+
     labelNodeIn <- freshLabel
 
     let pre : CFG (CBlock $ GetLLType rt) (Undefined labelIn) (Defined [labelIn ~> labelNodeIn])
@@ -312,13 +312,13 @@ mutual
                      -> (ctxs : DList (:~: VarCTX) (pre ~~> labelIn))
                      -> (instr : Instr rt kind)
                      -> CompM (CompileResult (GetLLType rt) (Defined $ pre ~~> labelIn) labelPost kind)
-  
+
   compileInstrDDViaUD pre labelIn labelPost ctxs instr = do
     SG ctx phis <- segregate ctxs
     res <- compileInstrUD labelIn labelPost ctx instr
 
-    let preG = imap (phis |++:>) (emptyCFG ctx)
-          
+    let preG = imap (phis |++:>) emptyCFG
+
     pure $ connectCR preG res
 
 
@@ -347,7 +347,7 @@ mutual
   -- Assign -------------------------------------------------------------------
   compileInstrDD pre labelIn labelPost ctxs instr@(Assign var expr)
     = compileInstrDDViaUD pre labelIn labelPost ctxs instr
-  
+
   -- Exec ---------------------------------------------------------------------
   compileInstrDD pre labelIn labelPost ctxs instr@(Exec expr)
     = compileInstrDDViaUD pre labelIn labelPost ctxs instr
@@ -363,11 +363,11 @@ mutual
   -- Return -------------------------------------------------------------------
   compileInstrDD pre labelIn labelPost ctxs instr@(Return expr)
     = compileInstrDDViaUD pre labelIn labelPost ctxs instr
-  
+
   -- RetVoid ------------------------------------------------------------------
   compileInstrDD pre labelIn labelPost ctxs instr@RetVoid
     = compileInstrDDViaUD pre labelIn labelPost ctxs instr
-  
+
 
 
 
@@ -385,9 +385,9 @@ mutual
 
 
     (loopOuts ** loop) <- compileInstrDD' outsT labelLoop labelNodeIn ctxsLoop loop
-    
+
     let ctxsLoopOut = getContexts loop
-    
+
     let ctxs  : DList (:~: VarCTX) ((pre ++ loopOuts) ~~> labelNodeIn)
         ctxs  = rewrite collect_concat labelNodeIn pre loopOuts
                 in ctxsIn ++ ctxsLoopOut
@@ -400,11 +400,11 @@ mutual
                     (Defined $ (outsT ~~> labelLoop) ++ (outsF ~~> labelPost))
         node' = rewrite revEq $ collect_concat labelNodeIn pre loopOuts
                 in imap (phis |++:>) nodeG
-    
+
     let final = Cycle node' loop
-    
+
     pure $ CRS (outsF ** final)
-    
+
     where
 
       phiFromDList : The t
@@ -423,9 +423,9 @@ mutual
             -> {lbls : List Label}
             -> DList (:~: VarCTX) (lbls ~~> lbl)
             -> CompM $ List (PhiInstr lbls, Maybe String)
-      
+
       mkPhis ctx {lbls} ctxs = traverse mkPhi' (toList $ detach ctx) where
-        
+
         mkPhi' : (DSum Variable (Reg . GetLLType))
               -> CompM (PhiInstr lbls, Maybe String)
 
@@ -434,7 +434,7 @@ mutual
           vals <- dtraverse (traverse (getVal key)) ctxs
 
           let vals' = phiFromDList (map GetLLType $ typeOf key) lbls vals
-          
+
           pure $ (AssignPhi reg vals', Just $ prt key)
 
           where
@@ -446,7 +446,7 @@ mutual
               let Just val  = lookup key ctx
                             | Nothing => throwError $ Impossible "variable non existent in loop body or node context"
               pure val
-      
+
 
 
 

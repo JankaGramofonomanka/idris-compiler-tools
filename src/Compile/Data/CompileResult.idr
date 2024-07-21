@@ -35,8 +35,8 @@ unwrapCR (CRR g) = ([] ** g)
 unwrapCR (CRS (outs ** g)) = (outs ** g)
 
 export
-emptyCR : (lbl, lbl' : Label) -> lbl :~: VarCTX -> CompileResult rt (Undefined lbl) lbl' Simple
-emptyCR lbl lbl' ctx = CRS ([lbl] ** omap (<+| Branch lbl') (emptyCFG ctx))
+emptyCR : (lbl, lbl' : Label) -> CompileResult rt (Undefined lbl) lbl' Simple
+emptyCR lbl lbl' = CRS ([lbl] ** omap (<+| Branch lbl') emptyCFG)
 
 
 
@@ -59,7 +59,7 @@ export
 parallelCR : {lbl : Label}
           -> (lres : CompileResult rt (Defined ledges) lbl lk)
           -> (rres : CompileResult rt (Defined redges) lbl rk)
-          
+
           -> CompileResult rt (Defined $ ledges ++ redges) lbl (BrKind lk rk)
 
 parallelCR {lbl} (CRR lg) (CRR rg) = CRR $ Parallel lg rg
