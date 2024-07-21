@@ -5,6 +5,7 @@ import LNG.TypeChecked
 import LNG.TypeChecked.Render
 import Utils
 
+||| An error that can be thrown during the compilation phase
 public export
 data Error : Type where
   NoSuchVariable : Variable t -> Error
@@ -17,9 +18,9 @@ implementation Document Error where
     = MkDoc
       { lines = [ Right $ simple "Compilation error:"
                 , Left $ print' err
-                ] 
+                ]
       }
-    
+
     where
       print' : Error -> Doc
       print' (NoSuchVariable var) = fromLines [simple $ mkSentence ["No such variable:", prt var @{ticks}]]
@@ -28,6 +29,6 @@ implementation Document Error where
         = MkDoc
           { lines = [ Right $ simple "Impossible error:"
                     , Left $ fromLines [simple msg]
-                    ] 
+                    ]
           }
 
