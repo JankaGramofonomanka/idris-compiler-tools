@@ -99,32 +99,32 @@ addInput'
 addInput' val (MkPhi' t kvs) = MkPhi' t $ val :: kvs
 
 ||| Given a list of input labels and a value, make a `Phi'` assignment that
-||| assigns that value regardless of the input
+||| assigns that value regardless of the input.
 replicatePhi' : (ins : List Label) -> LLValue t -> Phi' lbl' ins t
 replicatePhi' {t} Nil val = case the (The t) (typeOf val) of { MkThe t' => MkPhi' t' Nil }
 replicatePhi' {lbl'} (lbl :: lbls) val = addInput' (attach (lbl ~> lbl') val) $ replicatePhi' lbls val
 
-addValueOrPhi
-   : (var : Variable t)
-  -> (lbl ~> lbl') :~: (LLValue (GetLLType t))
+||| Extend the inputs of a "value or phi" expression by adding a value to it
+||| @ val the value
+||| @ ins the inputs of the original "value or phi" expression
+||| @ vp  the "value or phi" expression to be extended
+addInput''
+   : (val : (lbl ~> lbl') :~: (LLValue (GetLLType t)))
   -> {ins : List Label}
-  -> ValueOrPhi lbl' ins t
-  -> Segregated' lbl' (lbl :: ins)
-  -> Segregated' lbl' (lbl :: ins)
+  -> (vp  : ValueOrPhi lbl' ins t)
+  ->        ValueOrPhi lbl' (lbl :: ins) t
 
-addValueOrPhi key val (Right val') (SG' ctx)
-  = if val' == detach val then
-      SG' (DMap.insert key (Right val') ctx)
+-- Add a value to a value
+addInput'' val (Right val')
+  -- If the values are the same, keep the expresion as a single value
+  = if val' == detach val
+    then Right val'
+    -- otherwise, we have to make a copy `val'` for all the inputs it
+    -- represents and add `val`
+    else Left (addInput' val $ replicatePhi' ins val')
 
-    else let
-      phi = addInput' val $ replicatePhi' ins val'
-
-      in SG' (DMap.insert key (Left phi) ctx)
-
-addValueOrPhi key val (Left phi) (SG' ctx) = let
-  phi' = addInput' val phi
-
-  in SG' (DMap.insert key (Left phi') ctx)
+-- Add a value to a phi expression
+addInput'' val (Left phi) = Left (addInput' val phi)
 
 ||| Merge a `Segregated'` mapping with a context, thus extending its input
 ||| list by one input label.
@@ -163,7 +163,7 @@ addCTX ctx {ins} (SG' ctx')
         Nothing => sg
         -- Otherwise, merge it with the "value or phi" from the original
         -- mapping and add it to the new mapping
-        Just vp => addValueOrPhi key val vp sg
+        Just vp => SG' $ DMap.insert key (addInput'' val vp) sg.ctx
 
 ||| Convert a `Segregated'` mapping to a `Segregated` mapping by generating a
 ||| fresh register and a phi assignment for every variable with a phi
