@@ -1,3 +1,10 @@
+||| A module defining the compilation of LNG expressions
+|||
+||| Termonology used in this module:
+||| * An *input label* is the label of the first block in a graph. This assumes
+|||   the graph has only one entry point (input)
+||| * By analogy, an *output label* is the label of the last block in a graph,
+|||   assuming the graph has only one exit point (output)
 module Compile.Expr
 
 import Data.List
@@ -24,324 +31,519 @@ import CFG
 
 import Theory
 
-
-
-
+||| Type of comparison - equality or inequality
 data EQType = EQ' | NE'
+
+||| Convert an `EQType` to a `CMPKind`
 cmpKind : EQType -> CMPKind
 cmpKind EQ' = EQ
 cmpKind NE' = NE
 
-
-
+||| A compiler monad with a variable context stored in addition to a `CompState`
 public export
 CompM' : Type -> Type
 CompM' = StateT VarCTX CompM
 
+||| Returns the value of a given variable
 getValue : Variable t -> CompM' (LLValue (GetLLType t))
 getValue var = do
   Just val <- gets (lookup var) | Nothing => lift $ throwError (NoSuchVariable var)
   pure val
 
+||| "Compile" a literal.
+||| Converts a literal into its LLVM representant.
+||| Returns the LLVM value of the literal and a potentially empty graph needed
+||| to be executed to produce that value.
+||| @ lblIn  the input label of the returned graph
+||| @ lit    the literal
+||| @ rt     the return type of the function whose body the graph will be
+|||          part of
+||| @ lblOut the output label of the returned graph
+compileLiteral
+   : (lblIn : Label)
+  -> (lit   : Literal t)
+  -> CompM' ( ( lblOut
+             ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+              )
+            , LLValue (GetLLType t)
+            )
+-- In case of the boolean ant integer literals, simply return a LLVM literal
+-- and an empty graph.
+compileLiteral lblIn (LitBool b)
+  = pure $ ((lblIn ** emptyCFG (attach lblIn !get)), ILitV (if b then 1 else 0))
+compileLiteral lblIn (LitInt i)
+  = pure $ ((lblIn ** emptyCFG (attach lblIn !get)), ILitV i)
 
+-- For string literals, return a pointer to the constant representing the
+-- literal.
+compileLiteral lblIn (LitString s) = do
 
-compileLiteral : (labelIn : Label)
-              -> (literal : Literal t)
-              -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue (GetLLType t))
-compileLiteral labelIn (LitBool b) = pure $ ((labelIn ** emptyCFG (attach labelIn !get)), ILitV (if b then 1 else 0))
-compileLiteral labelIn (LitInt i) = pure $ ((labelIn ** emptyCFG (attach labelIn !get)), ILitV i)
-compileLiteral labelIn (LitString s) = do
-
+  -- Retrieve the constant array representing the literal (`ctx`) and its
+  -- length (`k`)
   (k ** cst) <- lift (getStringLiteral s)
-  reg <- lift $ freshRegister (Ptr I8)
-  
-  let expr = GetElementPtr {k} {n = 32} (ConstPtr cst) (ILitV 0) (ILitV 0)
-  g <- pure $ omap (<+ Assign reg expr) (emptyCFG $ attach labelIn !get)
-  
-  pure ((labelIn ** g), Var reg)
 
+  -- Generate a fresh reghister
+  reg <- lift $ freshRegister (Ptr I8)
+
+  -- Retrieve a pointer to the array and assign it
+  let expr = GetElementPtr {k} {n = 32} (ConstPtr cst) (ILitV 0) (ILitV 0)
+
+  -- Assign the pointer to the new registrer and put the assignment in a graph
+  g <- pure $ omap (<+ Assign reg expr) (emptyCFG $ attach lblIn !get)
+
+  -- Return the graph and the new register
+  pure ((lblIn ** g), Var reg)
 
 mutual
 
-  ||| Returns
-  |||   - a control flow graph that computes the expression `expr`
-  |||   - the label of the block that the graph ends in.
-  |||   - the value of the expression `expr`
-  ||| The graph starts in a block labeled `labelIn`.
-  ||| The context decribing values of variables stays the same through the entire
-  ||| computation and is stored in the state.
+  ||| Compiles an expression.
+  ||| Returns the value of the expression and a graph that computes it.
+  ||| @ lblIn  the input label of the returned graph
+  |||        / the label of the first block in the graph
+  ||| @ expr   the compiled expression
+  ||| @ rt     the return type of the function whose body the graph will be
+  |||          part of
+  ||| @ lblOut the output label of the returned graph
+  |||        / the label of the last block in the graph
   export
-  compileExpr : (labelIn : Label)
-             -> (expr : Expr t)
-             -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue (GetLLType t))
+  compileExpr
+     : (lblIn : Label)
+    -> (expr  : Expr t)
+    -> CompM' ( ( lblOut
+               ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+                )
+              , LLValue (GetLLType t)
+              )
 
+  -- A literal
+  compileExpr lblIn (Lit lit) = compileLiteral lblIn lit
 
-
-  compileExpr labelIn (Lit lit) = compileLiteral labelIn lit
-
-  compileExpr labelIn (Var var) = do
-    
+  -- A variable
+  compileExpr lblIn (Var var) = do
     val <- getValue var
+    pure ((lblIn ** emptyCFG (attach lblIn !get)), val)
 
-    pure ((labelIn ** emptyCFG (attach labelIn !get)), val)
+  -- A binary operation
+  compileExpr lblIn (BinOperation op lhs rhs) = case op of
 
-  
+    -- Compile operants and apply operator
+    Add => compileBinOp lblIn I32 (BinOperation ADD)  lhs rhs
+    Sub => compileBinOp lblIn I32 (BinOperation SUB)  lhs rhs
+    Mul => compileBinOp lblIn I32 (BinOperation MUL)  lhs rhs
+    Div => compileBinOp lblIn I32 (BinOperation SDIV) lhs rhs
+    Mod => compileBinOp lblIn I32 (BinOperation SREM) lhs rhs
 
-  compileExpr labelIn (BinOperation op lhs rhs) = case op of
-    Add => compileBinOp labelIn I32 (BinOperation ADD)  lhs rhs
-    Sub => compileBinOp labelIn I32 (BinOperation SUB)  lhs rhs
-    Mul => compileBinOp labelIn I32 (BinOperation MUL)  lhs rhs
-    Div => compileBinOp labelIn I32 (BinOperation SDIV) lhs rhs
-    Mod => compileBinOp labelIn I32 (BinOperation SREM) lhs rhs
-    
-    And => compileBoolExpr labelIn (BinOperation And lhs rhs)
-    Or  => compileBoolExpr labelIn (BinOperation Or  lhs rhs)
-    
-    EQ {prf} => compileEqComparison {prf} labelIn EQ' lhs rhs
-    NE {prf} => compileEqComparison {prf} labelIn NE' lhs rhs
+    -- Compile through jump statements
+    And => compileBoolExpr lblIn (BinOperation And lhs rhs)
+    Or  => compileBoolExpr lblIn (BinOperation Or  lhs rhs)
 
-    LE => compileBinOp labelIn I1 (ICMP SLE) lhs rhs
-    LT => compileBinOp labelIn I1 (ICMP SLT) lhs rhs
-    GE => compileBinOp labelIn I1 (ICMP SGE) lhs rhs
-    GT => compileBinOp labelIn I1 (ICMP SGT) lhs rhs
+    -- Equality / inequality comparison
+    EQ {prf} => compileEqComparison {prf} lblIn EQ' lhs rhs
+    NE {prf} => compileEqComparison {prf} lblIn NE' lhs rhs
 
+    -- Compile operants and apply "order-wise" comparison operator
+    LE => compileBinOp lblIn I1 (ICMP SLE) lhs rhs
+    LT => compileBinOp lblIn I1 (ICMP SLT) lhs rhs
+    GE => compileBinOp lblIn I1 (ICMP SGE) lhs rhs
+    GT => compileBinOp lblIn I1 (ICMP SGT) lhs rhs
+
+    -- String concatenation
     Concat => do
-      ((lbl ** g), [lhs', rhs']) <- compileExprs labelIn [lhs, rhs]
+      -- Compile the operands
+      ((lblOut ** g), [lhs', rhs']) <- compileExprs lblIn [lhs, rhs]
 
+      -- Generate a new register
       reg <- lift $ freshRegister (Ptr I8)
+
+      -- Call the built in `.strconcat` function with the compiled operands as
+      -- arguments and assign the result to the new register
       let g' = omap (<+ Assign reg (Call (ConstPtr strconcat) [lhs', rhs'])) g
 
-      pure ((lbl ** g'), Var reg)
-  
-  
+      -- Return the graph and the new register
+      pure ((lblOut ** g'), Var reg)
 
-  compileExpr labelIn (UnOperation op expr) = case op of
-    
+  -- An unary operation
+  compileExpr lblIn (UnOperation op expr) = case op of
+
+    -- Arithmetic negation
     Neg => do
 
-      ((lbl ** g), val) <- compileExpr labelIn expr
+      -- Compile the negated expression
+      ((lblOut ** g), val) <- compileExpr lblIn expr
+
+      -- Generate a new register
       reg <- lift (freshRegister I32)
 
       -- TODO: Is this OK or is it a hack?
+      -- Assign the negation of the compiled expression to the new register
       let g' = omap (<+ Assign reg (BinOperation SUB (ILitV 0) val)) g
-      
-      pure ((lbl ** g'), Var reg)
 
-    Not => compileBoolExpr labelIn (UnOperation Not expr)
+      pure ((lblOut ** g'), Var reg)
 
-  
-  compileExpr labelIn (Call fun args) = do
+    -- Logical negation
+    -- Compile through jump statements
+    Not => compileBoolExpr lblIn (UnOperation Not expr)
+
+  -- A function call
+  compileExpr lblIn (Call fun args) = do
+
+    -- Retrieve the fuction pointer representing the called function
     funPtr <- lift $ getFunPtr fun
 
-    ((lbl ** g), args') <- compileExprs labelIn args
+    -- Compile the arguments
+    ((lblOut ** g), args') <- compileExprs lblIn args
 
+    -- Generate a fresh register
     reg <- lift (freshRegister' $ (unFun . unPtr) (typeOf funPtr))
 
+    -- Call the function pointer with the compiled arguments and assign the
+    -- result to the new register
     let g' = omap (<+ Assign reg (Call funPtr args')) g
 
-    pure ((lbl ** g'), Var reg)
-  
-
+    -- Return the graph and the new register
+    pure ((lblOut ** g'), Var reg)
 
   -----------------------------------------------------------------------------
-  compileExprs : (labelIn : Label)
-              -> DList Expr ts
-              -> CompM' ( (lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl))
-                        , DList LLValue (map GetLLType ts)
-                        )
-  compileExprs labelIn [] = pure ((labelIn ** emptyCFG (attach labelIn !get)), [])
-  compileExprs labelIn (expr :: exprs) = do
-    ((lbl ** g), val) <- compileExpr labelIn expr
-    ((lbl' ** g'), vals) <- compileExprs lbl exprs
+  ||| Compile multiple expressions into a graph with undefined edges at both
+  ||| ends.
+  ||| Returns a list of the values of the expressions and a graph that computes
+  ||| these values.
+  ||| @ lblIn  the input label of the returned graph
+  ||| @ exprs  the expressions
+  ||| @ rt     the return type of the function whose body the graph will be
+  |||          part of
+  ||| @ lblOut the output label of the returned graph
+  compileExprs
+     : (lblIn : Label)
+    -> (exprs : DList Expr ts)
+    -> CompM' ( ( lblOut
+               ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+                )
+              , DList LLValue (map GetLLType ts)
+              )
+  compileExprs lblIn [] = pure ((lblIn ** emptyCFG (attach lblIn !get)), [])
+  compileExprs lblIn (expr :: exprs) = do
+    -- Compile the head and tail
+    ((lbl    ** g),  val)  <- compileExpr  lblIn expr
+    ((lblOut ** g'), vals) <- compileExprs lbl   exprs
 
+    -- Connect the resulting graphs
     let g'' = connect g g'
-    
-    pure ((lbl' ** g''), val :: vals)
-  
 
-
-
+    -- Return the graph and the values
+    pure ((lblOut ** g''), val :: vals)
 
   -----------------------------------------------------------------------------
-  compileBinOp : (labelIn : Label)
-              -> (t : LLType)
-              -> (LLValue (GetLLType t') -> LLValue (GetLLType t'') -> LLExpr t)
-              -> Expr t'
-              -> Expr t''
-              -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue t)
-  compileBinOp labelIn t mkExpr lhs rhs = do
-  
-    ((lbl ** g), [lhs', rhs']) <- compileExprs labelIn [lhs, rhs]
-    
+  ||| Compile a binary operation by compiling the operands and adding a single
+  ||| expression to complete the operation.
+  ||| Returns the result of the operation and a graph that computes it.
+  ||| @ lblIn  the input label of the returned graph
+  ||| @ t      the (LLVM) type of the result of the operation
+  ||| @ mkExpr the function producing an LLVM binary operation expression from
+  |||          the values of the operands
+  ||| @ lhs    the left operand
+  ||| @ rhs    the right operand
+  ||| @ rt     the return type of the function whose body the graph will be
+  |||          part of
+  ||| @ lblOut the output label of the returned graph
+  compileBinOp
+     : (lblIn  : Label)
+    -> (t      : LLType)
+    -> (mkExpr : LLValue (GetLLType t') -> LLValue (GetLLType t'') -> LLExpr t)
+    -> (lhs    : Expr t')
+    -> (rhs    : Expr t'')
+    -> CompM' ( ( lblOut
+               ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+                )
+              , LLValue t
+              )
+  compileBinOp lblIn t mkExpr lhs rhs = do
+
+    -- Compile the operands
+    ((lblOut ** g), [lhs', rhs']) <- compileExprs lblIn [lhs, rhs]
+
+    -- Generate a new register
     reg <- lift (freshRegister t)
+
+    -- Create an expression by applying `mkExpr` to the compiled operands and
+    -- assign the result to the new register
     let g' = omap (<+ Assign reg (mkExpr lhs' rhs')) g
 
-    pure ((lbl ** g'), Var reg)
-
-
+    pure ((lblOut ** g'), Var reg)
 
   -----------------------------------------------------------------------------
-  compileEqComparison : {0 prf : EqComparable t}
-                     -> (labelIn : Label)
-                     -> EQType
-                     -> Expr t
-                     -> Expr t
-                     -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1)
-  compileEqComparison labelIn eqType lhs rhs = case typeOf {f = Expr} lhs of
-    
-    MkThe TInt    => compileBinOp labelIn I1 (ICMP $ cmpKind eqType) lhs rhs
-    
-    MkThe TBool   => compileBinOp labelIn I1 (ICMP $ cmpKind eqType) lhs rhs
-    
+  ||| Compile a "equality-wise" comparison operation.
+  ||| Returns the result of the comparison and a graph that computes it.
+  ||| @ prf    a proof that the type of the operands is comparable
+  |||          "equality-wise"
+  ||| @ lblIn  the input label of the returned graph
+  ||| @ eqType the type of comparioson - equality or inequality
+  ||| @ lhs    the left operand
+  ||| @ rhs    the right operand
+  ||| @ rt     the return type of the function whose body the graph will be
+  |||          part of
+  ||| @ lblOut the output label of the returned graph
+  compileEqComparison
+     : {0 prf  : EqComparable t}
+    -> (lblIn  : Label)
+    -> (eqType : EQType)
+    -> (lhs    : Expr t)
+    -> (rhs    : Expr t)
+    -> CompM' ( ( lblOut
+               ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+                )
+              , LLValue I1
+              )
+  compileEqComparison lblIn eqType lhs rhs = case typeOf {f = Expr} lhs of
+
+    -- Compile the operands and apply the comparison operator
+    MkThe TInt    => compileBinOp lblIn I1 (ICMP $ cmpKind eqType) lhs rhs
+    MkThe TBool   => compileBinOp lblIn I1 (ICMP $ cmpKind eqType) lhs rhs
+
+    -- Compile the operands and call the built-in comparison function
     MkThe TString => do
-      ((lbl ** g), [lhs', rhs']) <- compileExprs labelIn [lhs, rhs]
+      -- Compile the operands
+      ((lblOut ** g), [lhs', rhs']) <- compileExprs lblIn [lhs, rhs]
 
       -- TODO here the `eqType` is discarded and the code acts as if it is `EQ'`
+      -- Generate a new register
       reg <- lift $ freshRegister I1
+
+      -- Call the built-in `.strcompare` function on the compiled operands and
+      -- assign the result to the new register
       let g' = omap (<+ Assign reg (Call (ConstPtr strcompare) [lhs', rhs'])) g
 
-      pure ((lbl ** g'), Var reg)
+      -- Return the graph and the new register
+      pure ((lblOut ** g'), Var reg)
 
+    -- Impossibnle: comapring voids
     MkThe TVoid   => let
-    
-        0 impossiblePrf : (CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1) = ())
+
+        -- A proof that `void`s are not comparable
+        0 impossiblePrf : (CompM' ((lblOut ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)), LLValue I1) = ())
         impossiblePrf = exfalso (voidNotEqComparable prf)
 
       in rewrite impossiblePrf in ()
 
-  
-  
-  
-  
   -----------------------------------------------------------------------------
-  
-  {-
-  Add branch instructions such that when the value of `expr` is `true`, then the
-  execution of the program will end up in `lblT` and in `lblF` otherwise.
-  -}
+  ||| Compiles a boolean expression through jump statements.
+  ||| Given a boolean expression and labels of a "true" block and a "false"
+  ||| block, produces a graph whose execution ends in the "true" block when the
+  ||| expression is true and in the "false" block if it is false.
+  |||
+  ||| Returns the graph and the list of its "true" and "false" outputs.
+  ||| The "false" and "true" outputs are the labels of blocks from which the
+  ||| control flow jumps to the "false" and "rtrue" block respectively.
+  |||
+  ||| The binary boolean expressions are evalueated lazily. That means, if
+  ||| evaluating the left operand gives a value such that the result is already
+  ||| known, the right operand is not evalueted.
+  |||
+  ||| @ lblIn  the input label of the returned graph
+  ||| @ expr   the compiled expression
+  ||| @ lblT   the "true" block label
+  ||| @ lblF   the "false" block label
+  ||| @ outsT  the "true" outputs
+  ||| @ outsF  the "false" outputs
+  ||| @ rt     the return type of the function whose body the graph will be
+  |||          part of
+  ||| @ lblOut the output label of the returned graph
   export
-  ifology : (labelIn : Label)
-         -> (expr : Expr TBool)
-         -> (lblT : Label)
-         -> (lblF : Label)
-         -> CompM'  ( outsT ** outsF ** CFG (CBlock rt)
-                                            (Undefined labelIn)
-                                            (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
-                    )
+  ifology
+     : (lblIn : Label)
+    -> (expr : Expr TBool)
+    -> (lblT : Label)
+    -> (lblF : Label)
+    -> CompM' ( outsT
+             ** outsF
+             ** CFG (CBlock rt)
+                    (Undefined lblIn)
+                    (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
+              )
 
-  
-  ifology labelIn (BinOperation And lhs rhs) lblT lblF = do
+  -- Logical and
+  ifology lblIn (BinOperation And lhs rhs) lblT lblF = do
 
+    -- Generate the "middle" label
     lblM <- lift freshLabel
-    (outsM ** outsF   ** gl) <- ifology labelIn lhs lblM lblF
-    (outsT ** outsF'  ** gr) <- ifology lblM    rhs lblT lblF
 
+    -- Compile the left operand
+    --
+    -- Pass the "false" label as the "false" label - if the left opperand is
+    -- false, the result of the operation is also false
+    --
+    -- Pass the "middle" label as the "true" label - if the left opperand is
+    -- true, we still have to evaluate the right operand
+    --
+    -- Pass the input label as the input label - this operand will be evaluated
+    -- first, so its graph will be the "prefix" of the graph of the entire
+    -- operation, and thus it will start in the same block.
+    (outsM ** outsF ** gl) <- ifology lblIn lhs lblM lblF
+
+    -- Compile the right operand
+    --
+    -- Note: if the control flow gets to evaluating `rhs`, this means `lhs` is
+    -- true,
+    -- that means the result of the logical and is the same as the value of
+    -- `rhs`.
+    --
+    -- Given the note above, the "true" and "false" labels passed here are
+    -- exactly the "true" and "false" labels of the entire operation.
+    --
+    -- Pass the "middle" label as the input label - the computation of `rhs`
+    -- starts after `lhs` is evaluated to be true.
+    (outsT ** outsF' ** gr) <- ifology lblM rhs lblT lblF
+
+    -- Define the inputs of the graph of `rhs` as the "true" outputs of the
+    -- graph of `lhs`.
     let gr' = imap {ins = Just outsM} ([] |++>) gr
-    
+
+    -- Construct the final graph by connecting the graph of `lhs` and `rhs`.
+    -- Rearange their output parameters using proofs of simple theorems to fit
+    -- them into the functions type signature
     let final : CFG (CBlock rt)
-                    (Undefined labelIn)
+                    (Undefined lblIn)
                     (Defined $ outsT ~~> lblT ++ (outsF' ++ outsF) ~~> lblF)
         final = rewrite collect_concat lblF outsF' outsF
                 in rewrite concat_assoc (outsT ~~> lblT) (outsF' ~~> lblF) (outsF ~~> lblF)
                 in LBranch gl gr'
-    
+
+    -- Return the final graph and its "true" and "false" outputs
     pure (outsT ** outsF' ++ outsF ** final)
-  
 
-  ifology labelIn (BinOperation Or lhs rhs) lblT lblF = do
+  -- Logical or (by analogy to logical and)
+  ifology lblIn (BinOperation Or lhs rhs) lblT lblF = do
 
+    -- Generate the "middle" label
     lblM <- lift freshLabel
-    (outsT  ** outsM ** gl) <- ifology labelIn  lhs lblT lblM
-    (outsT' ** outsF ** gr) <- ifology lblM     rhs lblT lblF
 
+    -- Compile the left operand
+    --
+    -- Pass the "true" label as the "true" label - if the left opperand is
+    -- true, the result of the operation is also true
+    --
+    -- Pass the "middle" label as the "false" label - if the left opperand is
+    -- false, we still have to evaluate the right operand
+    --
+    -- Pass the input label as the input label - this operand will be evaluated
+    -- first, so its graph will be the "prefix" of the graph of the entire
+    -- operation, and thus it will start in the same block.
+    (outsT ** outsM ** gl) <- ifology lblIn lhs lblT lblM
+
+    -- Compile the right operand
+    --
+    -- Note: if the control flow gets to evaluating `rhs`, this means `lhs` is
+    -- false,
+    -- that means the result of the logical or is the same as the value of
+    -- `rhs`.
+    --
+    -- Given the note above, the "true" and "false" labels passed here are
+    -- exactly the "true" and "false" labels of the entire operation.
+    --
+    -- Pass the "middle" label as the input label - the computation of `rhs`
+    -- starts after `lhs` is evaluated to be false.
+    (outsT' ** outsF ** gr) <- ifology lblM rhs lblT lblF
+
+    -- Define the inputs of the graph of `rhs` as the "true" outputs of the
+    -- graph of `lhs`.
     let gr' = imap {ins = Just outsM} ([] |++>) gr
-    
+
+    -- Construct the final graph by connecting the graph of `lhs` and `rhs`.
+    -- Rearange their output parameters using proofs of simple theorems to fit
+    -- them into the functions type signature
     let final : CFG (CBlock rt)
-                    (Undefined labelIn)
+                    (Undefined lblIn)
                     (Defined ((outsT ++ outsT') ~~> lblT ++ outsF ~~> lblF))
         final = rewrite collect_concat lblT outsT outsT'
                 in rewrite revEq $ concat_assoc (outsT ~~> lblT) (outsT' ~~> lblT) (outsF ~~> lblF)
                 in RBranch gl gr'
-    
+
+    -- Return the final graph and its "true" and "false" outputs
     pure (outsT ++ outsT' ** outsF ** final)
-  
 
-  ifology labelIn (UnOperation Not expr) lblT lblF = do
-    (outsF ** outsT ** g) <- ifology labelIn expr lblF lblT
+  -- Logical negation
+  ifology lblIn (UnOperation Not expr) lblT lblF = do
+
+    -- Compile the negated expression
+    (outsF ** outsT ** g) <- ifology lblIn expr lblF lblT
+
+    -- Swap the "true" outputs with the "false" outputs
     pure (outsT ** outsF ** OFlip g)
-  
 
-  ifology labelIn expr lblT lblF = do
-    ((lbl ** g), val) <- compileExpr labelIn expr
+  -- Default case
+  ifology lblIn expr lblT lblF = do
+
+    -- Compile the expression the "normal" way
+    ((lbl ** g), val) <- compileExpr lblIn expr
+
+    -- Branch to the "true" or "false" block based on the value of the
+    -- compuiled expression.
     let g' = omap (<+| CondBranch val lblT lblF) g
-    
+
     pure ([lbl] ** [lbl] ** g')
-    
-  
-  
 
-
-
-  
   -----------------------------------------------------------------------------
+  ||| Compiles a boolean expression by adding a merging block to the graph
+  ||| produced by `ifology`.
+  ||| Returns the value of the expression and a graph that computes it.
+  ||| @ lblIn  the input label of the returned graph
+  ||| @ expr   the compiled expression
+  ||| @ rt     the return type of the function whose body the graph will be
+  |||          part of
+  ||| @ lblOut the output label of the returned graph
+  compileBoolExpr
+     : (lblIn : Label)
+    -> (expr  : Expr TBool)
+    -> CompM' ( ( lblOut
+               ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+                )
+              , LLValue I1
+              )
 
-  compileBoolExpr : (labelIn : Label)
-                 -> Expr TBool
-                 -> CompM' ((lbl ** CFG (CBlock rt) (Undefined labelIn) (Undefined lbl)), LLValue I1)
+  compileBoolExpr lblIn expr = do
 
-  compileBoolExpr labelIn expr = do
-    labelTrue <- lift freshLabel
+    -- Generate the "true" and "false" labels and compile the expression using
+    -- jump statements
+    labelTrue  <- lift freshLabel
     labelFalse <- lift freshLabel
-    (outsT ** outsF ** ifologyG) <- ifology labelIn expr labelTrue labelFalse
-    
+    (outsT ** outsF ** ifologyG) <- ifology lblIn expr labelTrue labelFalse
+
+    -- Generate a "post" label - the label of the merging block
     labelPost <- lift freshLabel
-    
-    
+
+    -- Construct the "true" block and put it in a singleton graph
     trueBLK <- pure $ [] |++> emptyCBlock (attach labelTrue !get) <+| Branch labelPost
-    
     let trueG : CFG (CBlock rt) (Defined $ outsT ~~> labelTrue) (Defined [labelTrue ~> labelPost])
         trueG = SingleVertex {vins = Just outsT, vouts = Just [labelPost]} trueBLK
-    
-    
-    falseBLK <- pure $ [] |++> emptyCBlock (attach labelFalse !get) <+| Branch labelPost
 
+    -- Construct the "false" block and put it in a singleton graph
+    falseBLK <- pure $ [] |++> emptyCBlock (attach labelFalse !get) <+| Branch labelPost
     let falseG : CFG (CBlock rt) (Defined $ outsF ~~> labelFalse) (Defined [labelFalse ~> labelPost])
         falseG = SingleVertex {vins = Just outsF, vouts = Just [labelPost]} falseBLK
-    
-    
-    reg <- lift (freshRegister I1)
 
+    -- Make a "phi" assignment.
+    -- The value of the expression is `true` or `false` when coming from the
+    -- "true" or "false" block respectively.
     let phi : PhiExpr [labelTrue, labelFalse] I1
         phi = Phi I1 [(labelTrue, ILitV 1), (labelFalse, ILitV 0)]
-    
-    let phiAssignment = AssignPhi reg phi
-    
-    let postIns = [labelTrue, labelFalse]
-    
-    postBLK <- pure $ phiAssignment |+> emptyCBlock (attach labelPost !get)
 
+    -- Generate a new register and assign the phi expression to the new
+    -- register.
+    -- The new register now contains the value of the compiled expression (`expr`)
+    reg <- lift (freshRegister I1)
+    let phiAssignment = AssignPhi reg phi
+
+    -- The inputs of the "post" block (the merging block)
+    let postIns = [labelTrue, labelFalse]
+
+    -- Construct the merging block and put it in a singleton graph
+    postBLK <- pure $ phiAssignment |+> emptyCBlock (attach labelPost !get)
     let postG : CFG (CBlock rt) (Defined [labelTrue ~> labelPost, labelFalse ~> labelPost]) (Undefined labelPost)
         postG = SingleVertex {vins = Just [labelTrue, labelFalse], vouts = Undefined} postBLK
 
-
+    -- Construct the final graph
     let confluence = Series (Parallel trueG falseG) postG
     let final = Series ifologyG confluence
-    
+
+    -- Retunr the final graph, its output label and the value of the expression
     pure ((labelPost ** final), Var reg)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
