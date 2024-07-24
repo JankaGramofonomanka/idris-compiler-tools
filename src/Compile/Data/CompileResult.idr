@@ -33,10 +33,10 @@ import Theory
 |||          that is beeing wrapped.
 public export
 data CompileResult
-   : (rt : LLType)
-  -> (ins : Edges Label)
+   : (rt     : LLType)
+  -> (ins    : Edges Label)
   -> (outLbl : Label)
-  -> (kind : InstrKind)
+  -> (kind   : InstrKind)
   -> Type
   where
   ||| A "returning" result. Contains a graph with no outputs.
@@ -67,7 +67,7 @@ unwrapCR (CRS (outs ** g)) = (outs ** g)
 export
 emptyCR
    : (lbl, lbl' : Label)
-  -> (ctx : lbl :~: VarCTX)
+  -> (ctx       : lbl :~: VarCTX)
   -> CompileResult rt (Undefined lbl) lbl' Simple
 emptyCR lbl lbl' ctx = CRS ([lbl] ** omap (<+| Branch lbl') (emptyCFG ctx))
 
@@ -101,11 +101,11 @@ seriesCR g (CRS (lbls ** g')) = CRS $ (lbls ** Series g g')
 ||| @ lres the left  "compile result"
 ||| @ rres the right "compile result"
 export
-parallelCR : {lbl : Label}
-          -> (lres : CompileResult rt (Defined ledges) lbl lk)
-          -> (rres : CompileResult rt (Defined redges) lbl rk)
-
-          -> CompileResult rt (Defined $ ledges ++ redges) lbl (BrKind lk rk)
+parallelCR
+   : {lbl : Label}
+  -> (lres : CompileResult rt (Defined ledges) lbl lk)
+  -> (rres : CompileResult rt (Defined redges) lbl rk)
+  ->         CompileResult rt (Defined $ ledges ++ redges) lbl (BrKind lk rk)
 
 parallelCR {lbl} (CRR lg) (CRR rg) = CRR $ Parallel lg rg
 
