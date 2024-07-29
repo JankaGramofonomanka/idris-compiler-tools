@@ -15,6 +15,8 @@ langversion >= 0.5.1
 -- packages to add to search path
 depends = base >= 0.5.1
         , contrib
+        , prettier
+        , elab-util
 
 -- modules to install
 modules = Compile.Data.Context.Utils

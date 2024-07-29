@@ -66,7 +66,7 @@ freshRegister : (t : LLType) -> CompM (Reg t)
 freshRegister t = do
   n <- gets regCount
   modify { regCount := n + 1 }
-  pure $ MkReg t (MkRegId $ "r" ++ show n)
+  pure $ MkReg (MkThe t) (MkRegId $ "r" ++ show n)
 
 ||| Generate a unique register of the given type
 ||| @ t the type of the register
@@ -99,7 +99,7 @@ freshStrConst : (n : Nat) -> CompM (Const (Array I8 n))
 freshStrConst n = do
   k <- gets strLitCount
   modify { strLitCount $= (+1) }
-  pure $ MkConst (Array I8 n) (MkConstId $ "s" ++ show k)
+  pure $ MkConst (MkThe $ Array I8 n) (MkConstId $ "s" ++ show k)
 
 ||| Get the constant representing the given string literal
 ||| @ s the string literal

@@ -25,7 +25,7 @@ readString'  = "readString"
 
 
 namespace TypeCheck
-  
+
   export
   builtIns : List (TC.LNGType, List TC.LNGType, LNG.Ident)
   builtIns
@@ -36,7 +36,7 @@ namespace TypeCheck
       , (TString, [],         MkId readString')
       ]
 
-  
+
 namespace Compile
 
 
@@ -45,7 +45,7 @@ namespace Compile
 
   strcompare' : String
   strcompare' = ".strcompare"
-  
+
 
   -- LNG function ids
   printInt : Fun TVoid [TInt]
@@ -53,39 +53,39 @@ namespace Compile
 
   printString : Fun TVoid [TString]
   printString = MkFun TVoid [TString] (MkFunId printString')
-  
+
   error : Fun TVoid []
   error = MkFun TVoid [] (MkFunId error')
-  
+
   readInt : Fun TInt []
   readInt = MkFun TInt [] (MkFunId readInt')
-  
+
   readString : Fun TString []
   readString = MkFun TString [] (MkFunId readString')
 
   -- LLVM function constatns
   llPrintInt : Const $ FunType Void [I32]
-  llPrintInt = (MkConst (FunType Void [I32]) (MkConstId printInt'))
+  llPrintInt = (MkConst (MkThe $ FunType Void [I32]) (MkConstId printInt'))
 
   llPrintString : Const $ FunType Void [Ptr I8]
-  llPrintString = (MkConst (FunType Void [Ptr I8]) (MkConstId printString'))
-  
+  llPrintString = (MkConst (MkThe $ FunType Void [Ptr I8]) (MkConstId printString'))
+
   llError : Const $ FunType Void []
-  llError = (MkConst (FunType Void []) (MkConstId error'))
+  llError = (MkConst (MkThe $ FunType Void []) (MkConstId error'))
 
   llReadInt :  Const $ FunType I32 []
-  llReadInt = (MkConst (FunType I32 []) (MkConstId readInt'))
+  llReadInt = (MkConst (MkThe $ FunType I32 []) (MkConstId readInt'))
 
   llReadString : Const $ FunType (Ptr I8) []
-  llReadString = (MkConst (FunType (Ptr I8) []) (MkConstId readString'))
+  llReadString = (MkConst (MkThe $ FunType (Ptr I8) []) (MkConstId readString'))
 
   export
   strconcat : Const $ FunType (Ptr I8) [Ptr I8, Ptr I8]
-  strconcat = MkConst (FunType (Ptr I8) [Ptr I8, Ptr I8]) (MkConstId strconcat')
+  strconcat = MkConst (MkThe $ FunType (Ptr I8) [Ptr I8, Ptr I8]) (MkConstId strconcat')
 
   export
   strcompare : Const $ FunType I1 [Ptr I8, Ptr I8]
-  strcompare = MkConst (FunType I1 [Ptr I8, Ptr I8]) (MkConstId strcompare')
+  strcompare = MkConst (MkThe $ FunType I1 [Ptr I8, Ptr I8]) (MkConstId strcompare')
 
 
   export
@@ -98,8 +98,8 @@ namespace Compile
       , (TInt     ** []         ** (readInt,      ConstPtr llReadInt))
       , (TString  ** []         ** (readString,   ConstPtr llReadString))
       ]
-  
-  
+
+
   export
   builtInDecls : List LLVM.FunDecl
   builtInDecls
@@ -111,9 +111,9 @@ namespace Compile
       , MkFunDecl {retT = (Ptr I8), paramTs = [Ptr I8, Ptr I8], name = strconcat}
       , MkFunDecl {retT = I1,       paramTs = [Ptr I8, Ptr I8], name = strcompare}
       ]
-  
 
-  
+
+
 namespace Interpreter
 
 

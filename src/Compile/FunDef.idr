@@ -41,7 +41,8 @@ compileBody labelIn ctx instr = do
 mkFunConst
    : (fun : Fun t ts)
   -> Const $ FunType (GetLLType t) (map GetLLType ts)
-mkFunConst (MkFun t ts (MkFunId name)) = MkConst (FunType (GetLLType t) (map GetLLType ts)) (MkConstId name)
+mkFunConst (MkFun t ts (MkFunId name))
+  = MkConst (MkThe $ FunType (GetLLType t) (map GetLLType ts)) (MkConstId name)
 
 ||| Compile a semantically correct LNG function definition
 ||| @ def the function definition

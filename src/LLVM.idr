@@ -2,6 +2,7 @@ module LLVM
 
 import Data.List
 import Data.Vect
+import Derive.Prelude
 
 import Data.DList
 import Data.Some
@@ -9,6 +10,8 @@ import Data.The
 import Data.Typed
 import Utils
 import CFG
+
+%language ElabReflection
 
 {-
 TODO: define a "pseudo LLVM" type that would generalize over `LLValue`, that is
@@ -56,7 +59,6 @@ data LLType
     ||| parameters of types `ts`
     FunType LLType (List LLType)
 
-
 ||| `i1`, alias for `I 1`
 public export
 I1    : LLType
@@ -101,27 +103,25 @@ data RegId : (t : LLType) -> Type where
   ||| @ name the name of the register
   MkRegId : (name : String) -> RegId t
 
-export
-implementation Eq (RegId t) where
-  MkRegId s == MkRegId s' = s == s'
+%runElab derive "RegId" [Eq]
 
 ||| A register identifier with a runtime representation of its type
 ||| @ t the type of the value stored in the register
 public export
 data Reg : (t : LLType) -> Type where
   ||| Make a `Reg` out of `RegId`
+  |||
+  ||| Note: `t` is wrapped in `The` in order to appease the deriving mechanism
+  |||
   ||| @ t     the type of the register
   ||| @ regId the register identifier
-  MkReg : (t : LLType) -> (regId : RegId t) -> Reg t
+  MkReg : The t -> (regId : RegId t) -> Reg t
 
--- TODO: is this needed?
-export
-implementation Eq (Reg t) where
-  MkReg _ id == MkReg _ id' = id == id'
+%runElab deriveIndexed "Reg" [Eq]
 
 export
 implementation Typed Reg where
-  typeOf (MkReg t id) = MkThe t
+  typeOf (MkReg t id) = t
 
 -- Const, ConstId -------------------------------------------------------------
 ||| A constant identifier
@@ -132,27 +132,25 @@ data ConstId : (t : LLType) -> Type where
   ||| @ name the name of the constant
   MkConstId : (name : String) -> ConstId t
 
-public export
-implementation Eq (ConstId t) where
-  MkConstId s == MkConstId s' = s == s'
+%runElab derive "ConstId" [Eq]
 
 ||| A constant identifier with a runtime representation of its type
 ||| @ t the type of the constant
 public export
 data Const : LLType -> Type where
   ||| Make a `Const` out of `ConstId`
+  |||
+  ||| Note: `t` is wrapped in `The` in order to appease the deriving mechanism
+  |||
   ||| @ t       the type of the constant
   ||| @ constId the constant identifier
-  MkConst : (t : LLType) -> (constId : ConstId t) -> Const t
+  MkConst : The t -> (constId : ConstId t) -> Const t
 
--- TODO: is this needed?
-export
-implementation Eq (Const t) where
-  MkConst _ id == MkConst _ id' = id == id'
+%runElab deriveIndexed "Const" [Eq]
 
 export
 implementation Typed Const where
-  typeOf (MkConst t id) = MkThe t
+  typeOf (MkConst t id) = t
 
 -- LLLiteral ------------------------------------------------------------------
 ||| An LLVM Literal
@@ -173,10 +171,7 @@ stringToCharVect s = go (unpack s) where
   go Nil = (Z ** Nil)
   go (ch :: chs) = let (n ** chars) = go chs in (S n ** ch :: chars)
 
-export
-implementation Eq (LLLiteral t) where
-  ILit i == ILit i' = i == i'
-  CharArrLit s == CharArrLit s' = s == s'
+%runElab deriveIndexed "LLLiteral" [Eq]
 
 export
 implementation Typed LLLiteral where
@@ -197,9 +192,12 @@ data LLValue : (t : LLType) -> Type where
   ||| A constant pointer
   ||| @ cst the constant
   ConstPtr : (cst : Const t) -> LLValue (Ptr t)
-  ||| A null pointer
+  ||| A null pointer.
+  |||
+  ||| Note: `t` is wrapped in `The` in order to appease the deriving mechanism
+  |||
   ||| @ t the type of the pointer
-  Null : (t : LLType) -> LLValue (Ptr t)
+  Null : The t -> LLValue (Ptr t)
 
 ||| An alias for an integer literal value
 ||| @ n   the number of bits in the type of the literal
@@ -208,20 +206,14 @@ public export
 ILitV : {n : Nat} -> (lit : Integer) -> LLValue (I n)
 ILitV i = Lit (ILit i)
 
-export
-implementation Eq (LLValue t) where
-  Var reg       == Var reg'       = reg   == reg'
-  Lit i         == Lit i'         = i     == i'
-  ConstPtr cnst == ConstPtr cnst' = cnst  == cnst'
-  Null _        == Null _         = True
-  _             == _              = False
+%runElab deriveIndexed "LLValue" [Eq]
 
 export
 implementation Typed LLValue where
   typeOf (Var reg) = typeOf reg
   typeOf (Lit lit) = typeOf lit
   typeOf (ConstPtr cst) = The.map Ptr (typeOf cst)
-  typeOf (Null t) = MkThe (Ptr t)
+  typeOf (Null t) = map Ptr t
 
 ||| An alias for a function pointer type
 ||| @ t  the return type of the function
@@ -309,10 +301,7 @@ data CMPKind
 public export
 data Label = MkLabel String
 
-export
-implementation Eq Label where
-  MkLabel s == MkLabel s' = s == s'
-
+%runElab derive "Label" [Eq]
 
 -- Expr -----------------------------------------------------------------------
 ||| An LLVM expression

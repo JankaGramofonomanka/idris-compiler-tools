@@ -26,3 +26,11 @@ map f (MkThe x) = MkThe (f x)
 export
 unThe : {0 x : a} -> (theX : The x) -> a
 unThe (MkThe x) = x
+
+export
+implementation Eq (The x) where
+  _ == _ = True
+
+export
+implementation Ord (The x) where
+  compare _ _ = EQ
