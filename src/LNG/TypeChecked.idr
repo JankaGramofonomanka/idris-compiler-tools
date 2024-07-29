@@ -2,6 +2,8 @@
 ||| of compiler frameworks defined in this project.
 module LNG.TypeChecked
 
+import Derive.Prelude
+
 import Data.DList
 import Data.GCompare
 import Data.GEq
@@ -10,39 +12,13 @@ import Data.Typed
 
 import Theory
 
+%language ElabReflection
+
 ||| The types of variables in LNG
 public export
 data LNGType = TInt | TBool | TString | TVoid
 
-export
-implementation Eq LNGType where
-  TInt    == TInt     = True
-  TBool   == TBool    = True
-  TString == TString  = True
-  TVoid   == TVoid    = True
-  _       == _        = False
-
-export
-implementation Ord LNGType where
-  compare TInt TInt     = EQ
-  compare TInt TBool    = LT
-  compare TInt TString  = LT
-  compare TInt TVoid    = LT
-
-  compare TBool TInt    = GT
-  compare TBool TBool   = EQ
-  compare TBool TString = LT
-  compare TBool TVoid   = LT
-
-  compare TString TInt    = GT
-  compare TString TBool   = GT
-  compare TString TString = EQ
-  compare TString TVoid   = LT
-
-  compare TVoid TInt    = GT
-  compare TVoid TBool   = GT
-  compare TVoid TString = GT
-  compare TVoid TVoid   = EQ
+%runElab derive "LNGType" [Eq, Ord]
 
 ||| Returns a proof that the operands are equal when they are,
 ||| otherwise, returns `Nothing`

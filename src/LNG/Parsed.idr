@@ -1,6 +1,10 @@
 module LNG.Parsed
 
+import Derive.Prelude
+
 import Parse.Data.Position
+
+%language ElabReflection
 
 ||| The types of variables in LNG
 public export
@@ -54,13 +58,7 @@ data Literal = LitBool Bool | LitInt Integer | LitString String
 public export
 data Ident = MkId String
 
-export
-implementation Eq Ident where
-  MkId s == MkId s' = s == s'
-
-export
-implementation Ord Ident where
-  MkId s `compare` MkId s' = s `compare` s'
+%runElab derive "Ident" [Eq, Ord]
 
 export
 unIdent : Ident -> String

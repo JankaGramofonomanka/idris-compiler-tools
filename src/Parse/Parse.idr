@@ -166,7 +166,7 @@ declare = do
   _     <- equals
   expr  <- expression
   _     <- semicolon
-  
+
   pure $ fromTo (pos ty) (pos expr) |^ Declare ty var expr
 
 assign : LNGParser Instr
@@ -175,7 +175,7 @@ assign = do
   _     <- equals
   expr  <- expression
   _     <- semicolon
-  pure (fromTo (pos var) (pos expr) |^ Assign var expr) 
+  pure (fromTo (pos var) (pos expr) |^ Assign var expr)
 
 exec : LNGParser Instr
 exec = Exec <^$> expression <* semicolon
@@ -216,7 +216,7 @@ mutual
     body <- instruction
     pure (fromTo kwp (pos body) |^ While cond body)
 
-  
+
 
   instruction : LNGParser Instr
   instruction = return <|> retvoid <|> declare <|> assign <|> ifthenelse <|> while <|> block <|> exec

@@ -99,7 +99,7 @@ namespace SimplePos
       '\n'  :: xs => put ({ line $= (+1), column := 0     } p, xs) >> pure (between p p |^ '\n')
       x     :: xs => put ({               column $= (+1)  } p, xs) >> pure (between p p |^ x)
   -}
-  
+
   export
   sat : (Char -> Bool) -> SimplePosParser Char
   sat isOk = do
