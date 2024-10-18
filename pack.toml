@@ -5,6 +5,12 @@ ipkg = "compiler-tools.ipkg"
 test = "test/compiler-tools-test.ipkg"
 
 [custom.all.compiler-tools-test]
-type="local"
-path="test"
-ipkg="compiler-tools-test.ipkg"
+type = "local"
+path = "test"
+ipkg = "compiler-tools-test.ipkg"
+
+[custom.all.dependent-map]
+type   = "github"
+url    = "git@github.com:JankaGramofonomanka/idris-dependent-map"
+commit = "a2c396e9e4b19643517becc4fabedea9b144c6cf"
+ipkg   = "dependent-map.ipkg"
