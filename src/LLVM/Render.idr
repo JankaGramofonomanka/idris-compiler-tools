@@ -65,7 +65,7 @@ implementation DocItem (LLLiteral t) where
   prt (ILit i) = show i
   prt (CharArrLit chars) = "c\"" ++ concat (map encode chars) ++ "\\00\"" where
     encode : Char -> String
-    
+
     -- based on this
     -- https://en.wikipedia.org/wiki/Escape_sequences_in_C
     encode '\a'   = "\\07"
@@ -139,23 +139,23 @@ implementation [branch] DocItem Label where
 -- Expr -----------------------------------------------------------------------
 export
 implementation DocItem (LLExpr t) where
-  
+
   prt (BinOperation op lhs rhs)
     = mkSentence [prt op, prt (resType op), prt lhs ++ ",", prt rhs]
-  
+
   prt (Call funPtr params)
     = mkSentence ["call", prtFun (prt $ retTypeOf funPtr) (prt funPtr) (undmap (prt @{typed}) params)]
 
   prt (GetElementPtr {t, k} arr idx1 idx2)
     = mkSentence ["getelementptr", prtItems [prt (Array t k), prt @{typed} arr, prt @{typed}idx1, prt @{typed} idx2 ]]
-                          
+
   prt (ICMP cmp lhs rhs)
     = mkSentence ["icmp", prt cmp, prt @{typed} lhs ++ ",", prt rhs]
-  
+
   prt (Load ptr)
     = let ptrT = typeOf ptr
       in mkSentence ["load", prt (unPtr ptrT) ++ ",", prt @{typed} ptr]
-  
+
   prt (BitCast val t) = mkSentence ["bitcast", prt @{typed} val, "to", prt t]
 
 export
@@ -198,7 +198,7 @@ implementation Document (BasicBlock rt label inputs outputs) where
                             ++ map (uncurry (MkLine . prt)) body
                             ++ map (simple . prt) [term]
                              )
-                      ] 
+                      ]
             }
 
 printCFG : CFG (BlockVertex rt) (Defined ins) (Defined outs) -> Doc
@@ -253,7 +253,7 @@ implementation Document Program where
     ++ foldl appendConstDef Doc.empty constDefs
     ++ blankLines 4
     ++ foldl appendFunDef Doc.empty funcs
-    
+
     where
       appendFunDecl : Doc -> FunDecl -> Doc
       appendFunDecl doc decl = doc ++ fromLines [simple (prt decl)]
@@ -263,5 +263,14 @@ implementation Document Program where
 
       appendFunDef : Doc -> FunDef -> Doc
       appendFunDef doc fun = doc ++ blankLines 1 ++ (print fun)
-      
+
+||| Render an LLVM program
+||| @ tablLength the length of a single indent
+||| @ margin     the width after which comments will appear
+||| @ doc        the docmuent to be rendered
+|||
+||| calls `Doc.render` with the LLVM comment delimiter
+export
+render : (tabLength : Nat) -> (margin : Nat) -> (doc : Doc) -> String
+render = Doc.render ";"
 

@@ -64,6 +64,7 @@ interface DocItem a where
   prt : a -> String
 
 ||| Render a document
+||| @ delimiter  the comment delimiter
 ||| @ tablLength the length of a single indent
 ||| @ margin     the width after which comments will appear
 ||| @ doc        the docmuent to be rendered
@@ -71,13 +72,12 @@ interface DocItem a where
 ||| Starts rendering with indentation 0 and increases the indentation depth for
 ||| sub-documents
 export
-render : (tabLength : Nat) -> (margin : Nat) -> (doc : Doc) -> String
-render tabLength margin doc = unlines (render' 0 doc) where
+render : (delimiter : String) -> (tabLength : Nat) -> (margin : Nat) -> (doc : Doc) -> String
+render delimiter tabLength margin doc = unlines (render' 0 doc) where
 
   prtComment : Nat -> Maybe String -> String
   prtComment spacesTaken Nothing = ""
-  -- TODO: the `;` is LLVM specific, generalize this
-  prtComment spacesTaken (Just cmt) = replicate (margin `minus` spacesTaken) ' ' ++ ";" ++ cmt
+  prtComment spacesTaken (Just cmt) = replicate (margin `minus` spacesTaken) ' ' ++ delimiter ++ cmt
 
   mutual
     ||| Render a document with a specified indentation depth
