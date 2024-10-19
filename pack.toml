@@ -14,3 +14,9 @@ type   = "github"
 url    = "git@github.com:JankaGramofonomanka/idris-dependent-map"
 commit = "a2c396e9e4b19643517becc4fabedea9b144c6cf"
 ipkg   = "dependent-map.ipkg"
+
+[custom.all.doc]
+type   = "github"
+url    = "git@github.com:JankaGramofonomanka/idris-doc"
+commit = "49f261841292a421af029b61ff6804b1b4f30ee0"
+ipkg   = "doc.ipkg"

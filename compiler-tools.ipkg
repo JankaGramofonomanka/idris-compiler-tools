@@ -18,6 +18,7 @@ depends = base >= 0.5.1
         , prettier
         , elab-util
         , dependent-map
+        , doc
 
 -- modules to install
 modules = Compile.Data.Context.Utils
@@ -33,7 +34,6 @@ modules = Compile.Data.Context.Utils
         , Compile.Utils
         , Data.Attached
         , Data.DList
-        , Data.Doc
         , Data.The
         , Data.Typed
         , LLVM.Render
