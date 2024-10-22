@@ -39,6 +39,7 @@ cmpKind : EQType -> CMPKind
 cmpKind EQ' = EQ
 cmpKind NE' = NE
 
+-- TODO: consider having attached context in the state
 ||| A compiler monad with a variable context stored in addition to a `CompState`
 public export
 CompM' : Type -> Type
@@ -70,9 +71,9 @@ compileLiteral
 -- In case of the boolean ant integer literals, simply return a LLVM literal
 -- and an empty graph.
 compileLiteral lblIn (LitBool b)
-  = pure $ ((lblIn ** emptyCFG (attach lblIn !get)), ILitV (if b then 1 else 0))
+  = pure $ ((lblIn ** emptyCFG), ILitV (if b then 1 else 0))
 compileLiteral lblIn (LitInt i)
-  = pure $ ((lblIn ** emptyCFG (attach lblIn !get)), ILitV i)
+  = pure $ ((lblIn ** emptyCFG), ILitV i)
 
 -- For string literals, return a pointer to the constant representing the
 -- literal.
@@ -89,7 +90,7 @@ compileLiteral lblIn (LitString s) = do
   let expr = GetElementPtr {k} {n = 32} (ConstPtr cst) (ILitV 0) (ILitV 0)
 
   -- Assign the pointer to the new registrer and put the assignment in a graph
-  g <- pure $ omap (<+ Assign reg expr) (emptyCFG $ attach lblIn !get)
+  g <- pure $ omap (<+ Assign reg expr) emptyCFG
 
   -- Return the graph and the new register
   pure ((lblIn ** g), Var reg)
@@ -121,7 +122,7 @@ mutual
   -- A variable
   compileExpr lblIn (Var var) = do
     val <- getValue var
-    pure ((lblIn ** emptyCFG (attach lblIn !get)), val)
+    pure ((lblIn ** emptyCFG), val)
 
   -- A binary operation
   compileExpr lblIn (BinOperation op lhs rhs) = case op of
@@ -221,7 +222,7 @@ mutual
                 )
               , DList LLValue (map GetLLType ts)
               )
-  compileExprs lblIn [] = pure ((lblIn ** emptyCFG (attach lblIn !get)), [])
+  compileExprs lblIn [] = pure ((lblIn ** emptyCFG), [])
   compileExprs lblIn (expr :: exprs) = do
     -- Compile the head and tail
     ((lbl    ** g),  val)  <- compileExpr  lblIn expr
@@ -512,12 +513,12 @@ mutual
     labelPost <- lift freshLabel
 
     -- Construct the "true" block and put it in a singleton graph
-    trueBLK <- pure $ [] |++> emptyCBlock (attach labelTrue !get) <+| Branch labelPost
+    trueBLK <- pure $ [] |++> emptyCBlock <+| Branch labelPost
     let trueG : CFG (CBlock rt) (Defined $ outsT ~~> labelTrue) (Defined [labelTrue ~> labelPost])
         trueG = SingleVertex {vins = Just outsT, vouts = Just [labelPost]} trueBLK
 
     -- Construct the "false" block and put it in a singleton graph
-    falseBLK <- pure $ [] |++> emptyCBlock (attach labelFalse !get) <+| Branch labelPost
+    falseBLK <- pure $ [] |++> emptyCBlock <+| Branch labelPost
     let falseG : CFG (CBlock rt) (Defined $ outsF ~~> labelFalse) (Defined [labelFalse ~> labelPost])
         falseG = SingleVertex {vins = Just outsF, vouts = Just [labelPost]} falseBLK
 
@@ -537,7 +538,7 @@ mutual
     let postIns = [labelTrue, labelFalse]
 
     -- Construct the merging block and put it in a singleton graph
-    postBLK <- pure $ phiAssignment |+> emptyCBlock (attach labelPost !get)
+    postBLK <- pure $ phiAssignment |+> emptyCBlock
     let postG : CFG (CBlock rt) (Defined [labelTrue ~> labelPost, labelFalse ~> labelPost]) (Undefined labelPost)
         postG = SingleVertex {vins = Just [labelTrue, labelFalse], vouts = Undefined} postBLK
 

@@ -11,7 +11,6 @@ import LLVM.Render
 import LNG.TypeChecked
 import LNG.TypeChecked.Render
 
-import Compile.Data.Context
 import Compile.Utils
 import CFG
 
@@ -87,54 +86,20 @@ record CBlock
   ||| The potentially undefined instruction that terminates the block
   term : MbTerm rt outs
 
-  -- TODO: divide assignments between individual instructions
-  ||| The context (a mapping of variables of the ciompiled language to values
-  ||| of the target language) as it is after executing the instructions in the
-  ||| block
-  ctx : lbl :~: VarCTX
-
 ||| Make an instruction without any comment attached to it
 noComment : instr -> (instr, Maybe String)
 noComment instr = (instr, Nothing)
 
-||| For each output edge of the block, makes a copy of the context stored in
-||| the block, attached to that edge.
-|||
-||| @ lbl  the block label
-||| @ outs the (defined) list of the successors of the block
-||| @ blk  the block
-export
-contexts : {0 lbl : Label}
-        -> {outs : List Label}
-        -> (blk : CBlock rt lbl ins (Just outs))
-        -> DList (:~: VarCTX) (lbl ~>> outs)
-contexts {lbl, outs} blk = replicate' lblTo outs (\l => attach (lblTo l) (detach $ blk.ctx)) where
-  0 lblTo : Label -> Edge Label
-  lblTo v = lbl ~> v
-
+-- TODO why implicit?
 ||| Create `CBlock` that has no instructions
 ||| @ lbl the block label
-||| @ ctx the context at the beginnign of the block
 export
-emptyCBlock : {lbl : Label} -> (ctx : lbl :~: VarCTX) -> CBlock rt lbl Undefined Undefined
-emptyCBlock {lbl} ctx = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = (), ctx}
+emptyCBlock : {lbl : Label} -> CBlock rt lbl Undefined Undefined
+emptyCBlock {lbl} = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = () }
 
-||| Modifies the context stored in the block, so that the given value is
-||| assigned to the gioven variable.
-||| Adds an empty instruction with a comment marking the assignment
-||| @ var the variable
-||| @ val the value
-||| @ blk the block
-export
-assign
-   : (var : Variable t)
-  -> (val : LLValue (GetLLType t))
-  -> (blk : CBlock rt lbl ins Undefined)
-  ->        CBlock rt lbl ins Undefined
-assign var reg
-  = { ctx  $= map (insert var reg)
-    , body $= (++ [(LLVM.Empty, Just $ mkSentence [prt var, "~", prt reg])])
-    }
+
+
+
 
 infixr 7 <++, <+, <+:, <:
 infixr 6 <+|, |+>, |++>, |+:>, |++:>
@@ -155,7 +120,6 @@ export
     , phis
     , body
     , term = ()
-    , ctx
     }
   )
   ( MkBB
@@ -163,7 +127,6 @@ export
     , phis = ()
     , body = body'
     , term = term'
-    , ctx = ctx'
     }
   )
   = MkBB
@@ -171,8 +134,6 @@ export
     , phis
     , body = (body ++ body')
     , term = term'
-    --, ctx = (ctx' `union` ctx {- `ctx'` takes precedence -})
-    , ctx = ctx' -- This assumes `ctx'` contains `ctx`
     }
 
 ||| Append a list of simple instructions to the block
@@ -184,8 +145,8 @@ export
    : (pre  : CBlock rt lbl ins Undefined)
   -> (post : List STInstr)
   ->         CBlock rt lbl ins Undefined
-(MkBB { theLabel, phis , body , term = (), ctx }) <++ instrs
-  = MkBB { theLabel, phis, body = (body ++ map noComment instrs), term = (), ctx}
+(MkBB { theLabel, phis , body , term = () }) <++ instrs
+  = MkBB { theLabel, phis, body = (body ++ map noComment instrs), term = () }
 
 ||| Append a single simple instruction to the block
 ||| Leaves the type signature of the block unchanged
@@ -207,8 +168,8 @@ export
    : (pre  : CBlock rt lbl ins Undefined)
   -> (post : (STInstr, Maybe String))
   ->         CBlock rt lbl ins Undefined
-(MkBB { theLabel, phis , body , term = (), ctx }) <+: instr
-  = MkBB { theLabel, phis, body = (body ++ [instr]), term = (), ctx}
+(MkBB { theLabel, phis , body , term = () }) <+: instr
+  = MkBB { theLabel, phis, body = (body ++ [instr]), term = () }
 
 ||| Appends a single comment (an empty instruction with a comment) to a block.
 ||| Leaves the type signature of the block unchanged.
@@ -230,7 +191,7 @@ export
    : (pre  : CBlock  rt lbl ins Undefined)
   -> (post : CFInstr rt               outs)
   ->         CBlock  rt lbl ins (Just outs)
-MkBB { theLabel, phis, body, term = (), ctx } <+| term = MkBB { theLabel, phis, body, term, ctx }
+MkBB { theLabel, phis, body, term = () } <+| term = MkBB { theLabel, phis, body, term }
 
 ||| Defines the inputs of a block by prepending to it a list of phi assignemts
 ||| with comments
@@ -241,8 +202,8 @@ export
    : (pre  : List (PhiInstr      inputs, Maybe String))
   -> (post : CBlock rt lbl Undefined     outs)
   ->         CBlock rt lbl (Just inputs) outs
-phis |++:> MkBB { theLabel, phis = (), body, term, ctx }
-         = MkBB { theLabel, phis,      body, term, ctx }
+phis |++:> MkBB { theLabel, phis = (), body, term }
+         = MkBB { theLabel, phis,      body, term }
 
 ||| Defines the inputs of a block by prepending to it a single phi assignemt
 ||| with a comment
@@ -283,7 +244,7 @@ export
    : (pre  : PhiInstr            inputs)
   -> (post : CBlock rt lbl (Just inputs) outs)
   ->         CBlock rt lbl (Just inputs) outs
-instr +| MkBB { theLabel, phis, body, term, ctx } = MkBB { theLabel, phis = ((instr, Nothing) :: phis), body, term, ctx }
+instr +| MkBB { theLabel, phis, body, term } = MkBB { theLabel, phis = ((instr, Nothing) :: phis), body, term }
 
 ||| Prepends a lsit of phi assignments to a block with already defined inputs
 ||| @ pre  the phi assignments (the prefix)
@@ -299,30 +260,11 @@ export
 implementation Connectable (CBlock rt) where
   cnct = (++)
 
-||| Extracts the context stored in the block at the end of a graph whose
-||| outputs are undefined, attached to the label label of that block
-||| @ lbl the block label
-||| @ cfg the block
-export
-getContext : {lbl : Label}
-          -> (cfg : CFG (CBlock rt) ins (Undefined lbl))
-          -> lbl :~: VarCTX
-getContext {lbl} cfg = oget ctx cfg
 
-||| Extracts the contexts stored in the blocks that are the sources of the
-||| output edges of a graph, attached to those edges.
-||| @ cfg the graph
-export
-getContexts : (cfg : CFG (CBlock rt) ins (Defined outs))
-           -> DList (:~: VarCTX) outs
-getContexts cfg = oget' contexts cfg
 
+-- TODO why implicit?
 ||| Make a graph that consists of a single empty block
 ||| @ lbl the label of the block
-||| @ ctx the context before (and after) the block
 export
-emptyCFG
-   : {lbl : Label}
-  -> (ctx : lbl :~: VarCTX)
-  -> CFG (CBlock rt) (Undefined lbl) (Undefined lbl)
-emptyCFG = initGraph . emptyCBlock
+emptyCFG : {lbl : Label} -> CFG (CBlock rt) (Undefined lbl) (Undefined lbl)
+emptyCFG = initGraph emptyCBlock
