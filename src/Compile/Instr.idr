@@ -391,7 +391,7 @@ mutual
     -- branch graph
     let final : CFG (CBlock $ GetLLType rt) (Undefined lblIn) (Defined $ (branchDat.outs ++ condDat.outsF) ~~> lblPost)
         final = rewrite collect_concat lblPost branchDat.outs condDat.outsF
-                in LBranch condDat.cfg branchDat.cfg
+                in lbranch condDat.cfg branchDat.cfg
 
     let ctxs = rewrite collect_concat lblPost branchDat.outs condDat.outsF
                in branchDat.ctxs ++ condDat.ctxsF

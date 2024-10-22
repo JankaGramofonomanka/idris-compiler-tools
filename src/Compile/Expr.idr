@@ -407,7 +407,7 @@ mutual
                     (Defined $ outsT ~~> lblT ++ (outsF' ++ outsF) ~~> lblF)
         final = rewrite collect_concat lblF outsF' outsF
                 in rewrite concat_assoc (outsT ~~> lblT) (outsF' ~~> lblF) (outsF ~~> lblF)
-                in LBranch gl gr'
+                in lbranch gl gr'
 
     -- Return the final graph and its "true" and "false" outputs
     pure (outsT ** outsF' ++ outsF ** final)
@@ -457,7 +457,7 @@ mutual
                     (Defined ((outsT ++ outsT') ~~> lblT ++ outsF ~~> lblF))
         final = rewrite collect_concat lblT outsT outsT'
                 in rewrite revEq $ concat_assoc (outsT ~~> lblT) (outsT' ~~> lblT) (outsF ~~> lblF)
-                in RBranch gl gr'
+                in rbranch gl gr'
 
     -- Return the final graph and its "true" and "false" outputs
     pure (outsT ++ outsT' ** outsF ** final)
