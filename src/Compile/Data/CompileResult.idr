@@ -31,6 +31,34 @@ close : (dest : Label)
         )
 close {lbl} dest ctx cfg = (omap (<+| Branch dest) cfg, [attach (lbl ~> dest) (detach ctx)])
 
+-- TODO Add documentation
+public export
+record DataUU (rt : LLType) (lblIn : Label) where
+  constructor MkDataUU
+  lblOut : Label
+  cfg : CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+  ctx : lblOut :~: VarCTX
+
+-- TODO Add documentation
+public export
+record DataXD (rt : LLType) (ins : Edges Label) (dest : Label) where
+  constructor MkDataXD
+  outs : List Label
+  cfg : CFG (CBlock rt) ins (Defined $ outs ~~> dest)
+  ctxs : DList (:~: VarCTX) (outs ~~> dest)
+
+-- TODO Add documentation
+public export
+record DataXD2 (rt : LLType) (ins : Edges Label) (lblT, lblF : Label) where
+  constructor MkDataXD2
+  outsT : List Label
+  outsF : List Label
+
+  cfg : CFG (CBlock rt) ins (Defined $ (outsT ~~> lblT) ++ (outsF ~~> lblF))
+
+  ctxsT : DList (:~: VarCTX) (outsT ~~> lblT)
+  ctxsF : DList (:~: VarCTX) (outsF ~~> lblF)
+
 ||| The result of a compilation of a piece of code.
 ||| A `CFG` wrapped in additional constructors for easier differentiating
 ||| between the results of "returning" and "non-returning" instructions.
@@ -54,28 +82,21 @@ data CompileResult
   CRR : (cfg : CFG (CBlock rt) ins Closed)
      -> CompileResult rt ins lbl Returning
 
+  -- TODO shorten the documentation to sth like "A "sinmle" result. Contains DataXD"
   ||| A "simple" (non-returning) result.
   ||| Contains a graph with defined outputs, the list of the sources of its
   ||| output edges and the list of its output contexts (contexts at the end
   ||| of its outputs).
-  CRS : ( lbls
-       ** ( CFG (CBlock rt) ins (Defined $ lbls ~~> lbl)
-          , DList (:~: VarCTX) (lbls ~~> lbl)
-          )
-        )
+  CRS : DataXD rt ins lbl
      -> CompileResult rt ins lbl Simple
 
 ||| Extract the graph from the "compile result", thus dropping the information
 ||| whether it is returning or not.
 export
 unwrapCR : CompileResult rt ins lbl kind
-          -> ( outs
-            ** ( CFG (CBlock rt) ins (Defined $ outs ~~> lbl)
-               , DList (:~: VarCTX) (outs ~~> lbl)
-               )
-             )
-unwrapCR (CRR g) = ([] ** (g, []))
-unwrapCR (CRS (outs ** stuff)) = (outs ** stuff)
+        -> DataXD rt ins lbl
+unwrapCR (CRR cfg) = MkDataXD { outs = [], cfg, ctxs = [] }
+unwrapCR (CRS dat) = dat
 
 ||| Create an empty "compile result".
 ||| The empty result will consist of singleton graph, whose only vertex's only
@@ -88,7 +109,9 @@ emptyCR
    : (lbl, lbl' : Label)
   -> (ctx       : lbl :~: VarCTX)
   -> CompileResult rt (Undefined lbl) lbl' Simple
-emptyCR lbl lbl' ctx = CRS ([lbl] ** (close lbl' ctx (emptyCFG {lbl})))
+emptyCR lbl lbl' ctx = let
+  (cfg, ctxs) = (close lbl' ctx (emptyCFG {lbl}))
+  in CRS (MkDataXD { outs = [lbl], cfg, ctxs })
 
 
 ||| Prepend a graph with undefined output to a "compile reslult" that wrapps a
@@ -101,7 +124,7 @@ connectCR
   -> (post : CompileResult rt (Undefined lbl) lbl' k)
   ->         CompileResult rt  ins            lbl' k
 connectCR g (CRR g') = CRR $ connect g g'
-connectCR g (CRS (lbls ** (g', ctxs))) = CRS $ (lbls ** (connect g g', ctxs))
+connectCR g (CRS dat) = CRS $ { cfg $= connect g } dat
 
 ||| Prepend a graph with defined outputs to a "compile reslult" that wrapps a
 ||| graph with defined inputs
@@ -113,7 +136,7 @@ seriesCR
   -> (post : CompileResult rt (Defined outs) lbl' k)
   ->         CompileResult rt ins lbl' k
 seriesCR g (CRR g') = CRR $ Series g g'
-seriesCR g (CRS (lbls ** (g', ctxs))) = CRS $ (lbls ** (Series g g', ctxs))
+seriesCR g (CRS dat) = CRS $ { cfg $= Series g } dat
 
 ||| Connect two "compile results" in parallel
 ||| @ lbl  the label of the successor of the parallel graphs
@@ -121,34 +144,36 @@ seriesCR g (CRS (lbls ** (g', ctxs))) = CRS $ (lbls ** (Series g g', ctxs))
 ||| @ rres the right "compile result"
 export
 parallelCR
-   : {lbl : Label}
+   : {0 lbl : Label}
   -> (lres : CompileResult rt (Defined ledges) lbl lk)
   -> (rres : CompileResult rt (Defined redges) lbl rk)
   ->         CompileResult rt (Defined $ ledges ++ redges) lbl (BrKind lk rk)
 
 parallelCR {lbl} (CRR lg) (CRR rg) = CRR $ Parallel lg rg
 
--- Without the "case of" pattern match idris thinks the function is not covering
---parallelCR {lbl} (CRR lg) (CRS (routs ** (rg, rctxs))) = CRS (routs ** (Parallel lg rg, rctxs))
-parallelCR {lbl} (CRR lg) (CRS dp) = case dp of
-  (routs ** (rg, rctxs)) => CRS (routs ** (Parallel lg rg, rctxs))
+parallelCR {lbl} (CRR lg) (CRS rdat) = CRS $ { cfg $= Parallel lg } rdat
 
-parallelCR {lbl} (CRS (louts ** (lg, lctxs))) (CRR rg) = let
+-- TODO try without pattern matching on DataXD
+parallelCR {lbl} (CRS (MkDataXD { outs, cfg = lg, ctxs })) (CRR rg)
+  = let
 
-  g = rewrite revEq $ concat_nil (louts ~~> lbl)
-      in Parallel lg rg
+    g = rewrite revEq $ concat_nil (outs ~~> lbl)
+        in Parallel lg rg
 
-  in CRS (louts ** (g, lctxs))
+    in CRS $ MkDataXD { outs, cfg = g, ctxs }
 
-parallelCR {lbl} (CRS (louts ** (lg, lctxs))) (CRS (routs ** (rg, rctxs))) = let
+-- TODO try without pattern matching on DataXD
+parallelCR {lbl} (CRS (MkDataXD { outs = louts, cfg = lg, ctxs = lctxs }))
+                 (CRS (MkDataXD { outs = routs, cfg = rg, ctxs = rctxs }))
+  = let
 
-  g = rewrite collect_concat lbl louts routs
-      in Parallel lg rg
+    cfg = rewrite collect_concat lbl louts routs
+          in Parallel lg rg
 
-  ctxs = rewrite collect_concat lbl louts routs
-         in lctxs ++ rctxs
+    ctxs = rewrite collect_concat lbl louts routs
+           in lctxs ++ rctxs
 
-  in CRS (louts ++ routs ** (g, ctxs))
+    in CRS $ MkDataXD { outs = louts ++ routs, cfg, ctxs }
 
 
 
