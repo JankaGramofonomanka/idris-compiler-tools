@@ -202,14 +202,10 @@ implementation Document (BasicBlock rt label inputs outputs) where
             }
 
 printCFG : CFG (BlockVertex rt) (Defined ins) (Defined outs) -> Doc
+printCFG Empty = empty
 printCFG (SingleVertex {vins = Just ins, vouts = Just outs} v) = print v
 printCFG (Cycle node loop) = printCFG node ++ printCFG loop
 printCFG (Series first second) = printCFG first ++ printCFG second
-
-printCFG (LBranch  node branch) = printCFG node ++ printCFG branch
-printCFG (RBranch  node branch) = printCFG node ++ printCFG branch
-printCFG (LMerge   branch node) = printCFG branch ++ printCFG node
-printCFG (RMerge   branch node) = printCFG branch ++ printCFG node
 
 printCFG (Parallel left right) = printCFG left ++ printCFG right
 
