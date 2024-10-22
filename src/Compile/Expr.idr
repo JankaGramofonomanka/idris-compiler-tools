@@ -503,30 +503,15 @@ mutual
 
   compileBoolExpr lblIn expr = do
 
-    -- Generate the "true" and "false" labels and compile the expression using
-    -- jump statements
-    labelTrue  <- lift freshLabel
-    labelFalse <- lift freshLabel
-    (outsT ** outsF ** ifologyG) <- ifology lblIn expr labelTrue labelFalse
-
     -- Generate a "post" label - the label of the merging block
-    labelPost <- lift freshLabel
+    lblPost <- lift freshLabel
 
-    -- Construct the "true" block and put it in a singleton graph
-    trueBLK <- pure $ [] |++> emptyCBlock <+| Branch labelPost
-    let trueG : CFG (CBlock rt) (Defined $ outsT ~~> labelTrue) (Defined [labelTrue ~> labelPost])
-        trueG = SingleVertex {vins = Just outsT, vouts = Just [labelPost]} trueBLK
+    -- Compile the expression using jump statements
+    (outsT ** outsF ** ifologyG) <- ifology lblIn expr lblPost lblPost
 
-    -- Construct the "false" block and put it in a singleton graph
-    falseBLK <- pure $ [] |++> emptyCBlock <+| Branch labelPost
-    let falseG : CFG (CBlock rt) (Defined $ outsF ~~> labelFalse) (Defined [labelFalse ~> labelPost])
-        falseG = SingleVertex {vins = Just outsF, vouts = Just [labelPost]} falseBLK
-
-    -- Make a "phi" assignment.
-    -- The value of the expression is `true` or `false` when coming from the
-    -- "true" or "false" block respectively.
-    let phi : PhiExpr [labelTrue, labelFalse] I1
-        phi = Phi I1 [(labelTrue, ILitV 1), (labelFalse, ILitV 0)]
+    -- Construct a phi expression that will represent the value of the compiled expression
+    let phi : PhiExpr (outsT ++ outsF) I1
+        phi = replicatePhi outsT (ILitV 1) `concatPhi` replicatePhi outsF (ILitV 0)
 
     -- Generate a new register and assign the phi expression to the new
     -- register.
@@ -534,16 +519,14 @@ mutual
     reg <- lift (freshRegister I1)
     let phiAssignment = AssignPhi reg phi
 
-    -- The inputs of the "post" block (the merging block)
-    let postIns = [labelTrue, labelFalse]
-
     -- Construct the merging block and put it in a singleton graph
     postBLK <- pure $ phiAssignment |+> emptyCBlock
-    let postG : CFG (CBlock rt) (Defined [labelTrue ~> labelPost, labelFalse ~> labelPost]) (Undefined labelPost)
-        postG = SingleVertex {vins = Just [labelTrue, labelFalse], vouts = Undefined} postBLK
+    let postG : CFG (CBlock rt) (Defined $ (outsT ~~> lblPost) ++ (outsF ~~> lblPost)) (Undefined lblPost)
+        postG = rewrite revEq $ collect_concat lblPost outsT outsF
+                in SingleVertex {vins = Just (outsT ++ outsF), vouts = Undefined} postBLK
 
     -- Construct the final graph
-    let final = ifologyG *-> (trueG |-| falseG) *-> postG
+    let final = ifologyG *-> postG
 
-    -- Retunr the final graph, its output label and the value of the expression
-    pure ((labelPost ** final), Var reg)
+    -- Return the final graph, its output label and the value of the expression
+    pure ((lblPost ** final), Var reg)
