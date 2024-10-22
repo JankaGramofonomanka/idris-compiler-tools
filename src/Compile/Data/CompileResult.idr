@@ -123,8 +123,17 @@ connectCR
    : (pre  : CFG (CBlock   rt) ins (Undefined lbl))
   -> (post : CompileResult rt (Undefined lbl) lbl' k)
   ->         CompileResult rt  ins            lbl' k
-connectCR g (CRR g') = CRR $ connect g g'
-connectCR g (CRS dat) = CRS $ { cfg $= connect g } dat
+connectCR g (CRR g') = CRR (g *~> g')
+connectCR g (CRS dat) = CRS $ { cfg $= (g *~>) } dat
+
+export infixr 5 *~~>
+||| Alias for `connectCR`
+export
+(*~~>)
+   : CFG (CBlock rt) ins (Undefined lbl)
+  -> CompileResult rt (Undefined lbl) lbl' k
+  -> CompileResult rt ins lbl' k
+(*~~>) = connectCR
 
 ||| Prepend a graph with defined outputs to a "compile reslult" that wrapps a
 ||| graph with defined inputs
@@ -135,8 +144,17 @@ seriesCR
    : (pre  : CFG (CBlock rt) ins (Defined outs))
   -> (post : CompileResult rt (Defined outs) lbl' k)
   ->         CompileResult rt ins lbl' k
-seriesCR g (CRR g') = CRR $ Series g g'
-seriesCR g (CRS dat) = CRS $ { cfg $= Series g } dat
+seriesCR g (CRR g') = CRR (g *-> g')
+seriesCR g (CRS dat) = CRS $ { cfg $= (g *->) } dat
+
+export infixr 5 *-->
+||| Alias for `seriesCR`
+export
+(*-->)
+   : CFG (CBlock rt) ins (Defined outs)
+  -> CompileResult rt (Defined outs) lbl' k
+  -> CompileResult rt ins lbl' k
+(*-->) = seriesCR
 
 ||| Connect two "compile results" in parallel
 ||| @ lbl  the label of the successor of the parallel graphs
@@ -149,16 +167,16 @@ parallelCR
   -> (rres : CompileResult rt (Defined redges) lbl rk)
   ->         CompileResult rt (Defined $ ledges ++ redges) lbl (BrKind lk rk)
 
-parallelCR {lbl} (CRR lg) (CRR rg) = CRR $ Parallel lg rg
+parallelCR {lbl} (CRR lg) (CRR rg) = CRR (lg |-| rg)
 
-parallelCR {lbl} (CRR lg) (CRS rdat) = CRS $ { cfg $= Parallel lg } rdat
+parallelCR {lbl} (CRR lg) (CRS rdat) = CRS $ { cfg $= (lg |-|) } rdat
 
 -- TODO try without pattern matching on DataXD
 parallelCR {lbl} (CRS (MkDataXD { outs, cfg = lg, ctxs })) (CRR rg)
   = let
 
     g = rewrite revEq $ concat_nil (outs ~~> lbl)
-        in Parallel lg rg
+        in lg |-| rg
 
     in CRS $ MkDataXD { outs, cfg = g, ctxs }
 
@@ -168,12 +186,22 @@ parallelCR {lbl} (CRS (MkDataXD { outs = louts, cfg = lg, ctxs = lctxs }))
   = let
 
     cfg = rewrite collect_concat lbl louts routs
-          in Parallel lg rg
+          in lg |-| rg
 
     ctxs = rewrite collect_concat lbl louts routs
            in lctxs ++ rctxs
 
     in CRS $ MkDataXD { outs = louts ++ routs, cfg, ctxs }
+
+export infixr 4 |--|
+||| Alias for `parallelCR`
+export
+(|--|) : {0 lbl : Label}
+      -> (lres : CompileResult rt (Defined ledges) lbl lk)
+      -> (rres : CompileResult rt (Defined redges) lbl rk)
+
+      -> CompileResult rt (Defined $ ledges ++ redges) lbl (BrKind lk rk)
+(|--|) = parallelCR
 
 
 
