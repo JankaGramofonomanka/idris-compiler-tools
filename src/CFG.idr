@@ -206,6 +206,7 @@ namespace Graph
                 -> vertex v vins vouts
                 -> CFG vertex (fromVIn vins v) (fromVOut v vouts)
 
+    -- TODO consider `CFG (ins ++ edges) (outs ++ edges) -> CFG ins outs` instead of this
     ||| A graph that represents a while loop
     ||| @ node the graph in which the while condition is computed
     ||| @ loop the body of the loop
@@ -243,6 +244,23 @@ namespace Graph
          -> CFG vertex ins (Defined $ outs ++ outs')
          -> CFG vertex ins (Defined $ outs' ++ outs)
 
+  export infixr 4 |-|
+  ||| Alias for `Parallel`
+  public export
+  (|-|) : CFG vertex (Defined ins)           (Defined outs)
+       -> CFG vertex (Defined ins')          (Defined outs')
+       -> CFG vertex (Defined $ ins ++ ins') (Defined $ outs ++ outs')
+  (|-|) = Parallel
+
+  export infixr 5 *->
+  ||| Alias for `Series`
+  public export
+  (*->) : CFG vertex ins (Defined edges)
+       -> CFG vertex (Defined edges) outs
+       -> CFG vertex ins outs
+  (*->) = Series
+
+
   public export
   prepend : {0 vertex : Vertex a}
          -> {vins : Neighbors a}
@@ -250,7 +268,7 @@ namespace Graph
          -> vertex v vins (Just vouts)
          -> CFG vertex (Defined $ v ~>> vouts) gouts
          -> CFG vertex (fromVIn vins v) gouts
-  prepend v g = Series (SingleVertex v) g
+  prepend v g = (SingleVertex v) *-> g
 
   public export
   append : {vins : List a}
@@ -259,7 +277,7 @@ namespace Graph
         -> CFG vertex gins (Defined $ vins ~~> v)
         -> vertex v (Just vins) vouts
         -> CFG vertex gins (fromVOut v vouts)
-  append g v = Series g (SingleVertex v)
+  append g v = g *-> (SingleVertex v)
 
   branch : {0 vertex : Vertex a}
         -> {vins : Neighbors a}
@@ -269,7 +287,7 @@ namespace Graph
         -> (left  : CFG vertex (Single v w)  (Defined louts))
         -> (right : CFG vertex (Single v w') (Defined routs))
         -> CFG vertex (fromVIn vins v) (Defined $ louts ++ routs)
-  branch pre left right = prepend pre $ Parallel left right
+  branch pre left right = pre `prepend` (left |-| right)
 
   fullBranch : {0 vertex : Vertex a}
             -> {vins, vouts : Neighbors a}
@@ -280,7 +298,7 @@ namespace Graph
             -> (right  : CFG vertex (Single v w') (Single u' t))
             -> (post   : vertex t (Just [u, u']) vouts)
             -> CFG vertex (fromVIn vins v) (fromVOut t vouts)
-  fullBranch pre left right post = append (branch pre left right) post
+  fullBranch pre left right post = (branch pre left right) `append` post
 
   ||| A partial sequential connection of two graphs
   ||| The left outputs of the predecessor are connected with all inputs of
@@ -294,7 +312,7 @@ namespace Graph
          -> (node   : CFG vertex ins (Defined $ ls ++ rs))
          -> (branch : CFG vertex (Defined ls) (Defined ls'))
          ->           CFG vertex ins (Defined $ ls' ++ rs)
-  lbranch node branch = node `Series` (branch `Parallel` Empty)
+  lbranch node branch = node *-> (branch |-| Empty)
 
   ||| A partial sequential connection of two graphs
   ||| The right outputs of the predecessor are connected with all inputs of
@@ -308,7 +326,7 @@ namespace Graph
          -> (node   : CFG vertex ins (Defined $ ls ++ rs))
          -> (branch : CFG vertex (Defined rs) (Defined rs'))
          ->           CFG vertex ins (Defined $ ls ++ rs')
-  rbranch node branch = node `Series` (Empty `Parallel` branch)
+  rbranch node branch = node *-> (Empty |-| branch)
 
   ||| A partial sequential connection of two graphs
   ||| All outputs of the predecessor are connected with the left inputs of
@@ -322,7 +340,7 @@ namespace Graph
         -> (branch  : CFG vertex (Defined ls) (Defined ls'))
         -> (node    : CFG vertex (Defined $ ls' ++ rs) outs)
         ->            CFG vertex (Defined $ ls ++ rs) outs
-  lmerge branch node = (branch `Parallel` Empty) `Series` node
+  lmerge branch node = (branch |-| Empty) *-> node
 
   ||| A partial sequential connection of two graphs
   ||| All outputs of the predecessor are connected with the right inputs of
@@ -336,7 +354,7 @@ namespace Graph
         -> (branch  : CFG vertex (Defined rs) (Defined rs'))
         -> (node    : CFG vertex (Defined $ ls ++ rs') outs)
         ->            CFG vertex (Defined $ ls ++ rs) outs
-  rmerge branch node = (Empty `Parallel` branch) `Series` node
+  rmerge branch node = (Empty |-| branch) *-> node
 
   ||| Apply a function to the undefined input vertex
   export
@@ -395,6 +413,15 @@ namespace Graph
   connect (Cycle node loop)                     g' impossible
   connect (Parallel g g')                       g' impossible
   connect (OFlip g)                             g' impossible
+
+  export infixr 5 *~>
+  ||| Alias for `connect`
+  export
+  (*~>) : (impl : Connectable vertex)
+       => CFG vertex ins (Undefined v)
+       -> CFG vertex (Undefined v) outs
+       -> CFG vertex ins outs
+  (*~>) = connect
 
 
   export

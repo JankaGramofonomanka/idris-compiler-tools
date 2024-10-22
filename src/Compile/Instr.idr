@@ -120,7 +120,7 @@ collectOuts {lblPost} dat = do
       post = SingleVertex (phis |++:> emptyCBlock)
 
   -- Connect the graph with the merging block
-  let final = Series dat.cfg post
+  let final = dat.cfg *-> post
 
   -- Return the final graph, its output label, and output context
   pure $ MkDataUU { lblOut = lblPost, cfg = final, ctx }
@@ -238,7 +238,7 @@ mutual
       dat' <- compile        dat.lblOut dat.ctx instrs
 
       -- Connect the results
-      pure $ { cfg $= connect dat.cfg } dat'
+      pure $ { cfg $= (dat.cfg *~>) } dat'
 
   -- An assignment
   compileInstrUU lblIn ctx instr@(Assign var expr) = do
@@ -373,7 +373,7 @@ mutual
         res <- compile        dat.lblOut dat.ctx instrs
 
         -- Connect the results
-        pure $ connectCR dat.cfg res
+        pure (dat.cfg *~~> res)
 
   -- An if-then statement
   compileInstrUD lblIn lblPost ctx (If cond instrThen) = do
@@ -415,8 +415,7 @@ mutual
 
     -- Construct the final graph by connecting the branches to the condition
     -- graph
-    let branches = parallelCR thenRes elseRes
-    let final    = seriesCR condDat.cfg branches
+    let final = condDat.cfg *--> (thenRes |--| elseRes)
 
     pure final
 
@@ -436,7 +435,7 @@ mutual
     (pre', ctxs) <- pure pre
 
     -- Compile via `compileInstrDD` and prepend the `pre'` block
-    seriesCR pre' <$> compileInstrDD [lblIn] lblNodeIn lblPost ctxs instr
+    (pre' *-->) <$> compileInstrDD [lblIn] lblNodeIn lblPost ctxs instr
 
   --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   -- DD -----------------------------------------------------------------------
@@ -473,7 +472,7 @@ mutual
 
     -- Return the graph computing the expression with the phi assignments
     -- prepended to it
-    pure $ connectCR preG res
+    pure (preG *~~> res)
 
   ||| A wrapper around `compileInstrDD` that converts the "compile result" into
   ||| a dependent pair of the graph, its output contexts, and its output labels,

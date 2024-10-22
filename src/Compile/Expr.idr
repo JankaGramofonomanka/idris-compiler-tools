@@ -229,7 +229,7 @@ mutual
     ((lblOut ** g'), vals) <- compileExprs lbl   exprs
 
     -- Connect the resulting graphs
-    let g'' = connect g g'
+    let g'' = g *~> g'
 
     -- Return the graph and the values
     pure ((lblOut ** g''), val :: vals)
@@ -543,8 +543,7 @@ mutual
         postG = SingleVertex {vins = Just [labelTrue, labelFalse], vouts = Undefined} postBLK
 
     -- Construct the final graph
-    let confluence = Series (Parallel trueG falseG) postG
-    let final = Series ifologyG confluence
+    let final = ifologyG *-> (trueG |-| falseG) *-> postG
 
     -- Retunr the final graph, its output label and the value of the expression
     pure ((labelPost ** final), Var reg)
