@@ -104,13 +104,9 @@ compileFunDef func = do
           -> (CBlock rt) lbl (Just ins) (Just outs)
           -> BlockVertex rt lbl (Just ins) (Just outs)
 
-    toLLVM {outs = []} (MkBB { theLabel, phis, body, term, ctx })
+    toLLVM (MkBB { theLabel, phis, body, term })
       = MkBasicBlock { theLabel, phis, body, term }
 
-    toLLVM {outs = (_ :: _)} (MkBB { theLabel, phis, body, term, ctx })
-      = MkBasicBlock { theLabel, phis, body, term }
-
-    ||| Type level hackery. Chenges parameters of a dependent list.
     decompose : DList (f . g) ts -> DList f (map g ts)
     -- TODO is there a better way?
     decompose xs = believe_me xs

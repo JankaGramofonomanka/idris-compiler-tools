@@ -47,6 +47,7 @@ import Data.Typed
 import LNG.TypeChecked
 import LNG.TypeChecked.Render
 import LLVM
+import LLVM.Render
 
 import Compile.Data.CBlock
 import Compile.Data.CompileResult
@@ -59,6 +60,8 @@ import Compile.Utils
 
 import CFG
 import Theory
+
+import Utils
 
 {-
 TODO: Figure out how to reduce the number of attachments and detachments
@@ -77,11 +80,14 @@ TODO: Figure out how to reduce the number of attachments and detachments
 ||| @ lblIn   the input label of the graph
 jumpTo
    : (lblPost : Label)
-  -> (lblOut ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut))
-  -> CompileResult          rt  (Undefined lblIn)            lblPost Simple
-jumpTo lblPost (lbl ** g) = let
-  g' = omap (<+| Branch lblPost) g
-  in CRS ([lbl] ** g')
+  -> ( lblOut
+    ** ( CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+       , lblOut :~: VarCTX
+       )
+     )
+  -> CompileResult rt (Undefined lblIn) lblPost Simple
+jumpTo lblPost (lbl ** (g, ctx))
+  = CRS ([lbl] ** (close lblPost ctx g))
 
 ||| Defines the inputs of a graph (wrapped in a "compile result")
 ||| @ lbl the source of the input edge of the returned graph.
@@ -92,9 +98,9 @@ jumpFrom
   -> (res : CompileResult rt (Undefined       lbl')  lbl'' k)
   ->        CompileResult rt (Defined [lbl ~> lbl']) lbl'' k
 jumpFrom lblPre (CRR g) = CRR $ imap {ins = Just [lblPre]} ([] |++>) g
-jumpFrom lblPre (CRS (lbls ** g)) = let
+jumpFrom lblPre (CRS (lbls ** (g, ctxs))) = let
   g' = imap {ins = Just [lblPre]} ([] |++>) g
-  in CRS (lbls ** g')
+  in CRS (lbls ** (g', ctxs))
 
 ||| Appends a merging block to a graph with multiple converging otuput edges
 ||| The merging block is incomplete at the end and thus thereturned graph has
@@ -108,24 +114,30 @@ jumpFrom lblPre (CRS (lbls ** g)) = let
 |||           will be part of
 collectOuts
    : {lblPost : Label}
-  -> (lbls   ** CFG (CBlock rt) (Undefined lblIn) (Defined $ lbls ~~> lblPost))
+  -> ( lbls
+    ** ( CFG (CBlock rt) (Undefined lblIn) (Defined $ lbls ~~> lblPost)
+       , DList (:~: VarCTX) (lbls ~~> lblPost)
+       )
+     )
   -> CompM
-     (lblOut ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut))
-collectOuts {lblPost} (lbls ** g) = do
+     ( lblOut
+    ** ( CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+       , lblOut :~: VarCTX
+       )
+     )
+collectOuts {lblPost} (lbls ** (g, ctxs)) = do
   -- Merge the contexts coming from the different outputs of the graph
-  SG ctx phis <- segregate (getContexts g)
-
-  let ctxPost = ctx
+  SG ctxPost phis <- segregate ctxs
 
   -- Construct the merging block and pit it in a singleton graph
   let post : CFG (CBlock rt) (Defined $ lbls ~~> lblPost) (Undefined lblPost)
-      post = SingleVertex (phis |++:> emptyCBlock ctxPost)
+      post = SingleVertex (phis |++:> emptyCBlock)
 
   -- Connect the graph with the merging block
   let final = Series g post
 
-  -- Return the final graph and its output label
-  pure (lblPost ** final)
+  -- Return the final graph, its output label, and output context
+  pure (lblPost ** (final, ctxPost))
 
 ||| A wrapper around `ifology`.
 ||| Using it avoids the unsafe "detaching" of a variable context from a label.
@@ -146,11 +158,23 @@ ifology'
   -> (lblF : Label)
   -> CompM ( outsT
           ** outsF
-          ** CFG (CBlock rt)
-                 (Undefined lblIn)
-                 (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
+          ** ( CFG (CBlock rt)
+                   (Undefined lblIn)
+                   (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
+             , DList (:~: VarCTX) (outsT ~~> lblT)
+             , DList (:~: VarCTX) (outsF ~~> lblF)
+             )
            )
-ifology' lblIn ctx expr lblT lblF = evalStateT (detach ctx) $ ifology lblIn expr lblT lblF
+ifology' lblIn ctx expr lblT lblF = do
+  -- Detatch the context from the labe, to run `ifology`
+  (ctx, (outsT ** outsF ** cfg)) <- runStateT (detach ctx) $ ifology lblIn expr lblT lblF
+
+  -- Attatch the context to the output edges of the resultingh graph
+  let ctxsT = replicate (outsT ~~> lblT) (`attach` ctx)
+      ctxsF = replicate (outsF ~~> lblF) (`attach` ctx)
+
+  -- Return the graph, its outputs and output contexts
+  pure (outsT ** outsF ** (cfg, ctxsT, ctxsF))
 
 ||| A wrapper around `compileExpr`.
 ||| Using it avoids the unsafe "detaching" of a variable context from a label.
@@ -165,13 +189,23 @@ compileExpr'
   -> (ctx  : lblIn :~: VarCTX)
   -> (expr : Expr t)
   -> CompM ( ( lblOut
-            ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+            ** ( CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+               , lblOut :~: VarCTX
+               )
              )
            , LLValue (GetLLType t)
            )
 
 -- TODO: consider having attached context in the state
-compileExpr' lblIn ctx expr = evalStateT (detach ctx) $ compileExpr lblIn expr
+compileExpr' lblIn ctx expr = do
+
+  -- Detatch the context from the labe, to run `ifology`
+  (ctx, ((lbl ** cfg), val)) <- runStateT (detach ctx) $ compileExpr lblIn expr
+
+  -- Return the graph, its output label, output context,
+  -- and the value of the expression
+  pure ((lbl ** (cfg, attach lbl ctx)), val)
+
 
 --* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *
 -- Compilation ----------------------------------------------------------------
@@ -215,7 +249,11 @@ mutual
      : (lblIn : Label)
     -> (ctx   : lblIn :~: VarCTX)
     -> (instr : Instr rt Simple)
-    -> CompM (lblOut ** CFG (CBlock $ GetLLType rt) (Undefined lblIn) (Undefined lblOut))
+    -> CompM ( lblOut
+            ** ( CFG (CBlock $ GetLLType rt) (Undefined lblIn) (Undefined lblOut)
+               , lblOut :~: VarCTX
+               )
+             )
 
   -- A block of instructions
   compileInstrUU lblIn ctx (Block instrs) = compile lblIn ctx instrs where
@@ -226,30 +264,34 @@ mutual
       -> (ctx    : lblIn :~: VarCTX)
       -> (instrs : Instrs rt Simple)
       -> CompM ( lblOut
-              ** CFG (CBlock $ GetLLType rt) (Undefined lblIn) (Undefined lblOut)
+              ** ( CFG (CBlock $ GetLLType rt) (Undefined lblIn) (Undefined lblOut)
+                 , lblOut :~: VarCTX
+                 )
                )
-    -- Nothing to do, return an empty graph
-    compile lblIn ctx Nil = pure (lblIn ** emptyCFG ctx)
+    -- Nothing to do, return an empty graph and an unchanged context
+    compile lblIn ctx Nil = pure (lblIn ** (emptyCFG, ctx))
 
-    compile lblIn ctx (instr :: instrs) = do
+    compile lblIn ctxIn (instr :: instrs) = do
       -- Compile the head and the tail
-      (lblMid ** g)  <- compileInstrUU lblIn  ctx            instr
-      (lblOut ** g') <- compile        lblMid (getContext g) instrs
+      (lblMid ** (g,  ctxMid)) <- compileInstrUU lblIn  ctxIn  instr
+      (lblOut ** (g', ctxOut)) <- compile        lblMid ctxMid instrs
 
       -- Connect the results
-      pure $ (lblOut ** connect g g')
+      pure $ (lblOut ** (connect g g', ctxOut))
 
   -- An assignment
   compileInstrUU lblIn ctx instr@(Assign var expr) = do
 
     -- Compile the assigned expression
-    ((lblOut ** g), val) <- compileExpr' lblIn ctx expr
+    ((lblOut ** (g, ctx')), val) <- compileExpr' lblIn ctx expr
 
     -- Assign the value of that expressions to the variable in the variable
     -- context
-    let g' = omap (assign var val . (<: prt instr)) g
+    let ctx'' = map (insert var val) ctx'
+        -- add a comment marking the assignment and print the instruction
+        g' = omap ((<: mkSentence [prt var, "~", prt val]) . (<: prt instr)) g
 
-    pure (lblOut ** g')
+    pure (lblOut ** (g', ctx''))
 
   -- An execution of an expression
   compileInstrUU lblIn ctx (Exec expr) = do
@@ -287,8 +329,8 @@ mutual
   --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
   ||| A wrapper around `compileInstrUD` that converts the "compile result" into
-  ||| a dependent pair of the graph and its output labels, thus dropping the
-  ||| information if the graph is returning or not.
+  ||| a dependent pair of the graph, its output contexts, and its output labels,
+  ||| thus dropping the information whether the graph is returning or not.
   ||| @ lblIn   the input label of the graph
   ||| @ lblPost label of a block succeding the graph
   |||         / the destination of the output edges of the graph
@@ -303,7 +345,11 @@ mutual
      : (lblIn, lblPost : Label)
     -> (ctx            : lblIn :~: VarCTX)
     -> (instr          : Instr rt kind)
-    -> CompM (lbls ** CFG (CBlock $ GetLLType rt) (Undefined lblIn) (Defined $ lbls ~~> lblPost))
+    -> CompM ( lbls
+            ** ( CFG (CBlock $ GetLLType rt) (Undefined lblIn) (Defined $ lbls ~~> lblPost)
+               , DList (:~: VarCTX) (lbls ~~> lblPost)
+               )
+             )
   compileInstrUD' lblIn lblPost ctx instr = unwrapCR <$> compileInstrUD lblIn lblPost ctx instr
 
   ||| Compile an instruction of any kind into a graph with defined outputs and
@@ -337,7 +383,7 @@ mutual
   -- A return statement
   compileInstrUD lblIn lblPost ctx instr@(Return expr) = do
       -- Compile the returned expression
-      ((_ ** g), val) <- compileExpr' lblIn ctx expr
+      ((_ ** (g, _)), val) <- compileExpr' lblIn ctx expr
 
       -- Add a return statement
       let g' = omap (<+| Ret val) g
@@ -346,7 +392,7 @@ mutual
   -- A void return statement
   compileInstrUD lblIn lblPost ctx instr@RetVoid = do
       -- Return a singleton graph consisting only of a return statement
-      let g = omap (<+| RetVoid) (emptyCFG ctx)
+      let g = omap (<+| RetVoid) emptyCFG
       pure (CRR g)
 
   -- A block of instructions
@@ -368,8 +414,8 @@ mutual
 
       compile lblIn ctx (instr :: instrs) = do
         -- Compile the head and the tail
-        (lblMid ** g) <- compileInstrUU lblIn  ctx            instr
-        res           <- compile        lblMid (getContext g) instrs
+        (lblMid ** (g, ctx)) <- compileInstrUU lblIn  ctx instr
+        res                  <- compile        lblMid ctx instrs
 
         -- Connect the results
         pure $ connectCR g res
@@ -381,13 +427,10 @@ mutual
     lblThen <- freshLabel
 
     -- Compile the condition through jump statements
-    (outsT ** outsF ** condG) <- ifology' lblIn ctx cond lblThen lblPost
-
-    -- Separate the "true" and "false" contexts
-    let (ctxsT, ctxsF) = split (getContexts condG)
+    (outsT ** outsF ** (condG, ctxsT, ctxsF)) <- ifology' lblIn ctx cond lblThen lblPost
 
     -- Compile the branch
-    (branchOuts ** thenG) <- compileInstrDD' outsT lblThen lblPost ctxsT instrThen
+    (branchOuts ** (thenG, ctxsT')) <- compileInstrDD' outsT lblThen lblPost ctxsT instrThen
 
     -- Construct the final graph by connecting the condition graph with the
     -- branch graph
@@ -395,8 +438,11 @@ mutual
         final = rewrite collect_concat lblPost branchOuts outsF
                 in LBranch condG thenG
 
+    let ctxs = rewrite collect_concat lblPost branchOuts outsF
+               in ctxsT' ++ ctxsF
+
     -- Return the graph and its output labels
-    pure $ CRS (branchOuts ++ outsF ** final)
+    pure $ CRS (branchOuts ++ outsF ** (final, ctxs))
 
   -- An if-then-else statement
   compileInstrUD lblIn lblPost ctx (IfElse cond instrThen instrElse) = do
@@ -406,10 +452,7 @@ mutual
     lblElse <- freshLabel
 
     -- Compile the condition through jump statements
-    (outsT ** outsF ** condG) <- ifology' lblIn ctx cond lblThen lblElse
-
-    -- Separate the "true" and "false" contexts
-    let (ctxsT, ctxsF) = split (getContexts condG)
+    (outsT ** outsF ** (condG, ctxsT, ctxsF)) <- ifology' lblIn ctx cond lblThen lblElse
 
     -- Compile the branches
     thenRes <- compileInstrDD outsT lblThen lblPost ctxsT instrThen
@@ -430,11 +473,15 @@ mutual
 
     -- A singleton graph with an undefined input, consisting of a single branch
     -- instruction
-    let pre : CFG (CBlock $ GetLLType rt) (Undefined lblIn) (Defined [lblIn ~> lblNodeIn])
-        pre = SingleVertex (emptyCBlock ctxIn <+| Branch lblNodeIn)
+    let pre : ( CFG (CBlock $ GetLLType rt) (Undefined lblIn) (Defined [lblIn ~> lblNodeIn])
+              , DList (:~: VarCTX) [lblIn ~> lblNodeIn]
+              )
+        pre = close lblNodeIn ctxIn emptyCFG
 
-    -- Compile via `compileInstrDD` and prepend the `pre` block
-    seriesCR pre <$> compileInstrDD [lblIn] lblNodeIn lblPost (getContexts pre) instr
+    (pre', ctxs) <- pure pre
+
+    -- Compile via `compileInstrDD` and prepend the `pre'` block
+    seriesCR pre' <$> compileInstrDD [lblIn] lblNodeIn lblPost ctxs instr
 
   --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   -- DD -----------------------------------------------------------------------
@@ -464,7 +511,7 @@ mutual
     SG ctx phis <- segregate ctxs
 
     -- Comstruct a prefix graph, with the phi instructions
-    let preG = imap (phis |++:>) (emptyCFG ctx)
+    let preG = imap (phis |++:>) emptyCFG
 
     -- Compile the instruction, pass the merged context
     res <- compileInstrUD lblIn lblPost ctx instr
@@ -474,8 +521,8 @@ mutual
     pure $ connectCR preG res
 
   ||| A wrapper around `compileInstrDD` that converts the "compile result" into
-  ||| a dependent pair of the graph and its output labels, thus dropping the
-  ||| information if the graph is returning or not.
+  ||| a dependent pair of the graph, its output contexts, and its output labels,
+  ||| thus dropping the information whether the graph is returning or not.
   ||| @ pre     labels of the predecessors of the input block of the graph
   |||         / sources of the input edges of the graph
   ||| @ lblIn   the input label of the graph
@@ -494,7 +541,9 @@ mutual
     -> (ctxs           : DList (:~: VarCTX) (pre ~~> lblIn))
     -> (instr          : Instr rt kind)
     -> CompM ( lbls
-            ** CFG (CBlock $ GetLLType rt) (Defined $ pre ~~> lblIn) (Defined $ lbls ~~> lblPost)
+            ** ( CFG (CBlock $ GetLLType rt) (Defined $ pre ~~> lblIn) (Defined $ lbls ~~> lblPost)
+               , DList (:~: VarCTX) (lbls ~~> lblPost)
+               )
              )
   compileInstrDD' pre lblIn lblPost ctxs instr = unwrapCR <$> compileInstrDD pre lblIn lblPost ctxs instr
 
@@ -563,16 +612,10 @@ mutual
     lblLoop <- freshLabel
 
     -- Compile the condition through jump statements.
-    (outsT ** outsF ** nodeG) <- ifology' lblNodeIn ctxNode cond lblLoop lblPost
-
-    -- Separate the "true" and "false" contexts.
-    let (ctxsLoop, ctxsPost) = split (getContexts nodeG)
+    (outsT ** outsF ** (nodeG, ctxsLoop, ctxsPost)) <- ifology' lblNodeIn ctxNode cond lblLoop lblPost
 
     -- Compile the loop body.
-    (loopOuts ** loop) <- compileInstrDD' outsT lblLoop lblNodeIn ctxsLoop loop
-
-    -- Retrieve the variable contexts at the outputs of the loop.
-    let ctxsLoopOut = getContexts loop
+    (loopOuts ** (loop, ctxsLoopOut)) <- compileInstrDD' outsT lblLoop lblNodeIn ctxsLoop loop
 
     -- Concatenate them with the contexts coming in from outside the loop
     -- - together, they constitute all contexts coming into the condition graph
@@ -596,7 +639,7 @@ mutual
     -- loop-body graph.
     let final = Cycle node' loop
 
-    pure $ CRS (outsF ** final)
+    pure $ CRS (outsF ** (final, ctxsPost))
 
     where
 
