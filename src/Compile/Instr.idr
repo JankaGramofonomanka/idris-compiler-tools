@@ -73,7 +73,7 @@ TODO: Figure out how to reduce the number of attachments and detachments
 ||| Adds a jump instruction at the end of a graph with a single undefined
 ||| output, thus defining its outputs.
 ||| @ lblPost the label of the block to jump to
-||| @ dat     the graph to be modified with additional data
+||| @ dat     the graph to be modified, with additional data
 ||| @ rt      the return type of the function whose body the returned graph
 |||           will be part of
 ||| @ lblIn   the input label of the graph
@@ -98,12 +98,12 @@ jumpFrom lblPre (CRS dat) = let
   cfg' = imap {ins = Just [lblPre]} ([] |++>) dat.cfg
   in CRS $ {cfg := cfg'} dat
 
-||| Appends a merging block to a graph with multiple converging otuput edges
-||| The merging block is incomplete at the end and thus thereturned graph has
+||| Appends a merging block to a graph with multiple converging output edges
+||| The merging block is incomplete at the end and thus the returned graph has
 ||| a single undefined output.
 ||| @ lblPost the label of the merging block
 |||         / the destination of the output edges of the graph
-||| @ dat     the graph to be modified with additional data
+||| @ dat     the graph to be modified, with additional data
 ||| @ lblIn   the input label of the graph
 ||| @ rt      the return type of the function whose body the returned graph
 |||           will be part of
@@ -205,8 +205,8 @@ mutual
   --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
   -- UU -----------------------------------------------------------------------
   --- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-  ||| Compile a simple instruction int a graph a single undefined input and
-  ||| a signle undefined.
+  ||| Compile a simple instruction into a graph with a single undefined input
+  ||| and a signle undefined output.
   ||| Returns the graph and the label of its output block.
   ||| @ lblIn  the input label of the graph
   ||| @ ctx    the context at the beginning of the graph

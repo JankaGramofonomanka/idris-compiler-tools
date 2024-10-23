@@ -21,17 +21,27 @@ import CFG
 
 import Theory
 
--- TODO Add documentation
+||| Define the output of a graph (Close the graph) by appending a branch
+||| instruction and re-tag the output context along the updated output
+||| @ dest the destination label of the branch instruction
+||| @ ctx  the output context - the context at the output of the graph
+||| @ cfg  the graph
 export
 close : (dest : Label)
-     -> lbl :~: VarCTX
-     -> CFG (CBlock rt) ins (Undefined lbl)
+     -> (ctx : lbl :~: VarCTX)
+     -> (cfg : CFG (CBlock rt) ins (Undefined lbl))
      -> ( CFG (CBlock rt) ins (Defined [lbl ~> dest])
         , DList (:~: VarCTX) [lbl ~> dest]
         )
 close {lbl} dest ctx cfg = (omap (<+| Branch dest) cfg, [attach (lbl ~> dest) (detach ctx)])
 
--- TODO Add documentation
+||| A graph undefined at both ends with a context at its output
+||| @ rt     the return type of the function, whose body the graph is part of,
+|||          used to enforce the correct types of returned values.
+||| @ lblIn  the input label of the graph
+||| @ lblOut the output label of the graph
+||| @ cfg the graph
+||| @ ctx the output context - the context at the output of `cfg`
 public export
 record DataUU (rt : LLType) (lblIn : Label) where
   constructor MkDataUU
@@ -39,7 +49,15 @@ record DataUU (rt : LLType) (lblIn : Label) where
   cfg : CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
   ctx : lblOut :~: VarCTX
 
--- TODO Add documentation
+||| A graph with defined outputs, converging to a single destination label,
+||| with a list of its output contexts
+||| @ rt   the return type of the function, whose body the graph is part of,
+|||        used to enforce the correct types of returned values.
+||| @ ins  the input edges of the graph - defined or not
+||| @ dest the destination label
+||| @ outs the output labels of the graph
+||| @ cfg  the graph
+||| @ ctxs the output contexts - the contexts at the outputs of `cfg`
 public export
 record DataXD (rt : LLType) (ins : Edges Label) (dest : Label) where
   constructor MkDataXD
@@ -47,7 +65,21 @@ record DataXD (rt : LLType) (ins : Edges Label) (dest : Label) where
   cfg : CFG (CBlock rt) ins (Defined $ outs ~~> dest)
   ctxs : DList (:~: VarCTX) (outs ~~> dest)
 
--- TODO Add documentation
+||| A graph with defined outputs, converging to a two destination labels,
+||| with two lists of its output contexts separated by the destination label
+||| of the outputs.
+||| Used to represent the result of a compilation of an if-then-else statement
+|||
+||| @ rt   the return type of the function, whose body the graph is part of,
+|||        used to enforce the correct types of returned values.
+||| @ ins  the input edges of the graph - defined or not
+||| @ lblT the first  destination label
+||| @ lblF the second destination label
+||| @ outsT the sources of the output edges converging to `lblT`
+||| @ outsF the sources of the output edges converging to `lblF`
+||| @ cfg  the graph
+||| @ ctxsT the the contexts at the outputs converging to `lblT`
+||| @ ctxsF the the contexts at the outputs converging to `lblF`
 public export
 record DataXD2 (rt : LLType) (ins : Edges Label) (lblT, lblF : Label) where
   constructor MkDataXD2
@@ -82,11 +114,8 @@ data CompileResult
   CRR : (cfg : CFG (CBlock rt) ins Closed)
      -> CompileResult rt ins lbl Returning
 
-  -- TODO shorten the documentation to sth like "A "sinmle" result. Contains DataXD"
   ||| A "simple" (non-returning) result.
-  ||| Contains a graph with defined outputs, the list of the sources of its
-  ||| output edges and the list of its output contexts (contexts at the end
-  ||| of its outputs).
+  ||| Contains a graph with defined outputs, and the list of its output contexts
   CRS : DataXD rt ins lbl
      -> CompileResult rt ins lbl Simple
 
@@ -114,7 +143,7 @@ emptyCR lbl lbl' ctx = let
   in CRS (MkDataXD { outs = [lbl], cfg, ctxs })
 
 
-||| Prepend a graph with undefined output to a "compile reslult" that wrapps a
+||| Prepend a graph with undefined output to a "compile result" that wrapps a
 ||| graph with an undefined input
 ||| @ pre  the graph            (the prefix)
 ||| @ post the "compile result" (the postfix)
@@ -135,7 +164,7 @@ export
   -> CompileResult rt ins lbl' k
 (*~~>) = connectCR
 
-||| Prepend a graph with defined outputs to a "compile reslult" that wrapps a
+||| Prepend a graph with defined outputs to a "compile result" that wrapps a
 ||| graph with defined inputs
 ||| @ pre  the graph            (the prefix)
 ||| @ post the "compile result" (the postfix)
