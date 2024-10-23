@@ -305,7 +305,7 @@ namespace Graph
   ||| the successor
   ||| @ node   the           predecessor of `branch`
   ||| @ branch the (partial) successor   of `node`
-  ||| @ ls     the left  outputs of `node`
+  ||| @ ls     the left  outputs of `node` / the inputs of `branch`
   ||| @ rs     the right outputs of `node`
   public export
   lbranch : {ls, rs : List (Edge a)}
@@ -320,7 +320,7 @@ namespace Graph
   ||| @ node   the           predecessor of `branch`
   ||| @ branch the (partial) successor   of `node`
   ||| @ ls     the left  outputs of `node`
-  ||| @ rs     the right outputs of `node`
+  ||| @ rs     the right outputs of `node` / the inputs of `branch`
   public export
   rbranch : {ls, rs : List (Edge a)}
          -> (node   : CFG vertex ins (Defined $ ls ++ rs))
@@ -333,13 +333,13 @@ namespace Graph
   ||| the successor
   ||| @ branch the           predecessor of `node`
   ||| @ node   the (partial) successor   of `branch`
-  ||| @ ls'    the left  inputs of `node`
+  ||| @ ls'    the left  inputs of `node` / the outputs of `branch`
   ||| @ rs     the right inputs of `node`
   public export
   lmerge : {ls, rs  : List (Edge a)}
         -> (branch  : CFG vertex (Defined ls) (Defined ls'))
         -> (node    : CFG vertex (Defined $ ls' ++ rs) outs)
-        ->            CFG vertex (Defined $ ls ++ rs) outs
+        ->            CFG vertex (Defined $ ls  ++ rs) outs
   lmerge branch node = (branch |-| Empty) *-> node
 
   ||| A partial sequential connection of two graphs
@@ -348,7 +348,7 @@ namespace Graph
   ||| @ branch the           predecessor of `node`
   ||| @ node   the (partial) successor   of `branch`
   ||| @ ls     the left  inputs of `node`
-  ||| @ rs'    the right inputs of `node`
+  ||| @ rs'    the right inputs of `node` / the outputs of `branch`
   public export
   rmerge : {ls, rs  : List (Edge a)}
         -> (branch  : CFG vertex (Defined rs) (Defined rs'))
