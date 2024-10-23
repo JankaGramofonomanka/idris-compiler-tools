@@ -503,15 +503,40 @@ mutual
 
   compileBoolExpr lblIn expr = do
 
+    -- Note:
+    -- Here, I compile the expression and add two empty blocks after the true
+    -- and false outputs. Then, I add a merging block where the value of the
+    -- expression is determined by the label of one of these blocks.
+    -- This might seem superfluous: why not jump straight to the merging block?
+    -- It is not as simple and the reason for that is that the expression might
+    -- be coimputed in a single basic block that ends in a conditional jump.
+    -- Then, the phi assignment in the merging block would contain the same
+    -- block label twice, which is not a valid LLVM statement.
+
+    -- Generate the "true" and "false" labels and compile the expression using
+    -- jump statements
+    lblTrue  <- lift freshLabel
+    lblFalse <- lift freshLabel
+    (outsT ** outsF ** ifologyG) <- ifology lblIn expr lblTrue lblFalse
+
     -- Generate a "post" label - the label of the merging block
     lblPost <- lift freshLabel
 
-    -- Compile the expression using jump statements
-    (outsT ** outsF ** ifologyG) <- ifology lblIn expr lblPost lblPost
+    -- Construct the "true" block and put it in a singleton graph
+    trueBLK <- pure $ [] |++> emptyCBlock <+| Branch lblPost
+    let trueG : CFG (CBlock rt) (Defined $ outsT ~~> lblTrue) (Defined [lblTrue ~> lblPost])
+        trueG = SingleVertex {vins = Just outsT, vouts = Just [lblPost]} trueBLK
 
-    -- Construct a phi expression that will represent the value of the compiled expression
-    let phi : PhiExpr (outsT ++ outsF) I1
-        phi = replicatePhi outsT (ILitV 1) `concatPhi` replicatePhi outsF (ILitV 0)
+    -- Construct the "false" block and put it in a singleton graph
+    falseBLK <- pure $ [] |++> emptyCBlock <+| Branch lblPost
+    let falseG : CFG (CBlock rt) (Defined $ outsF ~~> lblFalse) (Defined [lblFalse ~> lblPost])
+        falseG = SingleVertex {vins = Just outsF, vouts = Just [lblPost]} falseBLK
+
+    -- Make a "phi" assignment.
+    -- The value of the expression is `true` or `false` when coming from the
+    -- "true" or "false" block respectively.
+    let phi : PhiExpr [lblTrue, lblFalse] I1
+        phi = Phi I1 [(lblTrue, ILitV 1), (lblFalse, ILitV 0)]
 
     -- Generate a new register and assign the phi expression to the new
     -- register.
@@ -519,14 +544,16 @@ mutual
     reg <- lift (freshRegister I1)
     let phiAssignment = AssignPhi reg phi
 
+    -- The inputs of the "post" block (the merging block)
+    let postIns = [lblTrue, lblFalse]
+
     -- Construct the merging block and put it in a singleton graph
     postBLK <- pure $ phiAssignment |+> emptyCBlock
-    let postG : CFG (CBlock rt) (Defined $ (outsT ~~> lblPost) ++ (outsF ~~> lblPost)) (Undefined lblPost)
-        postG = rewrite revEq $ collect_concat lblPost outsT outsF
-                in SingleVertex {vins = Just (outsT ++ outsF), vouts = Undefined} postBLK
+    let postG : CFG (CBlock rt) (Defined [lblTrue ~> lblPost, lblFalse ~> lblPost]) (Undefined lblPost)
+        postG = SingleVertex {vins = Just [lblTrue, lblFalse], vouts = Undefined} postBLK
 
     -- Construct the final graph
-    let final = ifologyG *-> postG
+    let final = ifologyG *-> (trueG |-| falseG) *-> postG
 
-    -- Return the final graph, its output label and the value of the expression
+    -- Retunr the final graph, its output label and the value of the expression
     pure ((lblPost ** final), Var reg)
