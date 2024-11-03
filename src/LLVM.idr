@@ -5,11 +5,14 @@ import Data.Vect
 import Derive.Prelude
 
 import Data.DList
+import Data.DEq
 import Data.Singleton
 import Data.Singleton.Extra
 import Data.Some
 import Data.Typed
 import CFG
+
+import Utils
 
 %language ElabReflection
 
@@ -103,6 +106,30 @@ public export
 I256  : LLType
 I256  = I 256
 
+mutual
+  ||| Returns a proof that the two types are equal when they are,
+  ||| otherwise, returns `Nothing`
+  lleq : (t1, t2 : LLType) -> Maybe (t1 = t2)
+  I n `lleq` I n' = mcong I (nateq n n')
+  Void `lleq` Void = Just Refl
+  Ptr t `lleq` Ptr t' = mcong Ptr (t `lleq` t')
+  Array t n `lleq` Array t' n' = case t `lleq` t' of
+    Just Refl => mcong (Array t) (nateq n n')
+    Nothing   => Nothing
+  FunType t ts `lleq` FunType t' ts' = case t `lleq` t' of
+    Just Refl => mcong (FunType t) (lleq' ts ts')
+    Nothing   => Nothing
+  _ `lleq` _ = Nothing
+
+  ||| Returns a proof that the two lists of types are equal when they are,
+  ||| otherwise, returns `Nothing`
+  lleq' : (ts, ts' : List LLType) -> Maybe (ts = ts')
+  lleq' Nil Nil = Just Refl
+  lleq' (t :: ts) (t' :: ts') = case t `lleq` t' of
+    Just Refl => mcong (t ::) (ts `lleq'` ts')
+    Nothing   => Nothing
+  lleq' _ _ = Nothing
+
 -- Reg, RegId -----------------------------------------------------------------
 ||| A register identifier
 ||| @ t the type of the value stored in the register
@@ -132,6 +159,11 @@ data Reg : (t : LLType) -> Type where
 export
 implementation Typed Reg where
   typeOf (MkReg t id) = t
+
+export
+implementation DEq Reg where
+  MkReg (Val t) (MkRegId id) `deq` MkReg (Val t') (MkRegId id')
+    = if id == id' then lleq t t' else Nothing
 
 -- Const, ConstId -------------------------------------------------------------
 ||| A constant identifier
@@ -163,6 +195,11 @@ export
 implementation Typed Const where
   typeOf (MkConst t id) = t
 
+export
+implementation DEq Const where
+  MkConst (Val t) (MkConstId id) `deq` MkConst (Val t') (MkConstId id')
+    = if id == id' then lleq t t' else Nothing
+
 -- LLLiteral ------------------------------------------------------------------
 ||| An LLVM Literal
 public export
@@ -188,6 +225,14 @@ export
 implementation Typed LLLiteral where
   typeOf (ILit {n} _) = Val (I n)
   typeOf (CharArrLit {n} chars) = Val (Array I8 (S n))
+
+export
+implementation DEq LLLiteral where
+  ILit {n} lit `deq` ILit {n = n'} lit' = if lit == lit' then I n `lleq` I n' else Nothing
+  CharArrLit {n} chars `deq` CharArrLit {n = n'} chars' = case nateq n n' of
+    Just Refl => if chars == chars' then Just Refl else Nothing
+    Nothing => Nothing
+  _ `deq` _ = Nothing
 
 -- LLValue --------------------------------------------------------------------
 ||| An LLVM value
@@ -226,6 +271,14 @@ implementation Typed LLValue where
   typeOf (Lit lit) = typeOf lit
   typeOf (ConstPtr cst) = Ptr <$> (typeOf cst)
   typeOf (Null t) = Ptr <$> t
+
+export
+implementation DEq LLValue where
+  Var reg       `deq` Var reg'       = reg  `deq` reg'
+  Lit i         `deq` Lit i'         = i    `deq` i'
+  ConstPtr cnst `deq` ConstPtr cnst' = mcong Ptr (cnst `deq` cnst')
+  Null (Val t)  `deq` Null (Val t')  = mcong Ptr (t `lleq` t')
+  _             `deq` _              = Nothing
 
 ||| An alias for a function pointer type
 ||| @ t  the return type of the function
