@@ -31,3 +31,12 @@ namespace Nat
   nateq Z Z = Just Refl
   nateq (S n) (S n') = mcong S (nateq n n')
   nateq _ _ = Nothing
+
+||| Make the implicit implementation of an interface explicit.
+|||
+||| The name follows a convention from Scala
+||| @ ifc  the interface
+||| @ impl the implementation
+export
+implicitly : (impl : ifc) => ifc
+implicitly {impl} = impl
