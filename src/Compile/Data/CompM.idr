@@ -9,7 +9,7 @@ import Data.Vect
 import Data.Attached
 import Data.GCompare
 import Data.GEq
-import Data.The
+import Data.Singleton
 import Data.Typed
 
 import LLVM
@@ -66,13 +66,13 @@ freshRegister : (t : LLType) -> CompM (Reg t)
 freshRegister t = do
   n <- gets regCount
   modify { regCount := n + 1 }
-  pure $ MkReg (MkThe t) (MkRegId $ "r" ++ show n)
+  pure $ MkReg (Val t) (MkRegId $ "r" ++ show n)
 
 ||| Generate a unique register of the given type
 ||| @ t the type of the register
 export
-freshRegister' : The t -> CompM (Reg t)
-freshRegister' (MkThe t) = freshRegister t
+freshRegister' : Singleton t -> CompM (Reg t)
+freshRegister' (Val t) = freshRegister t
 
 ||| Generate a unique label
 export
@@ -99,7 +99,7 @@ freshStrConst : (n : Nat) -> CompM (Const (Array I8 n))
 freshStrConst n = do
   k <- gets strLitCount
   modify { strLitCount $= (+1) }
-  pure $ MkConst (MkThe $ Array I8 n) (MkConstId $ "s" ++ show k)
+  pure $ MkConst (Val $ Array I8 n) (MkConstId $ "s" ++ show k)
 
 ||| Get the constant representing the given string literal
 ||| @ s the string literal

@@ -7,7 +7,7 @@ import Data.SortedMap
 import Data.DList
 import Data.DMap
 import Data.GCompare
-import Data.The
+import Data.Singleton
 import LNG.BuiltIns
 import LNG.TypeChecked as LNG
 import LLVM
@@ -30,7 +30,7 @@ mkFunMap l = foldr insertFun empty l where
   -- TODO: was there any requirement about how to name functions in LLVM?
   mkFunPtr (MkFun t ts (MkFunId funId))
     = ConstPtr
-    $ MkConst (MkThe $ FunType (GetLLType t) (map GetLLType ts)) (MkConstId funId)
+    $ MkConst (Val $ FunType (GetLLType t) (map GetLLType ts)) (MkConstId funId)
 
   ||| Insert the identifier of the function and the function pointer representing
   ||| it to the function context.

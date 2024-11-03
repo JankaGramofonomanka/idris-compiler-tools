@@ -7,8 +7,8 @@ import Data.DMap
 import Data.DList
 import Data.DSum
 import Data.GCompare
+import Data.Singleton
 import Data.Some
-import Data.The
 import Data.Typed
 import LNG.TypeChecked
 import LLVM
@@ -99,7 +99,7 @@ namespace VarCTX
 
     toDPair : Some Variable -> (t ** Variable t)
     toDPair (MkSome var) = case typeOf {f = Variable} var of
-      MkThe t => (t ** var)
+      Val t => (t ** var)
 
 namespace VarCTX'
 

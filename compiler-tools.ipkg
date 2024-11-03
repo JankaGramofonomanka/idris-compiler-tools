@@ -34,7 +34,7 @@ modules = Compile.Data.Context.Utils
         , Compile.Utils
         , Data.Attached
         , Data.DList
-        , Data.The
+        , Data.Singleton.Extra
         , Data.Typed
         , LLVM.Render
         , LNG.Parsed.Render

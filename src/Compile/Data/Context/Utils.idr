@@ -10,7 +10,7 @@ import Data.Doc
 import Data.DSum
 import Data.GCompare
 import Data.Some
-import Data.The
+import Data.Singleton
 import Data.Typed
 import LNG.TypeChecked
 import LNG.TypeChecked.Render
@@ -56,7 +56,7 @@ data Phi' : (lbl : Label) -> (ins : List Label) -> (t : LLType) -> Type where
     -> Phi' lbl ins t
 
 implementation Typed (Phi' lbl ins) where
-  typeOf (MkPhi' t _) = MkThe t
+  typeOf (MkPhi' t _) = Val t
 
 ||| Given a an implicit list of input labels, convert a `Phi'` to `PhiExpr`
 ||| @ ins the input labels
@@ -101,7 +101,7 @@ addInput' val (MkPhi' t kvs) = MkPhi' t $ val :: kvs
 ||| Given a list of input labels and a value, make a `Phi'` assignment that
 ||| assigns that value regardless of the input.
 replicatePhi' : (ins : List Label) -> LLValue t -> Phi' lbl' ins t
-replicatePhi' {t} Nil val = case the (The t) (typeOf val) of { MkThe t' => MkPhi' t' Nil }
+replicatePhi' {t} Nil val = case the (Singleton t) (typeOf val) of { Val t' => MkPhi' t' Nil }
 replicatePhi' {lbl'} (lbl :: lbls) val = addInput' (attach (lbl ~> lbl') val) $ replicatePhi' lbls val
 
 ||| Extend the inputs of a "value or phi" expression by adding a value to it

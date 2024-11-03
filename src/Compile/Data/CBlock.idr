@@ -4,7 +4,7 @@ import Data.Attached
 import Data.Doc
 import Data.DList
 import Data.GCompare
-import Data.The
+import Data.Singleton
 
 import LLVM
 import LLVM.Render
@@ -72,9 +72,9 @@ record CBlock
 
   ||| the runtime manifestation of the label (the identifier) of the block.
   |||
-  ||| Wrapped in the `The` type constructor to avoid shadowing the type
+  ||| Wrapped in the `Singleton` type constructor to avoid shadowing the type
   ||| parameter by the field or vice versa.
-  theLabel : The lbl
+  theLabel : Singleton lbl
 
   ||| The potentially undefined list of phi assignments of the block
   phis : MbPhis ins
@@ -95,7 +95,7 @@ noComment instr = (instr, Nothing)
 ||| @ lbl the block label
 export
 emptyCBlock : {lbl : Label} -> CBlock rt lbl Undefined Undefined
-emptyCBlock {lbl} = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = () }
+emptyCBlock {lbl} = MkBB { theLabel = Val lbl, phis = (), body = [], term = () }
 
 
 

@@ -7,7 +7,7 @@ import CFG
 import Data.DList
 import Data.Doc
 import Data.List
-import Data.The
+import Data.Singleton
 import Data.Typed
 import LLVM
 import Utils
@@ -25,11 +25,11 @@ prtFun : String -> String -> List String -> String
 prtFun retTy fun args = mkSentence [retTy, fun ++ prtArgs args]
 
 export
-implementation {0 x : t} -> DocItem t => DocItem (The x) where
-  prt (MkThe t) = prt t
+implementation {0 x : t} -> DocItem t => DocItem (Singleton x) where
+  prt (Val t) = prt t
 
 export
-implementation [typed] Typed f => (docT : DocItem (The t)) => DocItem (f t) => DocItem (f t) where
+implementation [typed] Typed f => (docT : DocItem (Singleton t)) => DocItem (f t) => DocItem (f t) where
   prt val = prt (typeOf val) @{docT} ++ " " ++ prt val
 
 -- LLType ---------------------------------------------------------------------
@@ -169,8 +169,8 @@ export
 implementation DocItem STInstr where
   -- TODO: the assignments of `void` values should be prevented by the structure of `LLVM`
   prt (Assign reg expr) = case (typeOf {f = LLExpr} expr) of
-    MkThe Void => prt expr
-    MkThe t    => mkSentence [prt reg, "=", prt expr]
+    Val Void => prt expr
+    Val t    => mkSentence [prt reg, "=", prt expr]
   prt (Exec expr) = prt expr
   prt (Store val ptr) = mkSentence ["store", prt val @{typed} ++ ",", prt ptr @{typed}]
   prt Empty = ""
@@ -190,7 +190,7 @@ implementation DocItem (PhiInstr ins) where
 -- BasicBlock -----------------------------------------------------------------
 export
 implementation Document (BasicBlock rt label inputs outputs) where
-  print (MkBasicBlock { theLabel = MkThe label, phis, body, term })
+  print (MkBasicBlock { theLabel = Val label, phis, body, term })
     = MkDoc { lines = [ Right (simple $ prt label @{blockEntry})
                       , Left ( fromLines
                             -- TODO: Add comments to `BasicBlock`

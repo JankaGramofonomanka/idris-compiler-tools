@@ -5,13 +5,23 @@ import Data.Vect
 import Derive.Prelude
 
 import Data.DList
+import Data.Singleton
+import Data.Singleton.Extra
 import Data.Some
-import Data.The
 import Data.Typed
 import Utils
 import CFG
 
 %language ElabReflection
+
+-- The following implementations are needed to derive `Eq` and `Ord` instances
+-- for `LLVM` elements defined in this module
+implementation Eq (Singleton x) where
+  _ == _ = True
+
+implementation Ord (Singleton x) where
+  compare _ _ = EQ
+
 
 {-
 TODO: define a "pseudo LLVM" type that would generalize over `LLValue`, that is
@@ -111,11 +121,12 @@ public export
 data Reg : (t : LLType) -> Type where
   ||| Make a `Reg` out of `RegId`
   |||
-  ||| Note: `t` is wrapped in `The` in order to appease the deriving mechanism
+  ||| Note: `t` is wrapped in `Singleton` in order to appease the deriving
+  ||| mechanism
   |||
   ||| @ t     the type of the register
   ||| @ regId the register identifier
-  MkReg : The t -> (regId : RegId t) -> Reg t
+  MkReg : Singleton t -> (regId : RegId t) -> Reg t
 
 %runElab deriveIndexed "Reg" [Eq]
 
@@ -140,11 +151,12 @@ public export
 data Const : LLType -> Type where
   ||| Make a `Const` out of `ConstId`
   |||
-  ||| Note: `t` is wrapped in `The` in order to appease the deriving mechanism
+  ||| Note: `t` is wrapped in `Singleton` in order to appease the deriving
+  ||| mechanism
   |||
   ||| @ t       the type of the constant
   ||| @ constId the constant identifier
-  MkConst : The t -> (constId : ConstId t) -> Const t
+  MkConst : Singleton t -> (constId : ConstId t) -> Const t
 
 %runElab deriveIndexed "Const" [Eq]
 
@@ -175,8 +187,8 @@ stringToCharVect s = go (unpack s) where
 
 export
 implementation Typed LLLiteral where
-  typeOf (ILit {n} _) = MkThe (I n)
-  typeOf (CharArrLit {n} chars) = MkThe (Array I8 (S n))
+  typeOf (ILit {n} _) = Val (I n)
+  typeOf (CharArrLit {n} chars) = Val (Array I8 (S n))
 
 -- LLValue --------------------------------------------------------------------
 ||| An LLVM value
@@ -194,10 +206,11 @@ data LLValue : (t : LLType) -> Type where
   ConstPtr : (cst : Const t) -> LLValue (Ptr t)
   ||| A null pointer.
   |||
-  ||| Note: `t` is wrapped in `The` in order to appease the deriving mechanism
+  ||| Note: `t` is wrapped in `Singleton` in order to appease the deriving
+  ||| mechanism
   |||
   ||| @ t the type of the pointer
-  Null : The t -> LLValue (Ptr t)
+  Null : Singleton t -> LLValue (Ptr t)
 
 ||| An alias for an integer literal value
 ||| @ n   the number of bits in the type of the literal
@@ -212,8 +225,8 @@ export
 implementation Typed LLValue where
   typeOf (Var reg) = typeOf reg
   typeOf (Lit lit) = typeOf lit
-  typeOf (ConstPtr cst) = The.map Ptr (typeOf cst)
-  typeOf (Null t) = map Ptr t
+  typeOf (ConstPtr cst) = Ptr <$> (typeOf cst)
+  typeOf (Null t) = Ptr <$> t
 
 ||| An alias for a function pointer type
 ||| @ t  the return type of the function
@@ -262,14 +275,14 @@ data BinOperator : (lhsT : LLType) -> (rhsT : LLType) -> (resT : LLType) -> Type
 
 ||| The return type of a binary operator
 export
-resType : BinOperator t1 t2 t3 -> The t3
-resType (ADD  {n}) = MkThe (I n)
-resType (SUB  {n}) = MkThe (I n)
-resType (MUL  {n}) = MkThe (I n)
-resType (SDIV {n}) = MkThe (I n)
-resType (UDIV {n}) = MkThe (I n)
-resType (SREM {n}) = MkThe (I n)
-resType (UREM {n}) = MkThe (I n)
+resType : BinOperator t1 t2 t3 -> Singleton t3
+resType (ADD  {n}) = Val (I n)
+resType (SUB  {n}) = Val (I n)
+resType (MUL  {n}) = Val (I n)
+resType (SDIV {n}) = Val (I n)
+resType (UDIV {n}) = Val (I n)
+resType (SREM {n}) = Val (I n)
+resType (UREM {n}) = Val (I n)
 
 -- TODO: parametrise this?
 -- what types can be compared?
@@ -357,27 +370,27 @@ data LLExpr : (t : LLType) -> Type where
 
 ||| Returns the type of the value stored behind the pointer
 export
-unPtr : The (LLVM.Ptr t) -> The t
-unPtr (MkThe (Ptr t)) = MkThe t
+unPtr : Singleton (LLVM.Ptr t) -> Singleton t
+unPtr (Val (Ptr t)) = Val t
 
 ||| Returns the return type of the function
 export
-unFun : The (FunType t ts) -> The t
-unFun (MkThe (FunType t ts)) = MkThe t
+unFun : Singleton (FunType t ts) -> Singleton t
+unFun (Val (FunType t ts)) = Val t
 
 ||| Returns the return type of the function
 export
-retTypeOf : LLValue (Ptr (FunType t ts)) -> The t
+retTypeOf : LLValue (Ptr (FunType t ts)) -> Singleton t
 retTypeOf = unFun . unPtr . typeOf
 
 export
 implementation Typed LLExpr where
-  typeOf (BinOperation op lhs rhs) = resType op
-  typeOf (Call fun args) = retTypeOf fun
-  typeOf (GetElementPtr {t} arr idx1 idx2) = MkThe (Ptr t)
-  typeOf (ICMP cmp lhs rhs) = MkThe I1
-  typeOf (Load ptr) = unPtr (typeOf ptr)
-  typeOf (BitCast val t) = MkThe t
+  typeOf (BinOperation op lhs rhs)         = resType op
+  typeOf (Call fun args)                   = retTypeOf fun
+  typeOf (GetElementPtr {t} arr idx1 idx2) = Val (Ptr t)
+  typeOf (ICMP cmp lhs rhs)                = Val I1
+  typeOf (Load ptr)                        = unPtr (typeOf ptr)
+  typeOf (BitCast val t)                   = Val t
 
 ||| A "phi" expresion, the right side of a "phi" assignment
 ||| @ ins the list of labels of blocks, from which the control flow jumps to
@@ -395,7 +408,7 @@ data PhiExpr : (ins : List Label) -> (t : LLType) -> Type where
 
 export
 implementation Typed (PhiExpr inputs) where
-  typeOf (Phi t l) = MkThe t
+  typeOf (Phi t l) = Val t
 
 -- Isntr ----------------------------------------------------------------------
 ||| An simple LLVM instruction
@@ -470,7 +483,7 @@ record BasicBlock
   constructor MkBasicBlock
 
   ||| the label of the block
-  theLabel : The label
+  theLabel : Singleton label
 
   ||| "phi" assignments preceding the body of the block
   phis : List (PhiInstr inputs, Maybe String)

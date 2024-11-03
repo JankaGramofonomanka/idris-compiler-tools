@@ -7,7 +7,7 @@ import Derive.Prelude
 import Data.DList
 import Data.GCompare
 import Data.GEq
-import Data.The
+import Data.Singleton
 import Data.Typed
 
 import Theory
@@ -113,24 +113,24 @@ data BinOperator : (lhsT : LNGType) -> (rhsT : LNGType) -> (resT : LNGType) -> T
   Concat : BinOperator TString TString TString
 
 ||| The return type of a binary operator
-binRetTypeOf : BinOperator t1 t2 t3 -> The t3
+binRetTypeOf : BinOperator t1 t2 t3 -> Singleton t3
 
-binRetTypeOf Add = MkThe TInt
-binRetTypeOf Sub = MkThe TInt
-binRetTypeOf Mul = MkThe TInt
-binRetTypeOf Div = MkThe TInt
-binRetTypeOf Mod = MkThe TInt
-binRetTypeOf And = MkThe TBool
-binRetTypeOf Or  = MkThe TBool
+binRetTypeOf Add = Val TInt
+binRetTypeOf Sub = Val TInt
+binRetTypeOf Mul = Val TInt
+binRetTypeOf Div = Val TInt
+binRetTypeOf Mod = Val TInt
+binRetTypeOf And = Val TBool
+binRetTypeOf Or  = Val TBool
 
-binRetTypeOf EQ = MkThe TBool
-binRetTypeOf NE = MkThe TBool
-binRetTypeOf LE = MkThe TBool
-binRetTypeOf LT = MkThe TBool
-binRetTypeOf GE = MkThe TBool
-binRetTypeOf GT = MkThe TBool
+binRetTypeOf EQ = Val TBool
+binRetTypeOf NE = Val TBool
+binRetTypeOf LE = Val TBool
+binRetTypeOf LT = Val TBool
+binRetTypeOf GE = Val TBool
+binRetTypeOf GT = Val TBool
 
-binRetTypeOf Concat = MkThe TString
+binRetTypeOf Concat = Val TString
 
 ||| An unary operator
 ||| @ ot the type or the operand
@@ -143,9 +143,9 @@ data UnOperator : (ot : LNGType) -> (rt : LNGType) -> Type where
   Not : UnOperator TBool TBool
 
 ||| The return type of an unary operator
-unRetTypeOf : UnOperator t1 t2 -> The t2
-unRetTypeOf Neg = MkThe TInt
-unRetTypeOf Not = MkThe TBool
+unRetTypeOf : UnOperator t1 t2 -> Singleton t2
+unRetTypeOf Neg = Val TInt
+unRetTypeOf Not = Val TBool
 
 ||| A Literal, such as `0`, `"hello"`, or `false`
 ||| @ t the type of the literal
@@ -163,9 +163,9 @@ data Literal : (t : LNGType) -> Type where
 
 export
 implementation Typed Literal where
-  typeOf (LitBool b)    = MkThe TBool
-  typeOf (LitInt i)     = MkThe TInt
-  typeOf (LitString s)  = MkThe TString
+  typeOf (LitBool b)    = Val TBool
+  typeOf (LitInt i)     = Val TInt
+  typeOf (LitString s)  = Val TString
 
 ||| An identifier of a variable
 ||| @ t the type of the variable
@@ -199,7 +199,7 @@ implementation GCompare Variable where
 
 export
 implementation Typed Variable where
-  typeOf (MkVar t id) = MkThe t
+  typeOf (MkVar t id) = Val t
 
 ||| An identifier of a function
 ||| @ t  the return type of the function
@@ -229,16 +229,16 @@ getFunId : Fun t ts -> FunId t ts
 getFunId (MkFun _ _ id) = id
 
 ||| Returns the return type of a function identifier
-retTypeOf : Fun t ts -> The t
-retTypeOf (MkFun t ts id) = MkThe t
+retTypeOf : Fun t ts -> Singleton t
+retTypeOf (MkFun t ts id) = Val t
 
 ||| Returns the types of the parameters of the function
-argTypesOf : Fun t ts -> The ts
-argTypesOf (MkFun t ts id) = MkThe ts
+argTypesOf : Fun t ts -> Singleton ts
+argTypesOf (MkFun t ts id) = Val ts
 
 ||| Returns the return type of the function
-typeOfFun : Fun t ts -> The (t, ts)
-typeOfFun (MkFun t ts id) = MkThe (t, ts)
+typeOfFun : Fun t ts -> Singleton (t, ts)
+typeOfFun (MkFun t ts id) = Val (t, ts)
 
 ||| If the operands are equal, returns a proof that they are, otherwise,
 ||| returns `Nothing`

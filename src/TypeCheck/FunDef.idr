@@ -7,7 +7,6 @@ import Data.List
 import Data.SortedMap
 
 import Data.DList
-import Data.The
 import LNG.Parsed as LNG
 import LNG.TypeChecked as TC
 import Parse.Data.Position
@@ -25,7 +24,7 @@ mkVar' (t, id) = (tc' t ** mkVar (tc' t) (^^id))
 export
 typeCheckFunDecl : ^LNG.FunDef -> TypeCheckM TC.FunDef
 typeCheckFunDecl (_ |^ funDecl) = do
-  
+
   let retType = tc' funDecl.retType
   let (paramTypes ** paramIds) = dunzipWith mkVar' (^^funDecl.params)
   let funId = MkFun retType paramTypes $ mkFunId (^^funDecl.funId)
@@ -43,5 +42,5 @@ typeCheckFunDecl (_ |^ funDecl) = do
                          }
 
   pure decl
-  
+
 

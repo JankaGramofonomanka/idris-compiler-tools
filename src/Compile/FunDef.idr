@@ -5,7 +5,8 @@ import Control.Monad.Either
 
 import Data.Attached
 import Data.DList
-import Data.The
+import Data.Singleton
+import Data.Singleton.Extra
 import Data.Typed
 
 import LLVM
@@ -42,7 +43,7 @@ mkFunConst
    : (fun : Fun t ts)
   -> Const $ FunType (GetLLType t) (map GetLLType ts)
 mkFunConst (MkFun t ts (MkFunId name))
-  = MkConst (MkThe $ FunType (GetLLType t) (map GetLLType ts)) (MkConstId name)
+  = MkConst (Val $ FunType (GetLLType t) (map GetLLType ts)) (MkConstId name)
 
 ||| Compile a semantically correct LNG function definition
 ||| @ def the function definition
@@ -90,7 +91,7 @@ compileFunDef func = do
     ||| @ var the variable
     getReg : (var : Variable t) -> CompM (VRPair t)
     getReg {t} var = do
-      reg <- freshRegister' (The.map GetLLType $ typeOf var)
+      reg <- freshRegister' (GetLLType <$> typeOf var)
       pure (var, reg)
 
     ||| Construct a variable context from a list of variable-value paris

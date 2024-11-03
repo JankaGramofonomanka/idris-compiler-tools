@@ -15,7 +15,7 @@ import Control.Monad.Either
 import Data.Some
 import Data.DList
 import Data.Attached
-import Data.The
+import Data.Singleton
 import Data.Typed
 
 import LNG.BuiltIns
@@ -298,11 +298,11 @@ mutual
   compileEqComparison lblIn eqType lhs rhs = case typeOf {f = Expr} lhs of
 
     -- Compile the operands and apply the comparison operator
-    MkThe TInt    => compileBinOp lblIn I1 (ICMP $ cmpKind eqType) lhs rhs
-    MkThe TBool   => compileBinOp lblIn I1 (ICMP $ cmpKind eqType) lhs rhs
+    Val TInt    => compileBinOp lblIn I1 (ICMP $ cmpKind eqType) lhs rhs
+    Val TBool   => compileBinOp lblIn I1 (ICMP $ cmpKind eqType) lhs rhs
 
     -- Compile the operands and call the built-in comparison function
-    MkThe TString => do
+    Val TString => do
       -- Compile the operands
       ((lblOut ** g), [lhs', rhs']) <- compileExprs lblIn [lhs, rhs]
 
@@ -318,7 +318,7 @@ mutual
       pure ((lblOut ** g'), Var reg)
 
     -- Impossibnle: comapring voids
-    MkThe TVoid   => let
+    Val TVoid   => let
 
         -- A proof that `void`s are not comparable
         0 impossiblePrf : (CompM' ((lblOut ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)), LLValue I1) = ())

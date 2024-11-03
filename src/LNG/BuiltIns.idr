@@ -7,7 +7,7 @@ import Control.Monad.State
 import Data.SortedMap
 
 import Data.DList
-import Data.The
+import Data.Singleton
 import LNG.Parsed as LNG
 import LNG.TypeChecked as TC
 import LLVM
@@ -58,27 +58,27 @@ namespace Compile
 
   -- LLVM function constatns
   llPrintInt : Const $ FunType Void [I32]
-  llPrintInt = (MkConst (MkThe $ FunType Void [I32]) (MkConstId printInt'))
+  llPrintInt = (MkConst (Val $ FunType Void [I32]) (MkConstId printInt'))
 
   llPrintString : Const $ FunType Void [Ptr I8]
-  llPrintString = (MkConst (MkThe $ FunType Void [Ptr I8]) (MkConstId printString'))
+  llPrintString = (MkConst (Val $ FunType Void [Ptr I8]) (MkConstId printString'))
 
   llError : Const $ FunType Void []
-  llError = (MkConst (MkThe $ FunType Void []) (MkConstId error'))
+  llError = (MkConst (Val $ FunType Void []) (MkConstId error'))
 
   llReadInt :  Const $ FunType I32 []
-  llReadInt = (MkConst (MkThe $ FunType I32 []) (MkConstId readInt'))
+  llReadInt = (MkConst (Val $ FunType I32 []) (MkConstId readInt'))
 
   llReadString : Const $ FunType (Ptr I8) []
-  llReadString = (MkConst (MkThe $ FunType (Ptr I8) []) (MkConstId readString'))
+  llReadString = (MkConst (Val $ FunType (Ptr I8) []) (MkConstId readString'))
 
   export
   strconcat : Const $ FunType (Ptr I8) [Ptr I8, Ptr I8]
-  strconcat = MkConst (MkThe $ FunType (Ptr I8) [Ptr I8, Ptr I8]) (MkConstId strconcat')
+  strconcat = MkConst (Val $ FunType (Ptr I8) [Ptr I8, Ptr I8]) (MkConstId strconcat')
 
   export
   strcompare : Const $ FunType I1 [Ptr I8, Ptr I8]
-  strcompare = MkConst (MkThe $ FunType I1 [Ptr I8, Ptr I8]) (MkConstId strcompare')
+  strcompare = MkConst (Val $ FunType I1 [Ptr I8, Ptr I8]) (MkConstId strcompare')
 
   export
   builtIns : List (t ** ts ** (Fun t ts, FunVal t ts))

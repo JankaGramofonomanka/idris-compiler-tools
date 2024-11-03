@@ -41,7 +41,8 @@ import Data.Attached
 import Data.Doc
 import Data.DList
 import Data.DSum
-import Data.The
+import Data.Singleton
+import Data.Singleton.Extra
 import Data.Typed
 
 import LNG.TypeChecked
@@ -598,13 +599,13 @@ mutual
       ||| @ lbls the input labels of the expression
       ||| @ vals the values attached to edges
       phiFromDList
-         : The t
+         : Singleton t
         -> (lbls : List Label)
         -> (vals : DList (:~: (LLValue t)) (lbls ~~> lbl))
         -> PhiExpr lbls t
-      phiFromDList (MkThe t) Nil Nil = Phi t Nil
-      phiFromDList theT (lbl :: lbls) (val :: vals)
-        = addInput lbl (detach val) (phiFromDList theT lbls vals)
+      phiFromDList (Val t) Nil Nil = Phi t Nil
+      phiFromDList t (lbl :: lbls) (val :: vals)
+        = addInput lbl (detach val) (phiFromDList t lbls vals)
 
       ||| Get a value of a variable from a variable context
       ||| If the variable is not in the context, throws an "impossible" error.
@@ -651,7 +652,7 @@ mutual
           vals <- dtraverse (traverse (getVal var)) ctxs
 
           -- Convert the list to a phi expression
-          let vals' = phiFromDList (map GetLLType $ typeOf var) lbls vals
+          let vals' = phiFromDList (GetLLType <$> typeOf var) lbls vals
 
           -- Construct the phi assignment and the comment
           pure $ (AssignPhi reg vals', Just $ prt var)
