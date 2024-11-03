@@ -73,7 +73,7 @@ namespace Vertex
 
 namespace Graph
 
-  infix 6 ~>, <~
+  export infix 6 ~>, <~
 
   ||| An edge between vertices
   ||| @ a the type of vertex identifiers
@@ -118,7 +118,7 @@ namespace Graph
   Single from to = Defined [from ~> to]
 
 
-  infix 8 ~~>, ~>>, <~~, <<~
+  export infix 8 ~~>, ~>>, <~~, <<~
 
   ||| A *collection* of `vs` by `v`
   public export

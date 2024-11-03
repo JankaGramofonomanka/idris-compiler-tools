@@ -11,7 +11,7 @@ export
 data Attached : (x : t) -> Type -> Type where
   Attach : (0 x : t) -> (y : t') -> Attached x t'
 
-infixr 6 :~:
+export infixr 6 :~:
 ||| An alias for `Attached`
 public export
 (:~:) : (x : t) -> Type -> Type

@@ -11,7 +11,7 @@ deleteAll x (x' :: xs) = if x == x' then deleteAll x xs else x' :: deleteAll x x
 
 
 
-infixr 7 +++
+export infixr 7 +++
 ||| Concatenate a non-empty list with a list
 public export
 (+++) : List1 a -> List a -> List1 a

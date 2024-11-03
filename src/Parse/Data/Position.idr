@@ -17,8 +17,8 @@ export
 between : Position -> Position -> Pos
 between left right = MkPos { from = left, to = right }
 
-prefix 10 ^
-infix 1 |^
+export prefix 10 ^
+export infix 1 |^
 public export
 data (^) : Type -> Type where
   (|^) : Pos -> a -> ^ a
@@ -31,7 +31,7 @@ export
 unPos : ^a -> a
 unPos (p |^ x) = x
 
-prefix 10 ^^
+export prefix 10 ^^
 export
 (^^) : ^a -> a
 (^^) = unPos

@@ -101,9 +101,9 @@ emptyCBlock {lbl} = MkBB { theLabel = MkThe lbl, phis = (), body = [], term = ()
 
 
 
-infixr 7 <++, <+, <+:, <:
-infixr 6 <+|, |+>, |++>, |+:>, |++:>
-infixr 5 +|, ++|
+export infixr 7 <++, <+, <+:, <:
+export infixr 6 <+|, |+>, |++>, |+:>, |++:>
+export infixr 5 +|, ++|
 
 ||| Concatenates two blocks
 ||| Appends a postfix with undefine inputs to a prefix with undefined outputs.
