@@ -2,10 +2,11 @@
 module LNG.TypeChecked.Render
 
 import Data.String
-import Data.DList
+
 import Data.Doc
+
+import Data.DList
 import LNG.TypeChecked
-import Utils
 
 ||| Puts a string in parentheses
 prnthss : String -> String
@@ -75,7 +76,7 @@ export
 implementation DocItem (Expr t) where
   prt (Lit lit) = prt lit
   prt (Var var) = prt var
-  prt (BinOperation op lhs rhs) = mkSentence [prnthss (prt lhs), prt op @{infixx}, prnthss (prt rhs)]
+  prt (BinOperation op lhs rhs) = unwords [prnthss (prt lhs), prt op @{infixx}, prnthss (prt rhs)]
   prt (UnOperation op expr) = prt op @{prefixx} ++ prnthss (prt expr)
   prt (Call fun args) = prt fun ++ prnthss (concat . intersperse ", " $ undmap prt args)
 
@@ -84,12 +85,12 @@ implementation DocItem (Instr rt k) where
 
   prt instr = case instr of
     (Block instrs) => concat . intersperse "\n" $ ["{"] ++ map ("    " ++) (prt' instrs) ++ ["}"]
-    (Assign var expr) => mkSentence [prt var, "=", prt expr]
+    (Assign var expr) => unwords [prt var, "=", prt expr]
     (Exec expr) => prt expr
-    (If cond thn) => mkSentence ["if" ++ prnthss (prt cond), prt thn]
-    (IfElse cond thn els) => mkSentence ["if" ++ prnthss (prt cond), prt thn, "else", prt els]
-    (While cond body) => mkSentence ["while" ++ prnthss (prt cond), prt body]
-    (Return expr) => mkSentence ["return", prt expr]
+    (If cond thn) => unwords ["if" ++ prnthss (prt cond), prt thn]
+    (IfElse cond thn els) => unwords ["if" ++ prnthss (prt cond), prt thn, "else", prt els]
+    (While cond body) => unwords ["while" ++ prnthss (prt cond), prt body]
+    (Return expr) => unwords ["return", prt expr]
     RetVoid => "return"
 
     where

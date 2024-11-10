@@ -32,6 +32,7 @@
 module Compile.Instr
 
 import Data.List
+import Data.String
 
 import Control.Monad.State
 import Control.Monad.Either
@@ -61,8 +62,6 @@ import Compile.Utils
 
 import CFG
 import Theory
-
-import Utils
 
 {-
 TODO: Figure out how to reduce the number of attachments and detachments
@@ -248,7 +247,7 @@ mutual
     (dat, val) <- compileExpr' lblIn ctx expr
 
     pure $ { -- add a comment marking the assignment and print the instruction
-             cfg $= omap ((<: mkSentence [prt var, "~", prt val]) . (<: prt instr))
+             cfg $= omap ((<: unwords [prt var, "~", prt val]) . (<: prt instr))
              -- Assign the value of that expressions to the variable in the
              -- variable context
            , ctx $= map (insert var val)

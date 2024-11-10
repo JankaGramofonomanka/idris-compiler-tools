@@ -1,6 +1,9 @@
 module TypeCheck.Data.Error
 
+import Data.String
+
 import Data.Doc
+
 import LLVM.Render
 import LNG.Parsed               as LNG
 import LNG.Parsed.Render
@@ -8,7 +11,6 @@ import LNG.TypeChecked          as TC
 import LNG.TypeChecked.Render
 import Parse.Data.Position
 import TypeCheck.Data.Context
-import Utils
 
 data Error'
   = NoSuchVariable Ident
@@ -75,35 +77,35 @@ headerAndContents : String -> List String -> Doc
 headerAndContents header contents = MkDoc { lines = [Right (simple header), Left (fromLines $ map simple contents)] }
 
 implementation Document Error' where
-  print (NoSuchVariable id) = fromLines [simple $ mkSentence ["no such variable:", prt id @{ticks}]]
-  print (NoSuchFunction id) = fromLines [simple $ mkSentence ["no such function:", prt id @{ticks}]]
+  print (NoSuchVariable id) = fromLines [simple $ unwords ["no such variable:", prt id @{ticks}]]
+  print (NoSuchFunction id) = fromLines [simple $ unwords ["no such function:", prt id @{ticks}]]
   print (TypeError expected actual)
     = headerAndContents "type error:"
-                        [ mkSentence ["expected:", prt expected @{ticks}]
-                        , mkSentence ["actual:  ", prt actual   @{ticks}]
+                        [ unwords ["expected:", prt expected @{ticks}]
+                        , unwords ["actual:  ", prt actual   @{ticks}]
                         ]
 
   print (BinOpTypeError op lt rt)
-    = headerAndContents (mkSentence ["operator", prt op @{ticks}, "does not support the following operand types:"])
-                        [ mkSentence ["left  operand type:", prt lt @{ticks}]
-                        , mkSentence ["right operand type:", prt rt @{ticks}]
+    = headerAndContents (unwords ["operator", prt op @{ticks}, "does not support the following operand types:"])
+                        [ unwords ["left  operand type:", prt lt @{ticks}]
+                        , unwords ["right operand type:", prt rt @{ticks}]
                         ]
-            
+
   print (UnOpTypeError op t)
-    = fromLines [simple $ mkSentence ["operator", prt op @{ticks}, "does not support the following operand type:", prt t @{ticks}]]
+    = fromLines [simple $ unwords ["operator", prt op @{ticks}, "does not support the following operand type:", prt t @{ticks}]]
 
   print (NumParamsMismatch expected actual)
-    = fromLines [simple $ mkSentence ["expected", show expected, "parameters, but got", show actual]]
-    
+    = fromLines [simple $ unwords ["expected", show expected, "parameters, but got", show actual]]
+
   print ReturnPrecedingInstructions = fromLines [simple "return instruction preceding other instructinos"]
   print MissingReturnInstr = fromLines [simple "missing return instruction"]
   print NoMainFunction = fromLines [simple "`main` function not found"]
   print (VariableAlreadyDeclared id declaredAt)
-    = fromLines [simple $ mkSentence ["variable", prt id @{ticks}, "already declared at", prt declaredAt]]
+    = fromLines [simple $ unwords ["variable", prt id @{ticks}, "already declared at", prt declaredAt]]
 
   print (FunctionAlreadyDefined id declaredAt) = case declaredAt of
-    DefinedAt p => fromLines [simple $ mkSentence ["function", prt id @{ticks}, "already declared at", prt p]]
-    BuiltIn => fromLines [simple $ mkSentence ["cannot redefine the built-in function", prt id @{ticks}]]
+    DefinedAt p => fromLines [simple $ unwords ["function", prt id @{ticks}, "already declared at", prt p]]
+    BuiltIn => fromLines [simple $ unwords ["cannot redefine the built-in function", prt id @{ticks}]]
 
 export
 implementation Document Error where

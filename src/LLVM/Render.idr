@@ -1,6 +1,7 @@
 ||| A module that defines how to render the LLVM representation to text format
 module LLVM.Render
 
+import Data.String
 import Data.Vect
 
 import CFG
@@ -10,7 +11,6 @@ import Data.List
 import Data.Singleton
 import Data.Typed
 import LLVM
-import Utils
 
 ||| Separate the elements of a list by commas
 prtItems : List String -> String
@@ -22,7 +22,7 @@ prtArgs l = "(" ++ prtItems l ++ ")"
 
 ||| Print a function name with its arguments/parameters in parentheses
 prtFun : String -> String -> List String -> String
-prtFun retTy fun args = mkSentence [retTy, fun ++ prtArgs args]
+prtFun retTy fun args = unwords [retTy, fun ++ prtArgs args]
 
 export
 implementation {0 x : t} -> DocItem t => DocItem (Singleton x) where
@@ -141,26 +141,26 @@ export
 implementation DocItem (LLExpr t) where
 
   prt (BinOperation op lhs rhs)
-    = mkSentence [prt op, prt (resType op), prt lhs ++ ",", prt rhs]
+    = unwords [prt op, prt (resType op), prt lhs ++ ",", prt rhs]
 
   prt (Call funPtr params)
-    = mkSentence ["call", prtFun (prt $ retTypeOf funPtr) (prt funPtr) (undmap (prt @{typed}) params)]
+    = unwords ["call", prtFun (prt $ retTypeOf funPtr) (prt funPtr) (undmap (prt @{typed}) params)]
 
   prt (GetElementPtr {t, k} arr idx1 idx2)
-    = mkSentence ["getelementptr", prtItems [prt (Array t k), prt @{typed} arr, prt @{typed}idx1, prt @{typed} idx2 ]]
+    = unwords ["getelementptr", prtItems [prt (Array t k), prt @{typed} arr, prt @{typed}idx1, prt @{typed} idx2 ]]
 
   prt (ICMP cmp lhs rhs)
-    = mkSentence ["icmp", prt cmp, prt @{typed} lhs ++ ",", prt rhs]
+    = unwords ["icmp", prt cmp, prt @{typed} lhs ++ ",", prt rhs]
 
   prt (Load ptr)
     = let ptrT = typeOf ptr
-      in mkSentence ["load", prt (unPtr ptrT) ++ ",", prt @{typed} ptr]
+      in unwords ["load", prt (unPtr ptrT) ++ ",", prt @{typed} ptr]
 
-  prt (BitCast val t) = mkSentence ["bitcast", prt @{typed} val, "to", prt t]
+  prt (BitCast val t) = unwords ["bitcast", prt @{typed} val, "to", prt t]
 
 export
 implementation DocItem (PhiExpr ins t) where
-  prt (Phi t l) = mkSentence $ ["phi", prt t, prtItems (map prtPair l)] where
+  prt (Phi t l) = unwords $ ["phi", prt t, prtItems (map prtPair l)] where
     prtPair : (Label, LLValue t) -> String
     prtPair (lbl, val) = "[" ++ prt val ++ ", " ++ prt lbl ++ "]"
 
@@ -170,21 +170,21 @@ implementation DocItem STInstr where
   -- TODO: the assignments of `void` values should be prevented by the structure of `LLVM`
   prt (Assign reg expr) = case (typeOf {f = LLExpr} expr) of
     Val Void => prt expr
-    Val t    => mkSentence [prt reg, "=", prt expr]
+    Val t    => unwords [prt reg, "=", prt expr]
   prt (Exec expr) = prt expr
-  prt (Store val ptr) = mkSentence ["store", prt val @{typed} ++ ",", prt ptr @{typed}]
+  prt (Store val ptr) = unwords ["store", prt val @{typed} ++ ",", prt ptr @{typed}]
   prt Empty = ""
 
 export
 implementation DocItem (CFInstr rt outs) where
-  prt (Branch lbl) = mkSentence ["br", prt @{branch} lbl]
-  prt (CondBranch cond thn els) = mkSentence ["br", prtItems [prt @{typed} cond, prt @{branch} thn, prt @{branch} els]]
-  prt (Ret val) = mkSentence ["ret", prt @{typed} val]
+  prt (Branch lbl) = unwords ["br", prt @{branch} lbl]
+  prt (CondBranch cond thn els) = unwords ["br", prtItems [prt @{typed} cond, prt @{branch} thn, prt @{branch} els]]
+  prt (Ret val) = unwords ["ret", prt @{typed} val]
   prt RetVoid = "ret void"
 
 export
 implementation DocItem (PhiInstr ins) where
-  prt (AssignPhi reg phi) = mkSentence [prt reg, "=", prt phi]
+  prt (AssignPhi reg phi) = unwords [prt reg, "=", prt phi]
 
 
 -- BasicBlock -----------------------------------------------------------------
@@ -227,18 +227,18 @@ export
 implementation Document FunDef where
 
   print (MkFunDef { retT, name, params, body }) = let
-      header = simple $ mkSentence ["define", prtFun (prt retT) (prt name) (undmap (prt @{typed}) params), "{"]
+      header = simple $ unwords ["define", prtFun (prt retT) (prt name) (undmap (prt @{typed}) params), "{"]
     in MkDoc { lines = [Right header, Left (print @{cfg} body), Right (simple "}")] }
 
 -- FunDecl --------------------------------------------------------------------
 export
 implementation DocItem FunDecl where
-  prt (MkFunDecl { retT, paramTs, name }) = mkSentence ["declare", prtFun (prt retT) (prt name) (map prt paramTs)]
+  prt (MkFunDecl { retT, paramTs, name }) = unwords ["declare", prtFun (prt retT) (prt name) (map prt paramTs)]
 
 -- ConstDef -------------------------------------------------------------------
 export
 implementation DocItem ConstDef where
-  prt (DefineConst t cst val) = mkSentence [prt cst, "=", "internal", "constant", prt t, prt val]
+  prt (DefineConst t cst val) = unwords [prt cst, "=", "internal", "constant", prt t, prt val]
 
 -- Program --------------------------------------------------------------------
 export

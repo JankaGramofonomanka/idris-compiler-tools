@@ -1,9 +1,10 @@
 module Compile.Data.Error
 
+import Data.String
+
 import Data.Doc
 import LNG.TypeChecked
 import LNG.TypeChecked.Render
-import Utils
 
 ||| An error that can be thrown during the compilation phase
 public export
@@ -23,8 +24,8 @@ implementation Document Error where
 
     where
       print' : Error -> Doc
-      print' (NoSuchVariable var) = fromLines [simple $ mkSentence ["No such variable:", prt var @{ticks}]]
-      print' (NoSuchFunction fun) = fromLines [simple $ mkSentence ["No such function:", prt fun @{ticks}]]
+      print' (NoSuchVariable var) = fromLines [simple $ unwords ["No such variable:", prt var @{ticks}]]
+      print' (NoSuchFunction fun) = fromLines [simple $ unwords ["No such function:", prt fun @{ticks}]]
       print' (Impossible msg)
         = MkDoc
           { lines = [ Right $ simple "Impossible error:"
