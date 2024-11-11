@@ -13,8 +13,6 @@ import Compile.Data.Context
 import Compile.Data.Error
 import Compile.Utils
 
-import Utils
-
 ||| Compile a semantically correct program to LLVM
 export
 compile : LNG.Program -> Either Error LLVM.Program

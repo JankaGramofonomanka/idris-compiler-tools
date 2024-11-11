@@ -20,3 +20,9 @@ type   = "github"
 url    = "git@github.com:JankaGramofonomanka/idris-doc"
 commit = "49f261841292a421af029b61ff6804b1b4f30ee0"
 ipkg   = "doc.ipkg"
+
+[custom.all.misc]
+type   = "github"
+url    = "git@github.com:JankaGramofonomanka/idris-misc.git"
+commit = "9095834baf8ac96e58ef81b21e96ae734e9d1896"
+ipkg   = "misc.ipkg"

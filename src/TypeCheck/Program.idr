@@ -13,16 +13,14 @@ import TypeCheck.Data.TypeCheckM
 import TypeCheck.FunDef
 import TypeCheck.Utils
 
-import Utils
-
 mkFunMap : List (^LNG.FunDef) -> TypeCheckM FunCTX
 mkFunMap l = foldlM declare FunCTX.empty l where
-  
+
   declare : FunCTX -> ^LNG.FunDef -> TypeCheckM FunCTX
   declare ctx (p |^ decl) = do
   let Nothing = FunCTX.lookup (^^decl.funId) ctx
               | Just (p, _, _) => throwError $ fuctionAlreadyDefined decl.funId p
-  
+
   pure (FunCTX.declare (tc' decl.retType) (map (tc' . fst) $ ^^decl.params) decl.funId ctx)
 
 
@@ -31,12 +29,12 @@ assertMain : (funcsPos : Pos)
           -> TypeCheckM ()
 assertMain p Nil = throwError $ noMainFunction p
 assertMain p ((funPos |^ decl) :: funcs) = case ^^decl.funId of
-  
+
   MkId "main" => do
     assertInt decl.retType
     assertEmptyParams decl.params
     pure ()
-  
+
   _ => do
     assertMain p funcs
     pure ()

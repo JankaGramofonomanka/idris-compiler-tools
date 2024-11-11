@@ -14,8 +14,6 @@ import LNG.TypeChecked.Render
 import Compile.Utils
 import CFG
 
-import Utils
-
 -- TODO: `MbPhis Undefined = List [t ** Variable t]` - list of variables that need a phi assignment
 
 ||| Constructs the type of the phi assignment list of a `CBlock` based on its

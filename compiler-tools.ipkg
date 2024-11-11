@@ -19,6 +19,7 @@ depends = base >= 0.5.1
         , elab-util
         , dependent-map
         , doc
+        , misc
 
 -- modules to install
 modules = Compile.Data.Context.Utils
@@ -33,9 +34,6 @@ modules = Compile.Data.Context.Utils
         , Compile.Program
         , Compile.Utils
         , Data.Attached
-        , Data.DList
-        , Data.Singleton.Extra
-        , Data.Typed
         , LLVM.Render
         , LNG.Parsed.Render
         , LNG.TypeChecked.Render
@@ -49,9 +47,6 @@ modules = Compile.Data.Context.Utils
         , Parse.Combinators
         , Parse.Parse
         , Parse.Tokenize
-        , Prop.Elem.Eq
-        , Prop.Elem
-        , Prop.Forall
         , TypeCheck.Data.Context
         , TypeCheck.Data.Error
         , TypeCheck.Data.TypeCheckM
@@ -64,9 +59,7 @@ modules = Compile.Data.Context.Utils
         , Compile
         , LLVM
         , Main
-        , Theory
         , TypeCheck
-        , Utils
 
 
 -- main file (i.e. file to load at REPL)

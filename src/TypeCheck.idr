@@ -3,6 +3,8 @@ module TypeCheck
 import Control.Monad.Either
 import Control.Monad.State
 
+import Extra
+
 import LNG.BuiltIns
 import LNG.Parsed                 as LNG
 import LNG.TypeChecked            as TC
@@ -10,8 +12,6 @@ import TypeCheck.Data.Context
 import TypeCheck.Data.Error
 import TypeCheck.Data.TypeCheckM
 import TypeCheck.Program
-
-import Utils
 
 ||| Check the semantic correctness of a syntactically correct program
 export

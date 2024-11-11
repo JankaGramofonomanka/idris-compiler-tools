@@ -9,7 +9,6 @@ import Data.Singleton
 import Data.Singleton.Extra
 import Data.Some
 import Data.Typed
-import Utils
 import CFG
 
 %language ElabReflection

@@ -21,8 +21,6 @@ import Compile.Data.Error
 import Compile.Utils
 import CFG
 
-import Utils
-
 ||| The state of the compiler
 public export
 record CompState where

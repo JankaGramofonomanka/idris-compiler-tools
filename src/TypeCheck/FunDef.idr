@@ -16,8 +16,6 @@ import TypeCheck.Data.TypeCheckM
 import TypeCheck.Instr
 import TypeCheck.Utils
 
-import Utils
-
 mkVar' : (^LNG.LNGType, ^Ident) -> (t ** TC.Variable t)
 mkVar' (t, id) = (tc' t ** mkVar (tc' t) (^^id))
 
