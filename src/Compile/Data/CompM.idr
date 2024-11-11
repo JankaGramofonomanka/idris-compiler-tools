@@ -7,8 +7,6 @@ import Data.SortedMap
 import Data.Vect
 
 import Data.Attached
-import Data.GCompare
-import Data.GEq
 import Data.Singleton
 import Data.Typed
 

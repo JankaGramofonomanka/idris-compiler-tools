@@ -12,7 +12,7 @@ ipkg = "compiler-tools-test.ipkg"
 [custom.all.dependent-map]
 type   = "github"
 url    = "git@github.com:JankaGramofonomanka/idris-dependent-map"
-commit = "a2c396e9e4b19643517becc4fabedea9b144c6cf"
+commit = "45b7da745313a4ba15ecf48c572f7b2559e204f2"
 ipkg   = "dependent-map.ipkg"
 
 [custom.all.doc]
@@ -24,5 +24,11 @@ ipkg   = "doc.ipkg"
 [custom.all.misc]
 type   = "github"
 url    = "git@github.com:JankaGramofonomanka/idris-misc.git"
-commit = "9095834baf8ac96e58ef81b21e96ae734e9d1896"
+commit = "90e4a3c3c0b376c29ba89522b0568a66f1857800"
 ipkg   = "misc.ipkg"
+
+[custom.all.dtypes]
+type   = "github"
+url    = "git@github.com:JankaGramofonomanka/idris-dtypes.git"
+commit = "11dd08baacdf98df28aa6d034bf6ff30976f298d"
+ipkg   = "dtypes.ipkg"

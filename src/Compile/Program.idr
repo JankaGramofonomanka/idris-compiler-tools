@@ -6,7 +6,6 @@ import Data.SortedMap
 
 import Data.DList
 import Data.DMap
-import Data.GCompare
 import Data.Singleton
 import LNG.BuiltIns
 import LNG.TypeChecked as LNG

@@ -5,8 +5,8 @@ module LNG.TypeChecked
 import Derive.Prelude
 
 import Data.DList
-import Data.GCompare
-import Data.GEq
+import Data.DOrd
+import Data.DEq
 import Data.Singleton
 import Data.Typed
 
@@ -28,41 +28,41 @@ TBool `lngeq` TBool = Just Refl
 TVoid `lngeq` TVoid = Just Refl
 _     `lngeq` _     = Nothing
 
-||| Comparison of LNG types in terms of the `GOrdering` type
-lngcompare : (t, t' : LNGType) -> GOrdering t t'
+||| Comparison of LNG types in terms of the `DOrdering` type
+lngcompare : (t, t' : LNGType) -> DOrdering t t'
 
-lngcompare TInt  TInt     = GEQ
-lngcompare TInt  TBool    = GLT
-lngcompare TInt  TString  = GLT
-lngcompare TInt  TVoid    = GLT
+lngcompare TInt  TInt     = DEQ
+lngcompare TInt  TBool    = DLT
+lngcompare TInt  TString  = DLT
+lngcompare TInt  TVoid    = DLT
 
-lngcompare TBool TInt     = GGT
-lngcompare TBool TBool    = GEQ
-lngcompare TBool TString  = GLT
-lngcompare TBool TVoid    = GLT
+lngcompare TBool TInt     = DGT
+lngcompare TBool TBool    = DEQ
+lngcompare TBool TString  = DLT
+lngcompare TBool TVoid    = DLT
 
-lngcompare TString TInt     = GGT
-lngcompare TString TBool    = GGT
-lngcompare TString TString  = GEQ
-lngcompare TString TVoid    = GLT
+lngcompare TString TInt     = DGT
+lngcompare TString TBool    = DGT
+lngcompare TString TString  = DEQ
+lngcompare TString TVoid    = DLT
 
-lngcompare TVoid TInt     = GGT
-lngcompare TVoid TBool    = GGT
-lngcompare TVoid TString  = GGT
-lngcompare TVoid TVoid    = GEQ
+lngcompare TVoid TInt     = DGT
+lngcompare TVoid TBool    = DGT
+lngcompare TVoid TString  = DGT
+lngcompare TVoid TVoid    = DEQ
 
-||| Comparison of lists of LNG types in terms of `GOrdering`
-lngcompare' : (ts, ts' : List LNGType) -> GOrdering ts ts'
-lngcompare' Nil Nil = GEQ
+||| Comparison of lists of LNG types in terms of `DOrdering`
+lngcompare' : (ts, ts' : List LNGType) -> DOrdering ts ts'
+lngcompare' Nil Nil = DEQ
 lngcompare' (t :: ts) (t' :: ts') = case lngcompare t t' of
-  GLT => GLT
-  GGT => GGT
-  GEQ => case lngcompare' ts ts' of
-    GLT => GLT
-    GGT => GGT
-    GEQ => GEQ
-lngcompare' Nil (t' :: ts') = GLT
-lngcompare' (t :: ts) Nil = GGT
+  DLT => DLT
+  DGT => DGT
+  DEQ => case lngcompare' ts ts' of
+    DLT => DLT
+    DGT => DGT
+    DEQ => DEQ
+lngcompare' Nil (t' :: ts') = DLT
+lngcompare' (t :: ts) Nil = DGT
 
 public export
 data EqComparable : LNGType -> Type where
@@ -185,17 +185,17 @@ data Variable : (t : LNGType) -> Type where
   MkVar : (t : LNGType) -> (varId : VarId t) -> Variable t
 
 export
-implementation GEq Variable where
-  MkVar t1 (MkVarId id1) `geq` MkVar t2 (MkVarId id2) = case t1 `lngeq` t2 of
+implementation DEq Variable where
+  MkVar t1 (MkVarId id1) `deq` MkVar t2 (MkVarId id2) = case t1 `lngeq` t2 of
     Just prf => if id1 == id2 then Just prf else Nothing
     Nothing  => Nothing
 
 export
-implementation GCompare Variable where
-  gcompare (MkVar t1 (MkVarId id1)) (MkVar t2 (MkVarId id2)) = case compare id1 id2 of
-    LT => GLT
+implementation DOrd Variable where
+  dcompare (MkVar t1 (MkVarId id1)) (MkVar t2 (MkVarId id2)) = case compare id1 id2 of
+    LT => DLT
     EQ => lngcompare t1 t2
-    GT => GGT
+    GT => DGT
 
 export
 implementation Typed Variable where
@@ -263,18 +263,18 @@ funeq (MkFun t1 ts1 id1) (MkFun t2 ts2 id2) = case lngeq t1 t2 of
                     in Just Refl
       lngeq' _ _ = Nothing
 
-||| Comparison of function identifiers in terms of `GCompare`
-funcompare : (id1 : Fun t1 ts1) -> (id2 : Fun t2 ts2) -> GOrdering (t1, ts1) (t2, ts2)
+||| Comparison of function identifiers in terms of `DOrd`
+funcompare : (id1 : Fun t1 ts1) -> (id2 : Fun t2 ts2) -> DOrdering (t1, ts1) (t2, ts2)
 funcompare (MkFun t ts (MkFunId id)) (MkFun t' ts' (MkFunId id')) = case compare id id' of
-  LT => GLT
-  GT => GGT
+  LT => DLT
+  GT => DGT
   EQ => case lngcompare t t' of
-    GLT => GLT
-    GGT => GGT
-    GEQ => case lngcompare' ts ts' of
-      GLT => GLT
-      GEQ => GEQ
-      GGT => GGT
+    DLT => DLT
+    DGT => DGT
+    DEQ => case lngcompare' ts ts' of
+      DLT => DLT
+      DEQ => DEQ
+      DGT => DGT
 
 
 ||| An alias for `Fun` parametrized by a tuple instead of two separate parameters
@@ -286,15 +286,15 @@ thm : (t : (LNGType, List LNGType)) -> Fun (fst t) (snd t) = Fun' t
 thm (t, ts) = Refl
 
 export
-implementation GEq Fun' where
-  geq {a, b} k1 k2
+implementation DEq Fun' where
+  deq {a, b} k1 k2
     = rewrite tuple_destruct a
    in rewrite tuple_destruct b
    in funeq (rewrite thm a in k1) (rewrite thm b in k2)
 
 export
-implementation GCompare Fun' where
-  gcompare {a, b} k1 k2
+implementation DOrd Fun' where
+  dcompare {a, b} k1 k2
     = rewrite tuple_destruct a
    in rewrite tuple_destruct b
    in funcompare (rewrite thm a in k1) (rewrite thm b in k2)

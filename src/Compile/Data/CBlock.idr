@@ -3,7 +3,6 @@ module Compile.Data.CBlock
 import Data.Attached
 import Data.Doc
 import Data.DList
-import Data.GCompare
 import Data.Singleton
 
 import LLVM
