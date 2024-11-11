@@ -20,6 +20,7 @@ depends = base >= 0.5.1
         , dependent-map
         , doc
         , misc
+        , dtypes
 
 -- modules to install
 modules = Compile.Data.Context.Utils

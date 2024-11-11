@@ -8,7 +8,6 @@ import Data.DMap
 import Data.DList
 import Data.Doc
 import Data.DSum
-import Data.GCompare
 import Data.Some
 import Data.Singleton
 import Data.Typed

@@ -6,7 +6,6 @@ import Data.Attached
 import Data.DMap
 import Data.DList
 import Data.DSum
-import Data.GCompare
 import Data.Singleton
 import Data.Some
 import Data.Typed
