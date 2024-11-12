@@ -5,7 +5,6 @@ import Control.Monad.Either
 
 import Data.Attached
 import Data.DList
-import Data.DFoldable
 import Data.DFunctor
 import Data.Singleton
 import Data.Singleton.Extra
@@ -65,7 +64,7 @@ compileFunDef func = do
       ctx        = attach entryLabel $ contextify varRegPairs
 
       -- get the parameters of the compiled LLVM function
-      regs       = dmap {f = flip DList ?} snd varRegPairs
+      regs       = dmap snd varRegPairs
       regs'      = decompose regs
 
   -- compile the body of the function
@@ -98,7 +97,7 @@ compileFunDef func = do
 
     ||| Construct a variable context from a list of variable-value paris
     contextify : DList VRPair ts -> VarCTX
-    contextify pairs = dfoldr {f = flip DList ts} insert' empty pairs where
+    contextify pairs = dfoldr insert' empty pairs where
       insert' : VRPair t' -> VarCTX -> VarCTX
       insert' (k, v) = insert k (Var v)
 
