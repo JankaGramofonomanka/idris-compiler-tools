@@ -106,29 +106,13 @@ public export
 I256  : LLType
 I256  = I 256
 
-mutual
-  ||| Returns a proof that the two types are equal when they are,
-  ||| otherwise, returns `Nothing`
-  lleq : (t1, t2 : LLType) -> Maybe (t1 = t2)
-  I n `lleq` I n' = mcong I (nateq n n')
-  Void `lleq` Void = Just Refl
-  Ptr t `lleq` Ptr t' = mcong Ptr (t `lleq` t')
-  Array t n `lleq` Array t' n' = case t `lleq` t' of
-    Just Refl => mcong (Array t) (nateq n n')
-    Nothing   => Nothing
-  FunType t ts `lleq` FunType t' ts' = case t `lleq` t' of
-    Just Refl => mcong (FunType t) (lleq' ts ts')
-    Nothing   => Nothing
-  _ `lleq` _ = Nothing
-
-  ||| Returns a proof that the two lists of types are equal when they are,
-  ||| otherwise, returns `Nothing`
-  lleq' : (ts, ts' : List LLType) -> Maybe (ts = ts')
-  lleq' Nil Nil = Just Refl
-  lleq' (t :: ts) (t' :: ts') = case t `lleq` t' of
-    Just Refl => mcong (t ::) (ts `lleq'` ts')
-    Nothing   => Nothing
-  lleq' _ _ = Nothing
+implementation PEq LLType where
+  I n          `peq` I n'           = mcong I (peq n n')
+  Void         `peq` Void           = Just Refl
+  Ptr t        `peq` Ptr t'         = mcong Ptr (t `peq` t')
+  Array t n    `peq` Array t' n'    = (peq t t' `and` peq n  n')  {f = Array}
+  FunType t ts `peq` FunType t' ts' = (peq t t' `and` peq ts ts') {f = FunType}
+  _            `peq` _              = Nothing
 
 -- Reg, RegId -----------------------------------------------------------------
 ||| A register identifier
@@ -163,7 +147,7 @@ implementation Typed Reg where
 export
 implementation DEq Reg where
   MkReg (Val t) (MkRegId id) `deq` MkReg (Val t') (MkRegId id')
-    = if id == id' then lleq t t' else Nothing
+    = when (id == id') (peq t t')
 
 -- Const, ConstId -------------------------------------------------------------
 ||| A constant identifier
@@ -198,7 +182,7 @@ implementation Typed Const where
 export
 implementation DEq Const where
   MkConst (Val t) (MkConstId id) `deq` MkConst (Val t') (MkConstId id')
-    = if id == id' then lleq t t' else Nothing
+    = when (id == id') (peq t t')
 
 -- LLLiteral ------------------------------------------------------------------
 ||| An LLVM Literal
@@ -228,10 +212,13 @@ implementation Typed LLLiteral where
 
 export
 implementation DEq LLLiteral where
-  ILit {n} lit `deq` ILit {n = n'} lit' = if lit == lit' then I n `lleq` I n' else Nothing
-  CharArrLit {n} chars `deq` CharArrLit {n = n'} chars' = case nateq n n' of
+  ILit {n} lit `deq` ILit {n = n'} lit'
+    = when (lit == lit') (I n `peq` I n')
+
+  CharArrLit {n} chars `deq` CharArrLit {n = n'} chars' = case peq n n' of
     Just Refl => if chars == chars' then Just Refl else Nothing
     Nothing => Nothing
+
   _ `deq` _ = Nothing
 
 -- LLValue --------------------------------------------------------------------
@@ -274,10 +261,10 @@ implementation Typed LLValue where
 
 export
 implementation DEq LLValue where
-  Var reg       `deq` Var reg'       = reg  `deq` reg'
-  Lit i         `deq` Lit i'         = i    `deq` i'
+  Var reg       `deq` Var reg'       = reg `deq` reg'
+  Lit i         `deq` Lit i'         = i   `deq` i'
   ConstPtr cnst `deq` ConstPtr cnst' = mcong Ptr (cnst `deq` cnst')
-  Null (Val t)  `deq` Null (Val t')  = mcong Ptr (t `lleq` t')
+  Null (Val t)  `deq` Null (Val t')  = mcong Ptr (t `peq` t')
   _             `deq` _              = Nothing
 
 ||| An alias for a function pointer type

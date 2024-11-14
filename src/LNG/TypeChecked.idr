@@ -20,49 +20,32 @@ data LNGType = TInt | TBool | TString | TVoid
 
 %runElab derive "LNGType" [Eq, Ord]
 
-||| Returns a proof that the operands are equal when they are,
-||| otherwise, returns `Nothing`
-lngeq : (t1 : LNGType) -> (t2 : LNGType) -> Maybe (t1 = t2)
-TInt  `lngeq` TInt  = Just Refl
-TBool `lngeq` TBool = Just Refl
-TVoid `lngeq` TVoid = Just Refl
-_     `lngeq` _     = Nothing
+implementation PEq LNGType where
+  TInt  `peq` TInt  = Just Refl
+  TBool `peq` TBool = Just Refl
+  TVoid `peq` TVoid = Just Refl
+  _     `peq` _     = Nothing
 
-||| Comparison of LNG types in terms of the `DOrdering` type
-lngcompare : (t, t' : LNGType) -> DOrdering t t'
+implementation POrd LNGType where
+  pcompare TInt  TInt     = DEQ
+  pcompare TInt  TBool    = DLT
+  pcompare TInt  TString  = DLT
+  pcompare TInt  TVoid    = DLT
 
-lngcompare TInt  TInt     = DEQ
-lngcompare TInt  TBool    = DLT
-lngcompare TInt  TString  = DLT
-lngcompare TInt  TVoid    = DLT
+  pcompare TBool TInt     = DGT
+  pcompare TBool TBool    = DEQ
+  pcompare TBool TString  = DLT
+  pcompare TBool TVoid    = DLT
 
-lngcompare TBool TInt     = DGT
-lngcompare TBool TBool    = DEQ
-lngcompare TBool TString  = DLT
-lngcompare TBool TVoid    = DLT
+  pcompare TString TInt     = DGT
+  pcompare TString TBool    = DGT
+  pcompare TString TString  = DEQ
+  pcompare TString TVoid    = DLT
 
-lngcompare TString TInt     = DGT
-lngcompare TString TBool    = DGT
-lngcompare TString TString  = DEQ
-lngcompare TString TVoid    = DLT
-
-lngcompare TVoid TInt     = DGT
-lngcompare TVoid TBool    = DGT
-lngcompare TVoid TString  = DGT
-lngcompare TVoid TVoid    = DEQ
-
-||| Comparison of lists of LNG types in terms of `DOrdering`
-lngcompare' : (ts, ts' : List LNGType) -> DOrdering ts ts'
-lngcompare' Nil Nil = DEQ
-lngcompare' (t :: ts) (t' :: ts') = case lngcompare t t' of
-  DLT => DLT
-  DGT => DGT
-  DEQ => case lngcompare' ts ts' of
-    DLT => DLT
-    DGT => DGT
-    DEQ => DEQ
-lngcompare' Nil (t' :: ts') = DLT
-lngcompare' (t :: ts) Nil = DGT
+  pcompare TVoid TInt     = DGT
+  pcompare TVoid TBool    = DGT
+  pcompare TVoid TString  = DGT
+  pcompare TVoid TVoid    = DEQ
 
 public export
 data EqComparable : LNGType -> Type where
@@ -186,16 +169,13 @@ data Variable : (t : LNGType) -> Type where
 
 export
 implementation DEq Variable where
-  MkVar t1 (MkVarId id1) `deq` MkVar t2 (MkVarId id2) = case t1 `lngeq` t2 of
-    Just prf => if id1 == id2 then Just prf else Nothing
-    Nothing  => Nothing
+  MkVar t1 (MkVarId id1) `deq` MkVar t2 (MkVarId id2)
+    = peq t1 t2 `butOnlyWhen` id1 == id2
 
 export
 implementation DOrd Variable where
-  dcompare (MkVar t1 (MkVarId id1)) (MkVar t2 (MkVarId id2)) = case compare id1 id2 of
-    LT => DLT
-    EQ => lngcompare t1 t2
-    GT => DGT
+  dcompare (MkVar t1 (MkVarId id1)) (MkVar t2 (MkVarId id2))
+    = compare id1 id2 `precedes'` pcompare t1 t2
 
 export
 implementation Typed Variable where
@@ -243,39 +223,13 @@ typeOfFun (MkFun t ts id) = Val (t, ts)
 ||| If the operands are equal, returns a proof that they are, otherwise,
 ||| returns `Nothing`
 funeq : (id1 : Fun t1 ts1) -> (id2 : Fun t2 ts2) -> Maybe ((t1, ts1) = (t2, ts2))
-funeq (MkFun t1 ts1 id1) (MkFun t2 ts2 id2) = case lngeq t1 t2 of
-    Nothing   => Nothing
-    Just tprf => case lngeq' ts1 ts2 of
-      Nothing     => Nothing
-      Just tsprf  => rewrite tprf
-                  in rewrite tsprf
-                  in Just Refl
-
-    where
-      lngeq' : (xs : List LNGType) -> (ys : List LNGType) -> Maybe (xs = ys)
-      lngeq' Nil Nil = Just Refl
-      lngeq' (x :: xs) (y :: ys) = case lngeq x y of
-        Nothing => Nothing
-        Just prf => case lngeq' xs ys of
-          Nothing => Nothing
-          Just prf' => rewrite prf
-                    in rewrite prf'
-                    in Just Refl
-      lngeq' _ _ = Nothing
+-- TODO why no id comaprison?
+funeq (MkFun t1 ts1 id1) (MkFun t2 ts2 id2) = peq (t1, ts1) (t2, ts2)
 
 ||| Comparison of function identifiers in terms of `DOrd`
 funcompare : (id1 : Fun t1 ts1) -> (id2 : Fun t2 ts2) -> DOrdering (t1, ts1) (t2, ts2)
-funcompare (MkFun t ts (MkFunId id)) (MkFun t' ts' (MkFunId id')) = case compare id id' of
-  LT => DLT
-  GT => DGT
-  EQ => case lngcompare t t' of
-    DLT => DLT
-    DGT => DGT
-    DEQ => case lngcompare' ts ts' of
-      DLT => DLT
-      DEQ => DEQ
-      DGT => DGT
-
+funcompare (MkFun t ts (MkFunId id)) (MkFun t' ts' (MkFunId id'))
+  = compare id id' `precedes'` pcompare (t, ts) (t', ts')
 
 ||| An alias for `Fun` parametrized by a tuple instead of two separate parameters
 public export
@@ -287,23 +241,15 @@ thm (t, ts) = Refl
 
 export
 implementation DEq Fun' where
-  deq {a, b} k1 k2
-    = rewrite tuple_destruct a
-   in rewrite tuple_destruct b
-   in funeq (rewrite thm a in k1) (rewrite thm b in k2)
+  deq {a = (t1, ts1), b = (t2, ts2)} fun1 fun2 = funeq fun1 fun2
 
 export
 implementation DOrd Fun' where
-  dcompare {a, b} k1 k2
-    = rewrite tuple_destruct a
-   in rewrite tuple_destruct b
-   in funcompare (rewrite thm a in k1) (rewrite thm b in k2)
+  dcompare {a = (t1, ts1), b = (t2, ts2)} fun1 fun2 = funcompare fun1 fun2
 
 export
 implementation Typed Fun' where
-  typeOf {x} fun
-    = rewrite tuple_destruct x
-   in typeOfFun (rewrite thm x in fun)
+  typeOf {x = (t1, t2)} fun = typeOfFun fun
 
 ||| An LNG expression
 public export
