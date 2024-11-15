@@ -24,7 +24,7 @@ typeCheckFunDecl : ^LNG.FunDef -> TypeCheckM TC.FunDef
 typeCheckFunDecl (_ |^ funDecl) = do
 
   let retType = tc' funDecl.retType
-  let (paramTypes ** paramIds) = dunzipWith mkVar' (^^funDecl.params)
+  let (paramTypes ** paramIds) = unzipParamsWith mkVar' (^^funDecl.params)
   let funId = MkFun retType paramTypes $ mkFunId (^^funDecl.funId)
 
   let initCtx = foldr (uncurry $ VarCTX.declare . tc') empty (^^funDecl.params)

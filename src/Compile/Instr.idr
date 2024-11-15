@@ -146,8 +146,8 @@ ifology' lblIn ctx expr lblT lblF = do
   (ctx, (outsT ** outsF ** cfg)) <- runStateT (detach ctx) $ ifology lblIn expr lblT lblF
 
   -- Attatch the context to the output edges of the resultingh graph
-  let ctxsT = replicate (outsT ~~> lblT) (`attach` ctx)
-      ctxsF = replicate (outsF ~~> lblF) (`attach` ctx)
+  let ctxsT = dmapList (`attach` ctx) (outsT ~~> lblT)
+      ctxsF = dmapList (`attach` ctx) (outsF ~~> lblF)
 
   -- Return the graph, its outputs and output contexts
   pure $ MkDataXD2 { outsT, outsF, cfg, ctxsT, ctxsF }
