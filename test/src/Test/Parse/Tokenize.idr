@@ -133,7 +133,7 @@ namespace Ident
   singleChar
     = test "identifiers can consist one character"
     $ assertTokenizeResultEq "x" [Id "x"]
-  
+
   export
   tests : List Test
   tests
@@ -161,27 +161,27 @@ namespace Whitespace
   spaces
     = test "words separated by spaces are parsed as two tokens"
     $ assertTokenizeResultEq "int x" [Ty TokInt, Id "x"]
-  
+
   newlines : Test
   newlines
     = test "words separated by newlines are parsed as two tokens"
     $ assertTokenizeResultEq "{\n}" [Br LeftCurlyBrace, Br RightCurlyBrace]
-  
+
   newlinesAndSpaces : Test
   newlinesAndSpaces
     = test "words separated by newlines and spaces are parsed as two tokens"
     $ assertTokenizeResultEq "{ \n }" [Br LeftCurlyBrace, Br RightCurlyBrace]
-  
+
   brackets : Test
   brackets
     = test "brackets don't require whitespace"
     $ assertTokenizeResultEq "(x)" [Br LeftBracket, Id "x", Br RightBracket]
-  
+
   semicolon : Test
   semicolon
     = test "semicolon doesn't require whitespace"
     $ assertTokenizeResultEq "return;" [Kw Return, Sp Semicolon]
-  
+
   operators : Test
   operators
     = test "operators don't require whitespace"
@@ -215,5 +215,7 @@ export
 main : IO ()
 main = do
   putStrLn "Testing `Parse.Tokenize`"
-  success <- runTests allTests
+  True <- runTests allTests
+        | False => assert_total (idris_crash "tests failed")
+
   pure ()
