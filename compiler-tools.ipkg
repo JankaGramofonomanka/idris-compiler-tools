@@ -21,6 +21,7 @@ depends = base >= 0.5.1
         , doc
         , misc
         , dtypes
+        , theory
 
 -- modules to install
 modules = Compile.Data.Context.Utils
