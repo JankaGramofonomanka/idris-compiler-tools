@@ -1,16 +1,8 @@
 module Compile.Data.CBlock
 
-import Data.Attached
-import Data.Doc
-import Data.DList
 import Data.Singleton
 
 import LLVM
-import LLVM.Render
-import LNG.TypeChecked
-import LNG.TypeChecked.Render
-
-import Compile.Utils
 import CFG
 
 -- TODO: `MbPhis Undefined = List [t ** Variable t]` - list of variables that need a phi assignment
