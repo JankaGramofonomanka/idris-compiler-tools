@@ -24,7 +24,6 @@
 ||| by prepending or appending vertices / instructions to them.
 module CFG
 
-import Data.DList
 import Theory
 
 {-
