@@ -1,5 +1,6 @@
 #!/bin/bash
 
+EXITCODE=0
 for file in ./tests/*.ll
 do
     echo ""
@@ -7,12 +8,12 @@ do
 
     dir="$(dirname $file)"
     filename="$(basename $file .ll)"
-    
+
     execfile="$dir/$filename.bc"
     input="$dir/$filename.input"
     expected_output="$dir/$filename.output"
     output="$dir/$filename.out"
-    
+
     llvm-link -o $execfile $file lib.ll
 
     if test -f $output
@@ -27,6 +28,8 @@ do
         lli $execfile >> $output
     fi
     python3 scripts/compare.py $output $expected_output
-    
-    
+    RESULT=$?
+    EXITCODE=$(( $RESULT > $EXITCODE ? $RESULT : $EXITCODE ))
+
 done
+exit $EXITCODE

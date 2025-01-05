@@ -13,10 +13,23 @@ jobs:
     container: ghcr.io/stefan-hoeck/idris2-pack:latest
 
     steps:
+    - name: Install dependencies
+      run: |
+        apt-get update
+        apt-get install --yes llvm
     - uses: actions/checkout@v4
+
     - name: Build project
       run: pack build compiler-tools
-    - name: Build test suite
+
+    - name: "Unit tests: Build test suite"
       run: pack build compiler-tools-test
-    - name: Run tests
+    - name: "Unit tests: Run tests"
       run: pack test compiler-tools
+
+    - name: "E2E: Compile example code"
+      run: ./scripts/compile
+    - name: "E2E: Run the compiled examples"
+      run: ./scripts/test
+    - name: "E2E: Cleanup after tests"
+      run: ./scripts/clean

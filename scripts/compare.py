@@ -15,6 +15,8 @@ if output_contents == expected_contents:
 else:
     print("-- OUTPUT ------------------------------------")
     print(output_contents)
-    
+
     print("-- EXPECTED ----------------------------------")
     print(expected_contents)
+
+    raise Exception("Actual and expected outputs do not match")
