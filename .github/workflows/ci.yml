@@ -20,12 +20,12 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Build project
-      run: pack build compiler-tools
+      run: pack build lng-compiler
 
     - name: "Unit tests: Build test suite"
-      run: pack build compiler-tools-test
+      run: pack build lng-compiler-test
     - name: "Unit tests: Run tests"
-      run: pack test compiler-tools
+      run: pack test lng-compiler
 
     - name: "E2E: Compile example code"
       run: ./scripts/compile
