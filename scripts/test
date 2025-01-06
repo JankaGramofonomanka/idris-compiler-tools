@@ -14,7 +14,7 @@ do
     expected_output="$dir/$filename.output"
     output="$dir/$filename.out"
 
-    llvm-link -o $execfile $file lib.ll
+    llvm-link -o $execfile $file lng-compiler/lib.ll
 
     if test -f $output
     then

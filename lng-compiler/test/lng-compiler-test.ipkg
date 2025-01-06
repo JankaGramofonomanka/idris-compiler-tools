@@ -1,15 +1,15 @@
-package compiler-tools-test
+package lng-compiler-test
 
 version = 0.0.1
 
 authors = "Jan Serwatka"
 
-brief = "Test suite for the compiler-tools propject"
+brief = "Test suite for the lng-compiler propject"
 
 langversion >= 0.5.1
 
 depends = base >= 0.5.1
-        , compiler-tools
+        , lng-compiler
         , contrib
         , tester
 

@@ -1,13 +1,13 @@
-[custom.all.compiler-tools]
+[custom.all.lng-compiler]
 type = "local"
-path = "."
-ipkg = "compiler-tools.ipkg"
-test = "test/compiler-tools-test.ipkg"
+path = "lng-compiler"
+ipkg = "lng-compiler.ipkg"
+test = "test/lng-compiler-test.ipkg"
 
-[custom.all.compiler-tools-test]
+[custom.all.lng-compiler-test]
 type = "local"
-path = "test"
-ipkg = "compiler-tools-test.ipkg"
+path = "lng-compiler/test"
+ipkg = "lng-compiler-test.ipkg"
 
 [custom.all.dependent-map]
 type   = "github"
