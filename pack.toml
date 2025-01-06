@@ -9,6 +9,17 @@ type = "local"
 path = "lng-compiler/test"
 ipkg = "lng-compiler-test.ipkg"
 
+[custom.all.control-flow]
+type = "local"
+path = "control-flow"
+ipkg = "control-flow.ipkg"
+test = "test/test.ipkg"
+
+[custom.all.control-flow-test]
+type = "local"
+path = "control-flow/test"
+ipkg = "test.ipkg"
+
 [custom.all.dependent-map]
 type   = "github"
 url    = "https://github.com/JankaGramofonomanka/idris-dependent-map.git"
