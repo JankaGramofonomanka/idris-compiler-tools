@@ -5,5 +5,5 @@ dir="$(dirname $llfile)"
 filename="$(basename $llfile .ll)"
 bcfile="$dir/$filename.bc"
 
-llvm-link -o $bcfile $llfile lib.ll
+llvm-link -o $bcfile $llfile lng-compiler/lib.ll
 lli $bcfile

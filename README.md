@@ -15,7 +15,7 @@ and the correctness of jumps between basic blocks of the target language code.
 To test the framework in practice, a compiler of a simple imperative language `LNG` is included in the project.
 
 ### Key modules
-The entire source code is located in the `src` folder.
+The entire source code is located in the `lng-compiler/src` folder.
 
 - Data definitions:
   - `LNG.Parsed` - a representation of `LNG` as it is returned by the **parser**.
@@ -60,13 +60,13 @@ sudo apt install llvm
 
 ### Build the compiler:
 ```
-pack build compiler-tools
+pack build lng-compiler
 ```
 
 ### Run the compiler
 To compile a source file `SOURCE_DIR.lng` run the following:
 ```
-pack run compiler-tools <SOURCE_DIR>.lng <SOURCE_DIR>.ll
+pack run lng-compiler <SOURCE_DIR>.lng <SOURCE_DIR>.ll
 ```
 
 ### Run the compiled code

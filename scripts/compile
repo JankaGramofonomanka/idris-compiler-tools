@@ -8,7 +8,7 @@ do
     filename="$(basename $source .lng)"
     dest="$dir/$filename.ll"
 
-    pack run compiler-tools $source $dest
+    pack run lng-compiler $source $dest
     RESULT=$?
     EXITCODE=$(( $RESULT > $EXITCODE ? $RESULT : $EXITCODE ))
 done

@@ -1,4 +1,4 @@
-package compiler-tools
+package lng-compiler
 version = 0.0.1
 authors = "Jan Serwatka"
 -- maintainers =
