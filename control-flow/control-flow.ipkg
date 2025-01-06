@@ -13,10 +13,10 @@ brief = "Structurally correct control-flow graphs"
 -- langversion
 
 -- packages to add to search path
--- depends =
+depends = theory
 
 -- modules to install
-modules = Control_flow
+modules = CFG
 
 -- main file (i.e. file to load at REPL)
 -- main =

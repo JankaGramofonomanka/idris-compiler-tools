@@ -19,7 +19,9 @@ jobs:
         apt-get install --yes llvm
     - uses: actions/checkout@v4
 
-    - name: Build project
+    - name: Build the control-flow project
+      run: pack build control-flow
+    - name: Build the lng-compiler project
       run: pack build lng-compiler
 
     - name: "Unit tests: Build test suite"
