@@ -22,6 +22,7 @@ depends = base >= 0.5.1
         , misc
         , dtypes
         , theory
+        , control-flow
 
 -- modules to install
 modules = Compile.Data.Context.Utils
@@ -57,7 +58,6 @@ modules = Compile.Data.Context.Utils
         , TypeCheck.Instr
         , TypeCheck.Program
         , TypeCheck.Utils
-        , CFG
         , Compile
         , LLVM
         , Main
