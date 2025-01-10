@@ -1,6 +1,26 @@
-||| This module contains a representation of a control-flow graph - a
-||| simplified version if `CFG` that permits graphs to be incomplete, but not
-||| the vertices.
+||| This module contains a representation of a control-flow graph that aims to
+||| enforce the correctness of jumps between vertices of graphs, i.e., blocks
+||| of code.
+||| The graph model permits graphs to be incomplete and facilitates easy
+||| composition of such graphs when they are compatible.
+|||
+||| *This model is a simplified version of the model in `ControlFlow.CFG`,
+||| which also allows for incomplete vertices.*
+|||
+||| A graph is incomplete when vertices need to be added to it in order for it
+||| to be a valid function body.
+||| For example a graph that contains only the following pseudo-code block:
+||| ```
+||| L0: x = call func ()
+|||     jump L1
+||| ```
+||| is incomplete because the code block ends with a jump to the block `L1` but
+||| `L1` is not in the graph.
+|||
+||| In this model, graphs can be incomplete at the beginning or at the end
+||| (or both). In other words, graphs can be completed only by prepending or
+||| appending vertices to them.
+
 module ControlFlow.CFG.Simple
 
 import public ControlFlow.Edge

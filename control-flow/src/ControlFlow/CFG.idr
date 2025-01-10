@@ -13,7 +13,7 @@
 ||| ```
 ||| is incomplete because the code block ends with a jump to the block `L1` but
 ||| `L1` is not in the graph.
-||| An example of a nincomplete vertex is the following:
+||| An example of an incomplete vertex is the following:
 ||| ```
 ||| L0: x = call func ()
 ||| ```
