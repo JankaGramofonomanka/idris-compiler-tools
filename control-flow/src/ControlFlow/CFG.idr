@@ -66,7 +66,9 @@ namespace Vertex
   public export
   interface Connectable (0 vertex : Vertex a) where
     ||| Merge two vertices undefined on opposite ends
-    cnct : vertex v ins Undefined
+    cnct : {0 v : a}
+        -> {0 ins, outs : Neighbors a}
+        -> vertex v ins Undefined
         -> vertex v Undefined outs
         -> vertex v ins outs
 
