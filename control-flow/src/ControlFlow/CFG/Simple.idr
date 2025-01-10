@@ -1,9 +1,9 @@
 ||| This module contains a representation of a control-flow graph - a
 ||| simplified version if `CFG` that permits graphs to be incomplete, but not
 ||| the vertices.
-module CFG.Simple
+module ControlFlow.CFG.Simple
 
-import public Edge
+import public ControlFlow.Edge
 
 namespace Vertex
   ||| Neighbors of a vertex

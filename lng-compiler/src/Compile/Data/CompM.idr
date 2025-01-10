@@ -17,7 +17,7 @@ import Compile.Data.CBlock
 import Compile.Data.Context
 import Compile.Data.Error
 import Compile.Utils
-import CFG
+import ControlFlow.CFG
 
 ||| The state of the compiler
 public export

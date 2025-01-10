@@ -1,4 +1,4 @@
-module Edge
+module ControlFlow.Edge
 
 import Theory
 

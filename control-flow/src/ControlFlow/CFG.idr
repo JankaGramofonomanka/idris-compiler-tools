@@ -22,9 +22,9 @@
 ||| In this model, vertices and graphs can be incomplete at the beginning or at
 ||| the end (or both). In other words, graphs / vertices can be completed only
 ||| by prepending or appending vertices / instructions to them.
-module CFG
+module ControlFlow.CFG
 
-import public Edge
+import public ControlFlow.Edge
 
 {-
 TODO:

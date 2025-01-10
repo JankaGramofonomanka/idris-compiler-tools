@@ -16,7 +16,9 @@ brief = "Structurally correct control-flow graphs"
 depends = theory
 
 -- modules to install
-modules = CFG
+modules = ControlFlow.Edge
+        , ControlFlow.CFG
+        , ControlFlow.CFG.Simple
 
 -- main file (i.e. file to load at REPL)
 -- main =

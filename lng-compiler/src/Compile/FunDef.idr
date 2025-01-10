@@ -12,7 +12,7 @@ import Data.Typed
 
 import LLVM
 import LNG.TypeChecked as LNG
-import CFG
+import ControlFlow.CFG
 import Compile.Instr
 import Compile.Data.CBlock
 import Compile.Data.CompM

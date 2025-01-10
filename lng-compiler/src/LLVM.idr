@@ -10,7 +10,7 @@ import Data.Singleton
 import Data.Singleton.Extra
 import Data.Some
 import Data.Typed
-import CFG
+import ControlFlow.CFG
 
 import Utils
 

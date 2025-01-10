@@ -27,7 +27,7 @@ import Compile.Data.CompM
 import Compile.Data.Context
 import Compile.Data.Error
 import Compile.Utils
-import CFG
+import ControlFlow.CFG
 
 import Theory
 

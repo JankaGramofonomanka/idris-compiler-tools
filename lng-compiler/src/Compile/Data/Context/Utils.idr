@@ -18,7 +18,7 @@ import Compile.Data.CompM
 import Compile.Data.Context
 import Compile.Data.Error
 import Compile.Utils
-import CFG
+import ControlFlow.CFG
 
 ||| A variable context at the merging point of multiple branches and a list of
 ||| phi assignments needed to be executed in order to produce that context.
