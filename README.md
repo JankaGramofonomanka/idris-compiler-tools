@@ -19,7 +19,7 @@ The entire source code is located in the `lng-compiler/src` and `control-flow/sr
 
 - Data definitions:
   - The `control-flow` package
-    - `CFG` - a representation of a control-flow graph,
+    - `ControlFlow.CFG` - a representation of a control-flow graph,
       which enforces the correctness of jumps between basic blocks.
   - The `lng-compiler` package
     - `LNG.Parsed` - a representation of `LNG` as it is returned by the **parser**.

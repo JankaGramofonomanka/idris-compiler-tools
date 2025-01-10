@@ -60,7 +60,7 @@ import Compile.Data.Error
 import Compile.Expr
 import Compile.Utils
 
-import CFG
+import ControlFlow.CFG
 import Theory
 
 {-

@@ -4,7 +4,7 @@ module LLVM.Render
 import Data.String
 import Data.Vect
 
-import CFG
+import ControlFlow.CFG
 import Data.DList
 import Data.Doc
 import Data.List
