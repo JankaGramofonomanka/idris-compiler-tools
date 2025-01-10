@@ -24,7 +24,7 @@
 ||| by prepending or appending vertices / instructions to them.
 module CFG
 
-import Theory
+import public Edge
 
 {-
 TODO:
@@ -72,28 +72,6 @@ namespace Vertex
 
 namespace Graph
 
-  export infix 6 ~>, <~
-
-  ||| An edge between vertices
-  ||| @ a the type of vertex identifiers
-  public export
-  data Edge a
-    = ||| `v ~> w` - an edge from `v` to `w`
-      (~>) a a
-
-  public export
-  (<~) : a -> a -> Edge a
-  (<~) = flip (~>)
-
-  public export
-  Dest : Edge a -> a
-  Dest (from ~> to) = to
-
-  public export
-  Origin : Edge a -> a
-  Origin (from ~> to) = from
-
-
   ||| Input or output edges of an incomplete graph
   ||| @ a the type of vertex identifiers
   public export
@@ -115,51 +93,6 @@ namespace Graph
   public export
   Single : a -> a -> Edges a
   Single from to = Defined [from ~> to]
-
-
-  export infix 8 ~~>, ~>>, <~~, <<~
-
-  ||| A *collection* of `vs` by `v`
-  public export
-  (~~>) : (vs : List a) -> (v : a) -> List (Edge a)
-  vs ~~> v = map (~> v) vs
-
-  ||| A *distribution* of `v` to `vs`
-  public export
-  (~>>) : (v : a) -> (vs : List a) -> List (Edge a)
-  v ~>> vs = map (v ~>) vs
-
-  ||| Flipped `(~~>)`
-  public export
-  (<~~) : (v : a) -> (vs : List a) -> List (Edge a)
-  (<~~) = flip (~~>)
-
-  ||| Flipped `(~>>)`
-  public export
-  (<<~) : (vs : List a) -> (v : a) -> List (Edge a)
-  (<<~) = flip (~>>)
-
-  |||    A collection    of a   concatenation of two   lists by `v`
-  ||| is a concatenation of the collections   of these lists by `v`
-  export
-  collect_concat : (v : a) -> (vs, ws : List a) -> (vs ++ ws) ~~> v = vs ~~> v ++ ws ~~> v
-  collect_concat v vs ws = map_concat {f = (~> v)} vs ws
-
-  |||    A distribution  of `v` to a   concatenation        of two   lists
-  ||| is a concatenation        of the distributions of `v` to these lists
-  export
-  distribute_concat : (v : a) -> (vs, ws : List a) -> v ~>> (vs ++ ws) = v ~>> vs ++ v ~>> ws
-  distribute_concat v vs ws = map_concat {f = (v ~>)} vs ws
-
-  ||| A special case of `collect_concat` where `ws` is a singleton
-  export
-  collect_append : (v : a) -> (vs : List a) -> (w : a) -> (vs ++ [w]) ~~> v = vs ~~> v ++ [w ~> v]
-  collect_append v vs w = collect_concat v vs [w]
-
-  ||| A special case of `distribute_concat` where `ws` is a singleton
-  export
-  distribute_append : (v : a) -> (vs : List a) -> (w : a) -> v ~>> (vs ++ [w]) = v ~>> vs ++ [v ~> w]
-  distribute_append v vs w = distribute_concat v vs [w]
 
   ||| Given an identifier of a vertex and its out-neighbors return the output
   ||| edges of that vertex
@@ -200,103 +133,115 @@ namespace Graph
     Empty : CFG vertex (Defined edges) (Defined edges)
 
     ||| A singleton graph - a graph containing a single vertex
-    SingleVertex : {0 vertex : Vertex a}
-                -> {vins, vouts : Neighbors a}
-                -> vertex v vins vouts
-                -> CFG vertex (fromVIn vins v) (fromVOut v vouts)
+    SingleVertex
+       : {0 vertex : Vertex a}
+      -> {vins, vouts : Neighbors a}
+      -> vertex v vins vouts
+      -> CFG vertex (fromVIn vins v) (fromVOut v vouts)
 
     -- TODO consider `CFG (ins ++ edges) (outs ++ edges) -> CFG ins outs` instead of this
     ||| A graph that represents a while loop
     ||| @ node the graph in which the while condition is computed
     ||| @ loop the body of the loop
-    Cycle : {ins, outs, loopIns, loopOuts : List (Edge a)}
-         -> (node : CFG vertex (Defined $ ins ++ loopOuts) (Defined $ loopIns ++ outs))
-         -> (loop : CFG vertex (Defined loopIns) (Defined loopOuts))
-         -> CFG vertex (Defined ins) (Defined outs)
+    Cycle
+       : {ins, outs, loopIns, loopOuts : List (Edge a)}
+      -> (node : CFG vertex (Defined $ ins ++ loopOuts) (Defined $ loopIns ++ outs))
+      -> (loop : CFG vertex (Defined loopIns) (Defined loopOuts))
+      -> CFG vertex (Defined ins) (Defined outs)
 
     ||| A sequential connection of two graphs
     ||| The output vertices of one (`pre`) are being connected to the input
     ||| vertices of the other (`post`)
     ||| @ pre  the predecessor of `post`
     ||| @ post the successor   of `pre`
-    Series : (pre  : CFG vertex ins (Defined edges))
-          -> (post : CFG vertex (Defined edges) outs)
-          -> CFG vertex ins outs
+    Series
+       : (pre  : CFG vertex ins (Defined edges))
+      -> (post : CFG vertex (Defined edges) outs)
+      -> CFG vertex ins outs
 
     ||| A parallel connection of graphs
     ||| Two graphs are combined into one without any connections beetween them
     ||| The result has the inputs and outputs of both
     ||| @ left  the left sub-graph
     ||| @ right the right sub-graph
-    Parallel : (left  : CFG vertex (Defined ins)  (Defined outs))
-            -> (right : CFG vertex (Defined ins') (Defined outs'))
-            -> CFG vertex (Defined $ ins ++ ins') (Defined $ outs ++ outs')
+    Parallel
+       : (left  : CFG vertex (Defined ins)  (Defined outs))
+      -> (right : CFG vertex (Defined ins') (Defined outs'))
+      -> CFG vertex (Defined $ ins ++ ins') (Defined $ outs ++ outs')
 
     -- TODO: consider removing these constructors
     ||| Used to flip the inputs of a graph to make it connectable with another
-    IFlip : {ins, ins' : List (Edge a)}
-         -> CFG vertex (Defined $ ins ++ ins') outs
-         -> CFG vertex (Defined $ ins' ++ ins) outs
+    IFlip
+       : {ins, ins' : List (Edge a)}
+      -> CFG vertex (Defined $ ins ++ ins') outs
+      -> CFG vertex (Defined $ ins' ++ ins) outs
 
     ||| Used to flip the outputs of a graph to make it connectable with another
-    OFlip : {outs, outs' : List (Edge a)}
-         -> CFG vertex ins (Defined $ outs ++ outs')
-         -> CFG vertex ins (Defined $ outs' ++ outs)
+    OFlip
+       : {outs, outs' : List (Edge a)}
+      -> CFG vertex ins (Defined $ outs ++ outs')
+      -> CFG vertex ins (Defined $ outs' ++ outs)
 
   export infixr 4 |-|
   ||| Alias for `Parallel`
   public export
-  (|-|) : CFG vertex (Defined ins)           (Defined outs)
-       -> CFG vertex (Defined ins')          (Defined outs')
-       -> CFG vertex (Defined $ ins ++ ins') (Defined $ outs ++ outs')
+  (|-|)
+     : CFG vertex (Defined ins)           (Defined outs)
+    -> CFG vertex (Defined ins')          (Defined outs')
+    -> CFG vertex (Defined $ ins ++ ins') (Defined $ outs ++ outs')
   (|-|) = Parallel
 
   export infixr 5 *->
   ||| Alias for `Series`
   public export
-  (*->) : CFG vertex ins (Defined edges)
-       -> CFG vertex (Defined edges) outs
-       -> CFG vertex ins outs
+  (*->)
+     : CFG vertex ins (Defined edges)
+    -> CFG vertex (Defined edges) outs
+    -> CFG vertex ins outs
   (*->) = Series
 
 
   public export
-  prepend : {0 vertex : Vertex a}
-         -> {vins : Neighbors a}
-         -> {vouts : List a}
-         -> vertex v vins (Just vouts)
-         -> CFG vertex (Defined $ v ~>> vouts) gouts
-         -> CFG vertex (fromVIn vins v) gouts
+  prepend
+     : {0 vertex : Vertex a}
+    -> {vins : Neighbors a}
+    -> {vouts : List a}
+    -> vertex v vins (Just vouts)
+    -> CFG vertex (Defined $ v ~>> vouts) gouts
+    -> CFG vertex (fromVIn vins v) gouts
   prepend v g = (SingleVertex v) *-> g
 
   public export
-  append : {vins : List a}
-        -> {vouts : Neighbors a}
+  append
+     : {vins : List a}
+    -> {vouts : Neighbors a}
 
-        -> CFG vertex gins (Defined $ vins ~~> v)
-        -> vertex v (Just vins) vouts
-        -> CFG vertex gins (fromVOut v vouts)
+    -> CFG vertex gins (Defined $ vins ~~> v)
+    -> vertex v (Just vins) vouts
+    -> CFG vertex gins (fromVOut v vouts)
   append g v = g *-> (SingleVertex v)
 
-  branch : {0 vertex : Vertex a}
-        -> {vins : Neighbors a}
-        -> {w, w' : a}
+  branch
+     : {0 vertex : Vertex a}
+    -> {vins : Neighbors a}
+    -> {w, w' : a}
 
-        -> (pre   : vertex v vins (Just [w, w']))
-        -> (left  : CFG vertex (Single v w)  (Defined louts))
-        -> (right : CFG vertex (Single v w') (Defined routs))
-        -> CFG vertex (fromVIn vins v) (Defined $ louts ++ routs)
+    -> (pre   : vertex v vins (Just [w, w']))
+    -> (left  : CFG vertex (Single v w)  (Defined louts))
+    -> (right : CFG vertex (Single v w') (Defined routs))
+    -> CFG vertex (fromVIn vins v) (Defined $ louts ++ routs)
   branch pre left right = pre `prepend` (left |-| right)
 
-  fullBranch : {0 vertex : Vertex a}
-            -> {vins, vouts : Neighbors a}
-            -> {w, w', u, u' : a}
+  fullBranch
+     : {0 vertex : Vertex a}
+    -> {vins, vouts : Neighbors a}
+    -> {w, w', u, u' : a}
 
-            -> (pre    : vertex v vins (Just [w, w']))
-            -> (left   : CFG vertex (Single v w)  (Single u t))
-            -> (right  : CFG vertex (Single v w') (Single u' t))
-            -> (post   : vertex t (Just [u, u']) vouts)
-            -> CFG vertex (fromVIn vins v) (fromVOut t vouts)
+    -> (pre    : vertex v vins (Just [w, w']))
+    -> (left   : CFG vertex (Single v w)  (Single u t))
+    -> (right  : CFG vertex (Single v w') (Single u' t))
+    -> (post   : vertex t (Just [u, u']) vouts)
+    -> CFG vertex (fromVIn vins v) (fromVOut t vouts)
   fullBranch pre left right post = (branch pre left right) `append` post
 
   ||| A partial sequential connection of two graphs
@@ -307,10 +252,11 @@ namespace Graph
   ||| @ ls     the left  outputs of `node` / the inputs of `branch`
   ||| @ rs     the right outputs of `node`
   public export
-  lbranch : {ls, rs : List (Edge a)}
-         -> (node   : CFG vertex ins (Defined $ ls ++ rs))
-         -> (branch : CFG vertex (Defined ls) (Defined ls'))
-         ->           CFG vertex ins (Defined $ ls' ++ rs)
+  lbranch
+     : {ls, rs : List (Edge a)}
+    -> (node   : CFG vertex ins (Defined $ ls ++ rs))
+    -> (branch : CFG vertex (Defined ls) (Defined ls'))
+    ->           CFG vertex ins (Defined $ ls' ++ rs)
   lbranch node branch = node *-> (branch |-| Empty)
 
   ||| A partial sequential connection of two graphs
@@ -321,10 +267,11 @@ namespace Graph
   ||| @ ls     the left  outputs of `node`
   ||| @ rs     the right outputs of `node` / the inputs of `branch`
   public export
-  rbranch : {ls, rs : List (Edge a)}
-         -> (node   : CFG vertex ins (Defined $ ls ++ rs))
-         -> (branch : CFG vertex (Defined rs) (Defined rs'))
-         ->           CFG vertex ins (Defined $ ls ++ rs')
+  rbranch
+     : {ls, rs : List (Edge a)}
+    -> (node   : CFG vertex ins (Defined $ ls ++ rs))
+    -> (branch : CFG vertex (Defined rs) (Defined rs'))
+    ->           CFG vertex ins (Defined $ ls ++ rs')
   rbranch node branch = node *-> (Empty |-| branch)
 
   ||| A partial sequential connection of two graphs
@@ -335,10 +282,11 @@ namespace Graph
   ||| @ ls'    the left  inputs of `node` / the outputs of `branch`
   ||| @ rs     the right inputs of `node`
   public export
-  lmerge : {ls, rs  : List (Edge a)}
-        -> (branch  : CFG vertex (Defined ls) (Defined ls'))
-        -> (node    : CFG vertex (Defined $ ls' ++ rs) outs)
-        ->            CFG vertex (Defined $ ls  ++ rs) outs
+  lmerge
+     : {ls, rs  : List (Edge a)}
+    -> (branch  : CFG vertex (Defined ls) (Defined ls'))
+    -> (node    : CFG vertex (Defined $ ls' ++ rs) outs)
+    ->            CFG vertex (Defined $ ls  ++ rs) outs
   lmerge branch node = (branch |-| Empty) *-> node
 
   ||| A partial sequential connection of two graphs
@@ -349,20 +297,22 @@ namespace Graph
   ||| @ ls     the left  inputs of `node`
   ||| @ rs'    the right inputs of `node` / the outputs of `branch`
   public export
-  rmerge : {ls, rs  : List (Edge a)}
-        -> (branch  : CFG vertex (Defined rs) (Defined rs'))
-        -> (node    : CFG vertex (Defined $ ls ++ rs') outs)
-        ->            CFG vertex (Defined $ ls ++ rs) outs
+  rmerge
+     : {ls, rs  : List (Edge a)}
+    -> (branch  : CFG vertex (Defined rs) (Defined rs'))
+    -> (node    : CFG vertex (Defined $ ls ++ rs') outs)
+    ->            CFG vertex (Defined $ ls ++ rs) outs
   rmerge branch node = (Empty |-| branch) *-> node
 
   ||| Apply a function to the undefined input vertex
   export
-  imap : {0 vertex : Vertex a}
-          -> {ins : Neighbors a}
+  imap
+     : {0 vertex : Vertex a}
+    -> {ins : Neighbors a}
 
-          -> ({outs : Neighbors a} -> vertex v Undefined outs -> vertex v ins outs)
-          -> CFG vertex (Undefined v) gouts
-          -> CFG vertex (fromVIn ins v) gouts
+    -> ({outs : Neighbors a} -> vertex v Undefined outs -> vertex v ins outs)
+    -> CFG vertex (Undefined v) gouts
+    -> CFG vertex (fromVIn ins v) gouts
 
   imap f (SingleVertex {vins = Nothing} v)  = SingleVertex (f v)
   imap f (Series g g')                      = Series (imap f g) g'
@@ -376,12 +326,13 @@ namespace Graph
 
   ||| Apply a function to the undefined output vertex
   export
-  omap : {0 vertex : Vertex a}
-          -> {outs : Neighbors a}
+  omap
+     : {0 vertex : Vertex a}
+    -> {outs : Neighbors a}
 
-          -> ({ins : Neighbors a} -> vertex v ins Undefined -> vertex v ins outs)
-          -> CFG vertex gins (Undefined v)
-          -> CFG vertex gins (fromVOut v outs)
+    -> ({ins : Neighbors a} -> vertex v ins Undefined -> vertex v ins outs)
+    -> CFG vertex gins (Undefined v)
+    -> CFG vertex gins (fromVOut v outs)
 
   omap f (SingleVertex {vouts = Nothing} v)   = SingleVertex (f v)
   omap f (Series g g')                        = Series g (omap f g')
@@ -398,10 +349,11 @@ namespace Graph
   ||| Connects the two grapgs by merges the output vertex of the predecessor
   ||| with the input vertex of the successor
   export
-  connect : (impl : Connectable vertex)
-         => CFG vertex ins (Undefined v)
-         -> CFG vertex (Undefined v) outs
-         -> CFG vertex ins outs
+  connect
+     : (impl : Connectable vertex)
+    => CFG vertex ins (Undefined v)
+    -> CFG vertex (Undefined v) outs
+    -> CFG vertex ins outs
 
   connect (SingleVertex {vouts = Nothing} v)  g   = imap (cnct @{impl} v) g
   connect (Series g g')                       g'' = Series g (connect g' g'')
@@ -416,25 +368,28 @@ namespace Graph
   export infixr 5 *~>
   ||| Alias for `connect`
   export
-  (*~>) : (impl : Connectable vertex)
-       => CFG vertex ins (Undefined v)
-       -> CFG vertex (Undefined v) outs
-       -> CFG vertex ins outs
+  (*~>)
+     : (impl : Connectable vertex)
+    => CFG vertex ins (Undefined v)
+    -> CFG vertex (Undefined v) outs
+    -> CFG vertex ins outs
   (*~>) = connect
 
 
   export
-  initGraph : {0 vertex : Vertex a}
-           -> vertex v Undefined Undefined
-           -> CFG vertex (Undefined v) (Undefined v)
+  initGraph
+     : {0 vertex : Vertex a}
+    -> vertex v Undefined Undefined
+    -> CFG vertex (Undefined v) (Undefined v)
   initGraph v = SingleVertex v
 
   ||| Get data from the undefined input vertex
   export
-  iget : {0 vertex : Vertex a}
-      -> ({outs : Neighbors a} -> vertex v Undefined outs -> b)
-      -> CFG vertex (Undefined v) gouts
-      -> b
+  iget
+     : {0 vertex : Vertex a}
+    -> ({outs : Neighbors a} -> vertex v Undefined outs -> b)
+    -> CFG vertex (Undefined v) gouts
+    -> b
   iget f (SingleVertex {vins = Nothing} v)  = f v
   iget f (Series g g')                      = iget f g
   iget f (OFlip g)                          = iget f g
@@ -447,10 +402,11 @@ namespace Graph
 
   ||| Get data from the undefined output vertex
   export
-  oget : {0 vertex : Vertex a}
-      -> ({ins : Neighbors a} -> vertex v ins Undefined -> b)
-      -> CFG vertex gins (Undefined v)
-      -> b
+  oget
+     : {0 vertex : Vertex a}
+    -> ({ins : Neighbors a} -> vertex v ins Undefined -> b)
+    -> CFG vertex gins (Undefined v)
+    -> b
 
   oget f (SingleVertex {vouts = Nothing} v)   = f v
   oget f (Series g g')                        = oget f g'
@@ -464,16 +420,17 @@ namespace Graph
 
   ||| Apply a function to all vertices in a grpaph
   export
-  vmap : {0 a : Type}
-      -> {0 vertex, vertex' : Vertex a}
-      -> {0 ins, outs : Edges a}
-      -> ( {0 v : a}
-        -> {vins, vouts : Neighbors a}
-        -> vertex v vins vouts
-        -> vertex' v vins vouts
-         )
-      -> CFG vertex ins outs
-      -> CFG vertex' ins outs
+  vmap
+     : {0 a : Type}
+    -> {0 vertex, vertex' : Vertex a}
+    -> {0 ins, outs : Edges a}
+    -> ( {0 v : a}
+      -> {vins, vouts : Neighbors a}
+      -> vertex v vins vouts
+      -> vertex' v vins vouts
+       )
+    -> CFG vertex ins outs
+    -> CFG vertex' ins outs
 
   vmap f Empty              = Empty
   vmap f (SingleVertex v)   = SingleVertex (f v)
@@ -488,16 +445,17 @@ namespace Graph
   ||| Like `vmap` but all vertices in the graph are defined an thus the applied
   ||| function works only for defined vertices
   export
-  vmap' : {0 a : Type}
-      -> {0 vertex, vertex' : Vertex a}
-      -> {0 ins, outs : List (Edge a)}
-      -> ( {0 v : a}
-        -> {vins, vouts : List a}
-        -> vertex v (Just vins) (Just vouts)
-        -> vertex' v (Just vins) (Just vouts)
-         )
-      -> CFG vertex (Defined ins) (Defined outs)
-      -> CFG vertex' (Defined ins) (Defined outs)
+  vmap'
+     : {0 a : Type}
+    -> {0 vertex, vertex' : Vertex a}
+    -> {0 ins, outs : List (Edge a)}
+    -> ( {0 v : a}
+      -> {vins, vouts : List a}
+      -> vertex v (Just vins) (Just vouts)
+      -> vertex' v (Just vins) (Just vouts)
+       )
+    -> CFG vertex (Defined ins) (Defined outs)
+    -> CFG vertex' (Defined ins) (Defined outs)
 
   vmap' f (SingleVertex {vins = Just ins, vouts = Just outs} v) = SingleVertex (f v)
   vmap' f Empty             = Empty
