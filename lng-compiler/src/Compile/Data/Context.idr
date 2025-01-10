@@ -12,7 +12,7 @@ import Data.Typed
 import LNG.TypeChecked
 import LLVM
 import Compile.Utils
-import CFG
+import ControlFlow.CFG
 import Compile.Utils
 
 ||| A function context.

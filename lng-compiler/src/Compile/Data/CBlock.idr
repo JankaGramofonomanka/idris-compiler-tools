@@ -3,7 +3,7 @@ module Compile.Data.CBlock
 import Data.Singleton
 
 import LLVM
-import CFG
+import ControlFlow.CFG
 
 -- TODO: `MbPhis Undefined = List [t ** Variable t]` - list of variables that need a phi assignment
 
