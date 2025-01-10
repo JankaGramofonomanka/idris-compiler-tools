@@ -21,6 +21,8 @@ The entire source code is located in the `lng-compiler/src` and `control-flow/sr
   - The `control-flow` package
     - `ControlFlow.CFG` - a representation of a control-flow graph,
       which enforces the correctness of jumps between basic blocks.
+    - `ControlFlow.CFG.Simple` - a simplified version if `ControlFlow.CFG`,
+      you might want to get familiar with it first
   - The `lng-compiler` package
     - `LNG.Parsed` - a representation of `LNG` as it is returned by the **parser**.
       A representation of **syntactically** correct `LNG` code, i.e., the AST tree.
