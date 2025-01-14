@@ -11,11 +11,11 @@ import Data.Attached
 import LLVM
 import LNG.TypeChecked
 
-import Compile.Data.CBlock
 import Compile.Data.CompM
 import Compile.Data.Context
 import Compile.Data.Context.Utils
 import Compile.Data.Error
+import Compile.Data.LLCBlock
 import Compile.Utils
 import ControlFlow.CFG
 
@@ -29,8 +29,8 @@ import Theory
 export
 close : (dest : Label)
      -> (ctx : lbl :~: VarCTX)
-     -> (cfg : CFG (CBlock rt) ins (Undefined lbl))
-     -> ( CFG (CBlock rt) ins (Defined [lbl ~> dest])
+     -> (cfg : CFG (LLCBlock rt) ins (Undefined lbl))
+     -> ( CFG (LLCBlock rt) ins (Defined [lbl ~> dest])
         , DList (:~: VarCTX) [lbl ~> dest]
         )
 close {lbl} dest ctx cfg = (omap (<+| Branch dest) cfg, [attach (lbl ~> dest) (detach ctx)])
@@ -46,7 +46,7 @@ public export
 record DataUU (rt : LLType) (lblIn : Label) where
   constructor MkDataUU
   lblOut : Label
-  cfg : CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+  cfg : CFG (LLCBlock rt) (Undefined lblIn) (Undefined lblOut)
   ctx : lblOut :~: VarCTX
 
 ||| A graph with defined outputs, converging to a single destination label,
@@ -62,7 +62,7 @@ public export
 record DataXD (rt : LLType) (ins : Edges Label) (dest : Label) where
   constructor MkDataXD
   outs : List Label
-  cfg : CFG (CBlock rt) ins (Defined $ outs ~~> dest)
+  cfg : CFG (LLCBlock rt) ins (Defined $ outs ~~> dest)
   ctxs : DList (:~: VarCTX) (outs ~~> dest)
 
 ||| A graph with defined outputs, converging to a two destination labels,
@@ -86,7 +86,7 @@ record DataXD2 (rt : LLType) (ins : Edges Label) (lblT, lblF : Label) where
   outsT : List Label
   outsF : List Label
 
-  cfg : CFG (CBlock rt) ins (Defined $ (outsT ~~> lblT) ++ (outsF ~~> lblF))
+  cfg : CFG (LLCBlock rt) ins (Defined $ (outsT ~~> lblT) ++ (outsF ~~> lblF))
 
   ctxsT : DList (:~: VarCTX) (outsT ~~> lblT)
   ctxsF : DList (:~: VarCTX) (outsF ~~> lblF)
@@ -111,7 +111,7 @@ data CompileResult
   where
   ||| A "returning" result. Contains a graph with no outputs.
   ||| @ cfg the wrapped graph.
-  CRR : (cfg : CFG (CBlock rt) ins Closed)
+  CRR : (cfg : CFG (LLCBlock rt) ins Closed)
      -> CompileResult rt ins lbl Returning
 
   ||| A "simple" (non-returning) result.
@@ -149,7 +149,7 @@ emptyCR lbl lbl' ctx = let
 ||| @ post the "compile result" (the postfix)
 export
 connectCR
-   : (pre  : CFG (CBlock   rt) ins (Undefined lbl))
+   : (pre  : CFG (LLCBlock   rt) ins (Undefined lbl))
   -> (post : CompileResult rt (Undefined lbl) lbl' k)
   ->         CompileResult rt  ins            lbl' k
 connectCR g (CRR g') = CRR (g *~> g')
@@ -159,7 +159,7 @@ export infixr 5 *~~>
 ||| Alias for `connectCR`
 export
 (*~~>)
-   : CFG (CBlock rt) ins (Undefined lbl)
+   : CFG (LLCBlock rt) ins (Undefined lbl)
   -> CompileResult rt (Undefined lbl) lbl' k
   -> CompileResult rt ins lbl' k
 (*~~>) = connectCR
@@ -170,7 +170,7 @@ export
 ||| @ post the "compile result" (the postfix)
 export
 seriesCR
-   : (pre  : CFG (CBlock rt) ins (Defined outs))
+   : (pre  : CFG (LLCBlock rt) ins (Defined outs))
   -> (post : CompileResult rt (Defined outs) lbl' k)
   ->         CompileResult rt ins lbl' k
 seriesCR g (CRR g') = CRR (g *-> g')
@@ -180,7 +180,7 @@ export infixr 5 *-->
 ||| Alias for `seriesCR`
 export
 (*-->)
-   : CFG (CBlock rt) ins (Defined outs)
+   : CFG (LLCBlock rt) ins (Defined outs)
   -> CompileResult rt (Defined outs) lbl' k
   -> CompileResult rt ins lbl' k
 (*-->) = seriesCR

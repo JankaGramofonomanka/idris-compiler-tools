@@ -26,11 +26,11 @@ depends = base >= 0.5.1
 
 -- modules to install
 modules = Compile.Data.Context.Utils
-        , Compile.Data.CBlock
         , Compile.Data.CompileResult
         , Compile.Data.CompM
         , Compile.Data.Context
         , Compile.Data.Error
+        , Compile.Data.LLCBlock
         , Compile.Expr
         , Compile.FunDef
         , Compile.Instr
