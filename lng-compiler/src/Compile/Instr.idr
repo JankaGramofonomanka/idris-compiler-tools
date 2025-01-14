@@ -51,12 +51,12 @@ import LNG.TypeChecked.Render
 import LLVM
 import LLVM.Render
 
-import Compile.Data.CBlock
 import Compile.Data.CompileResult
 import Compile.Data.CompM
 import Compile.Data.Context
 import Compile.Data.Context.Utils
 import Compile.Data.Error
+import Compile.Data.LLCBlock
 import Compile.Expr
 import Compile.Utils
 
@@ -116,8 +116,8 @@ collectOuts {lblPost} dat = do
   SG ctx phis <- segregate dat.ctxs
 
   -- Construct the merging block and pit it in a singleton graph
-  let post : CFG (CBlock rt) (Defined $ dat.outs ~~> lblPost) (Undefined lblPost)
-      post = SingleVertex (phis |++:> emptyCBlock)
+  let post : CFG (LLCBlock rt) (Defined $ dat.outs ~~> lblPost) (Undefined lblPost)
+      post = SingleVertex (phis |++> emptyCBlock)
 
   -- Connect the graph with the merging block
   let final = dat.cfg *-> post
@@ -389,7 +389,7 @@ mutual
 
     -- Construct the final graph by connecting the condition graph with the
     -- branch graph
-    let final : CFG (CBlock $ GetLLType rt) (Undefined lblIn) (Defined $ (branchDat.outs ++ condDat.outsF) ~~> lblPost)
+    let final : CFG (LLCBlock $ GetLLType rt) (Undefined lblIn) (Defined $ (branchDat.outs ++ condDat.outsF) ~~> lblPost)
         final = rewrite collect_concat lblPost branchDat.outs condDat.outsF
                 in lbranch condDat.cfg branchDat.cfg
 
@@ -427,7 +427,7 @@ mutual
 
     -- A singleton graph with an undefined input, consisting of a single branch
     -- instruction
-    let pre : ( CFG (CBlock $ GetLLType rt) (Undefined lblIn) (Defined [lblIn ~> lblNodeIn])
+    let pre : ( CFG (LLCBlock $ GetLLType rt) (Undefined lblIn) (Defined [lblIn ~> lblNodeIn])
               , DList (:~: VarCTX) [lblIn ~> lblNodeIn]
               )
         pre = close lblNodeIn ctxIn emptyCFG
@@ -465,7 +465,7 @@ mutual
     SG ctx phis <- segregate ctxs
 
     -- Comstruct a prefix graph, with the phi instructions
-    let preG = imap (phis |++:>) emptyCFG
+    let preG = imap (phis |++>) emptyCFG
 
     -- Compile the instruction, pass the merged context
     res <- compileInstrUD lblIn lblPost ctx instr
@@ -578,11 +578,11 @@ mutual
 
     -- Define the inputs of the condition graph by prepending to it the phi
     -- assignemtns.
-    let nodeG : CFG (CBlock $ GetLLType rt)
+    let nodeG : CFG (LLCBlock $ GetLLType rt)
                     (Defined $ pre ~~> lblNodeIn ++ loopDat.outs ~~> lblNodeIn)
                     (Defined $ (condDat.outsT ~~> lblLoop) ++ (condDat.outsF ~~> lblPost))
         nodeG = rewrite revEq $ collect_concat lblNodeIn pre loopDat.outs
-                in imap (phis |++:>) condDat.cfg
+                in imap (phis |++>) condDat.cfg
 
     -- Construct the final graph by connecting the condition graph with the
     -- loop-body graph.

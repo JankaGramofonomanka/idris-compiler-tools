@@ -22,10 +22,10 @@ import LNG.BuiltIns
 import LNG.TypeChecked
 import LLVM
 
-import Compile.Data.CBlock
 import Compile.Data.CompM
 import Compile.Data.Context
 import Compile.Data.Error
+import Compile.Data.LLCBlock
 import Compile.Utils
 import ControlFlow.CFG
 
@@ -64,7 +64,7 @@ compileLiteral
    : (lblIn : Label)
   -> (lit   : Literal t)
   -> CompM' ( ( lblOut
-             ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+             ** CFG (LLCBlock rt) (Undefined lblIn) (Undefined lblOut)
               )
             , LLValue (GetLLType t)
             )
@@ -90,7 +90,7 @@ compileLiteral lblIn (LitString s) = do
   let expr = GetElementPtr {k} {n = 32} (ConstPtr cst) (ILitV 0) (ILitV 0)
 
   -- Assign the pointer to the new registrer and put the assignment in a graph
-  g <- pure $ omap (<+ Assign reg expr) emptyCFG
+  g <- pure $ omap (<+. Assign reg expr) emptyCFG
 
   -- Return the graph and the new register
   pure ((lblIn ** g), Var reg)
@@ -111,7 +111,7 @@ mutual
      : (lblIn : Label)
     -> (expr  : Expr t)
     -> CompM' ( ( lblOut
-               ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+               ** CFG (LLCBlock rt) (Undefined lblIn) (Undefined lblOut)
                 )
               , LLValue (GetLLType t)
               )
@@ -158,7 +158,7 @@ mutual
 
       -- Call the built in `.strconcat` function with the compiled operands as
       -- arguments and assign the result to the new register
-      let g' = omap (<+ Assign reg (Call (ConstPtr strconcat) [lhs', rhs'])) g
+      let g' = omap (<+. Assign reg (Call (ConstPtr strconcat) [lhs', rhs'])) g
 
       -- Return the graph and the new register
       pure ((lblOut ** g'), Var reg)
@@ -177,7 +177,7 @@ mutual
 
       -- TODO: Is this OK or is it a hack?
       -- Assign the negation of the compiled expression to the new register
-      let g' = omap (<+ Assign reg (BinOperation SUB (ILitV 0) val)) g
+      let g' = omap (<+. Assign reg (BinOperation SUB (ILitV 0) val)) g
 
       pure ((lblOut ** g'), Var reg)
 
@@ -199,7 +199,7 @@ mutual
 
     -- Call the function pointer with the compiled arguments and assign the
     -- result to the new register
-    let g' = omap (<+ Assign reg (Call funPtr args')) g
+    let g' = omap (<+. Assign reg (Call funPtr args')) g
 
     -- Return the graph and the new register
     pure ((lblOut ** g'), Var reg)
@@ -218,7 +218,7 @@ mutual
      : (lblIn : Label)
     -> (exprs : DList Expr ts)
     -> CompM' ( ( lblOut
-               ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+               ** CFG (LLCBlock rt) (Undefined lblIn) (Undefined lblOut)
                 )
               , DList LLValue (map GetLLType ts)
               )
@@ -254,7 +254,7 @@ mutual
     -> (lhs    : Expr t')
     -> (rhs    : Expr t'')
     -> CompM' ( ( lblOut
-               ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+               ** CFG (LLCBlock rt) (Undefined lblIn) (Undefined lblOut)
                 )
               , LLValue t
               )
@@ -268,7 +268,7 @@ mutual
 
     -- Create an expression by applying `mkExpr` to the compiled operands and
     -- assign the result to the new register
-    let g' = omap (<+ Assign reg (mkExpr lhs' rhs')) g
+    let g' = omap (<+. Assign reg (mkExpr lhs' rhs')) g
 
     pure ((lblOut ** g'), Var reg)
 
@@ -291,7 +291,7 @@ mutual
     -> (lhs    : Expr t)
     -> (rhs    : Expr t)
     -> CompM' ( ( lblOut
-               ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+               ** CFG (LLCBlock rt) (Undefined lblIn) (Undefined lblOut)
                 )
               , LLValue I1
               )
@@ -312,7 +312,7 @@ mutual
 
       -- Call the built-in `.strcompare` function on the compiled operands and
       -- assign the result to the new register
-      let g' = omap (<+ Assign reg (Call (ConstPtr strcompare) [lhs', rhs'])) g
+      let g' = omap (<+. Assign reg (Call (ConstPtr strcompare) [lhs', rhs'])) g
 
       -- Return the graph and the new register
       pure ((lblOut ** g'), Var reg)
@@ -321,7 +321,7 @@ mutual
     Val TVoid   => let
 
         -- A proof that `void`s are not comparable
-        0 impossiblePrf : (CompM' ((lblOut ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)), LLValue I1) = ())
+        0 impossiblePrf : (CompM' ((lblOut ** CFG (LLCBlock rt) (Undefined lblIn) (Undefined lblOut)), LLValue I1) = ())
         impossiblePrf = exfalso (voidNotEqComparable prf)
 
       in rewrite impossiblePrf in ()
@@ -357,7 +357,7 @@ mutual
     -> (lblF : Label)
     -> CompM' ( outsT
              ** outsF
-             ** CFG (CBlock rt)
+             ** CFG (LLCBlock rt)
                     (Undefined lblIn)
                     (Defined $ outsT ~~> lblT ++ outsF ~~> lblF)
               )
@@ -402,7 +402,7 @@ mutual
     -- Construct the final graph by connecting the graph of `lhs` and `rhs`.
     -- Rearange their output parameters using proofs of simple theorems to fit
     -- them into the functions type signature
-    let final : CFG (CBlock rt)
+    let final : CFG (LLCBlock rt)
                     (Undefined lblIn)
                     (Defined $ outsT ~~> lblT ++ (outsF' ++ outsF) ~~> lblF)
         final = rewrite collect_concat lblF outsF' outsF
@@ -452,7 +452,7 @@ mutual
     -- Construct the final graph by connecting the graph of `lhs` and `rhs`.
     -- Rearange their output parameters using proofs of simple theorems to fit
     -- them into the functions type signature
-    let final : CFG (CBlock rt)
+    let final : CFG (LLCBlock rt)
                     (Undefined lblIn)
                     (Defined ((outsT ++ outsT') ~~> lblT ++ outsF ~~> lblF))
         final = rewrite collect_concat lblT outsT outsT'
@@ -496,7 +496,7 @@ mutual
      : (lblIn : Label)
     -> (expr  : Expr TBool)
     -> CompM' ( ( lblOut
-               ** CFG (CBlock rt) (Undefined lblIn) (Undefined lblOut)
+               ** CFG (LLCBlock rt) (Undefined lblIn) (Undefined lblOut)
                 )
               , LLValue I1
               )
@@ -524,12 +524,12 @@ mutual
 
     -- Construct the "true" block and put it in a singleton graph
     trueBLK <- pure $ [] |++> emptyCBlock <+| Branch lblPost
-    let trueG : CFG (CBlock rt) (Defined $ outsT ~~> lblTrue) (Defined [lblTrue ~> lblPost])
+    let trueG : CFG (LLCBlock rt) (Defined $ outsT ~~> lblTrue) (Defined [lblTrue ~> lblPost])
         trueG = SingleVertex {vins = Just outsT, vouts = Just [lblPost]} trueBLK
 
     -- Construct the "false" block and put it in a singleton graph
     falseBLK <- pure $ [] |++> emptyCBlock <+| Branch lblPost
-    let falseG : CFG (CBlock rt) (Defined $ outsF ~~> lblFalse) (Defined [lblFalse ~> lblPost])
+    let falseG : CFG (LLCBlock rt) (Defined $ outsF ~~> lblFalse) (Defined [lblFalse ~> lblPost])
         falseG = SingleVertex {vins = Just outsF, vouts = Just [lblPost]} falseBLK
 
     -- Make a "phi" assignment.
@@ -548,8 +548,8 @@ mutual
     let postIns = [lblTrue, lblFalse]
 
     -- Construct the merging block and put it in a singleton graph
-    postBLK <- pure $ phiAssignment |+> emptyCBlock
-    let postG : CFG (CBlock rt) (Defined [lblTrue ~> lblPost, lblFalse ~> lblPost]) (Undefined lblPost)
+    postBLK <- pure $ phiAssignment |+.> emptyCBlock
+    let postG : CFG (LLCBlock rt) (Defined [lblTrue ~> lblPost, lblFalse ~> lblPost]) (Undefined lblPost)
         postG = SingleVertex {vins = Just [lblTrue, lblFalse], vouts = Undefined} postBLK
 
     -- Construct the final graph
