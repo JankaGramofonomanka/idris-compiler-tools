@@ -193,7 +193,7 @@ export
 instr +| MkBB { theLabel, phis, body, term }
   = MkBB { theLabel, phis = instr :: phis, body, term }
 
-||| Prepends a lsit of phi assignments to a block with already defined inputs
+||| Prepends a list of phi assignments to a block with already defined inputs
 ||| @ pre  the phi assignments (the prefix)
 ||| @ post the block           (the postfix)
 export

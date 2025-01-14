@@ -13,7 +13,6 @@ import Data.Typed
 import LLVM
 import LNG.TypeChecked
 
-import Compile.Data.CBlock
 import Compile.Data.Context
 import Compile.Data.Error
 import Compile.Utils

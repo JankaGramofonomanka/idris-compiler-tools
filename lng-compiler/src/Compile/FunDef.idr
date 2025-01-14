@@ -14,11 +14,11 @@ import LLVM
 import LNG.TypeChecked as LNG
 import ControlFlow.CFG
 import Compile.Instr
-import Compile.Data.CBlock
 import Compile.Data.CompM
 import Compile.Data.CompileResult
 import Compile.Data.Context
 import Compile.Data.Error
+import Compile.Data.LLCBlock
 import Compile.Utils
 
 ||| Compile the body of a function
@@ -29,7 +29,7 @@ compileBody
    : (labelIn : Label)
   -> (ctx     : labelIn :~: VarCTX)
   -> (instr   : Instr rt Returning)
-  -> CompM (CFG (CBlock $ GetLLType rt) Closed Closed)
+  -> CompM (CFG (LLCBlock $ GetLLType rt) Closed Closed)
 
 compileBody labelIn ctx instr = do
   -- TODO get rid of this "" hack
@@ -70,7 +70,7 @@ compileFunDef func = do
   -- compile the body of the function
   cfg <- compileBody entryLabel ctx func.body
 
-  -- convert the `CBlock`s to `BasicBlock`s
+  -- convert the `LLCBlock`s to `BasicBlock`s
   let cfg' = vmap' toLLVM cfg
 
   pure
@@ -101,9 +101,9 @@ compileFunDef func = do
       insert' : VRPair t' -> VarCTX -> VarCTX
       insert' (k, v) = insert k (Var v)
 
-    ||| Convert a completed `CBlock` to a `BasicBlock`
+    ||| Convert a completed `LLCBlock` to a `BasicBlock`
     toLLVM : {ins, outs : List Label}
-          -> (CBlock rt) lbl (Just ins) (Just outs)
+          -> (LLCBlock rt) lbl (Just ins) (Just outs)
           -> BlockVertex rt lbl (Just ins) (Just outs)
 
     toLLVM (MkBB { theLabel, phis, body, term })
