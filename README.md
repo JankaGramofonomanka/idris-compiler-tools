@@ -23,6 +23,9 @@ The entire source code is located in the `lng-compiler/src` and `control-flow/sr
       which enforces the correctness of jumps between basic blocks.
     - `ControlFlow.CFG.Simple` - a simplified version if `ControlFlow.CFG`,
       you might want to get familiar with it first
+    - `ControlFlow.CBlock` - a representation of a basic block in the process of being constructed,
+      i.e., one that facilitates construction of basic blocks from partially defined ones.
+
   - The `lng-compiler` package
     - `LNG.Parsed` - a representation of `LNG` as it is returned by the **parser**.
       A representation of **syntactically** correct `LNG` code, i.e., the AST tree.
@@ -30,8 +33,6 @@ The entire source code is located in the `lng-compiler/src` and `control-flow/sr
       A **semantically** correct (to the extent it is worth it to enforce) `LNG` code.
     - `LLVM` - a representation of the `LLVM` intermediate representation,
       that takes the role of the target language.
-    - `Compile.Data.CBlock` - a representation of a basic block in the process of being constructed,
-      i.e., one that facilitates construction of basic blocks from partially defined ones.
 
 - The compiler (`lng-compiler` package):
   - `Main` - the main program of the compiler.
