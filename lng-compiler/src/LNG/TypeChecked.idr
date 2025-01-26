@@ -20,12 +20,14 @@ data LNGType = TInt | TBool | TString | TVoid
 
 %runElab derive "LNGType" [Eq, Ord]
 
+export
 implementation PEq LNGType where
   TInt  `peq` TInt  = Just Refl
   TBool `peq` TBool = Just Refl
   TVoid `peq` TVoid = Just Refl
   _     `peq` _     = Nothing
 
+export
 implementation POrd LNGType where
   pcompare TInt  TInt     = DEQ
   pcompare TInt  TBool    = DLT
