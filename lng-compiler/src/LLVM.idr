@@ -10,7 +10,7 @@ import Data.Singleton
 import Data.Singleton.Extra
 import Data.Some
 import Data.Typed
-import ControlFlow.CFG
+import ControlFlow.CFG.Simple
 
 import Utils
 
@@ -533,17 +533,6 @@ record BasicBlock
   ||| The terminator of the block
   term : CFInstr retT outputs
 
-
-
-||| A wrapper around `BasicBlock` that fits it in the `Vertex` type
-||| @ returnType the return type of the function, whose body the block is a
-|||              part of
-public export
-BlockVertex : (returnType : LLType) -> Vertex Label
-BlockVertex rt lbl Nothing _ = Void
-BlockVertex rt lbl _ Nothing = Void
-BlockVertex rt lbl (Just ins) (Just outs) = BasicBlock rt lbl ins outs
-
 -- FunDef ---------------------------------------------------------------------
 ||| A function definition
 public export
@@ -561,7 +550,7 @@ record FunDef where
 
   -- TODO: enforce the existence of an entry block
   ||| The body of the function
-  body : CFG (BlockVertex retT) (Defined []) (Defined [])
+  body : CFG (BasicBlock retT) [] []
 
 -- FunDecl --------------------------------------------------------------------
 ||| A function declaraition, used to import functions
