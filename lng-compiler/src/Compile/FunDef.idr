@@ -10,9 +10,12 @@ import Data.Singleton
 import Data.Singleton.Extra
 import Data.Typed
 
+import ControlFlow.CFG
+import ControlFlow.CFG.Simple
+import ControlFlow.Simplify
+
 import LLVM
 import LNG.TypeChecked as LNG
-import ControlFlow.CFG
 import Compile.Instr
 import Compile.Data.CompM
 import Compile.Data.CompileResult
@@ -71,7 +74,7 @@ compileFunDef func = do
   cfg <- compileBody entryLabel ctx func.body
 
   -- convert the `LLCBlock`s to `BasicBlock`s
-  let cfg' = vmap' toLLVM cfg
+  let cfg' = Simple.Graph.vmap toLLVM (simplify cfg)
 
   pure
     $ LLVM.MkFunDef
@@ -103,8 +106,8 @@ compileFunDef func = do
 
     ||| Convert a completed `LLCBlock` to a `BasicBlock`
     toLLVM : {ins, outs : List Label}
-          -> (LLCBlock rt) lbl (Just ins) (Just outs)
-          -> BlockVertex rt lbl (Just ins) (Just outs)
+          -> Simplify (LLCBlock rt) lbl ins outs
+          -> BasicBlock rt lbl ins outs
 
     toLLVM (MkBB { theLabel, phis, body, term })
       = MkBasicBlock { theLabel, phis, body, term }

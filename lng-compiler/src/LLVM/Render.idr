@@ -4,7 +4,7 @@ module LLVM.Render
 import Data.String
 import Data.Vect
 
-import ControlFlow.CFG
+import ControlFlow.CFG.Simple
 import Data.DList
 import Data.Doc
 import Data.List
@@ -201,9 +201,9 @@ implementation Document (BasicBlock rt label inputs outputs) where
                       ]
             }
 
-printCFG : CFG (BlockVertex rt) (Defined ins) (Defined outs) -> Doc
+printCFG : CFG (BasicBlock rt) ins outs -> Doc
 printCFG Empty = empty
-printCFG (SingleVertex {vins = Just ins, vouts = Just outs} v) = print v
+printCFG (SingleVertex v) = print v
 printCFG (Cycle node loop) = printCFG node ++ printCFG loop
 printCFG (Series first second) = printCFG first ++ printCFG second
 
@@ -212,13 +212,13 @@ printCFG (Parallel left right) = printCFG left ++ printCFG right
 printCFG (IFlip cfg) = printCFG cfg
 printCFG (OFlip cfg) = printCFG cfg
 
-implementation [cfg] Document (CFG (BlockVertex rt) (Defined ins) (Defined outs)) where
+implementation [cfg] Document (CFG (BasicBlock rt) ins outs) where
   print = printCFG
 
 -- TODO for some reason idris can't find this implementation,
 -- therefore I had to add the `cfg` implementation and the `printCFG` function
 export
-implementation Document (CFG (BlockVertex rt) (Defined ins) (Defined outs)) where
+implementation Document (CFG (BasicBlock rt) ins outs) where
 
   print = print @{cfg}
 
