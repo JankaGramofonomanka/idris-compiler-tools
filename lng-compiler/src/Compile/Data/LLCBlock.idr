@@ -33,9 +33,9 @@ export infixr 5 +.|, ++.|
 ||| @ post the instructions (the postfix)
 export
 (<++.)
-   : (pre  : LLCBlock rt lbl ins Undefined)
+   : (pre  : LLCBlock rt lbl ins Nothing)
   -> (post : List STInstr)
-  ->         LLCBlock rt lbl ins Undefined
+  ->         LLCBlock rt lbl ins Nothing
 blk <++. instrs = blk <++ map noComment instrs
 
 ||| Append a single simple instruction without a comment to the block
@@ -44,9 +44,9 @@ blk <++. instrs = blk <++ map noComment instrs
 ||| @ post the instruction (the postfix)
 export
 (<+.)
-   : (pre  : LLCBlock rt lbl ins Undefined)
+   : (pre  : LLCBlock rt lbl ins Nothing)
   -> (post : STInstr)
-  ->         LLCBlock rt lbl ins Undefined
+  ->         LLCBlock rt lbl ins Nothing
 blk <+. instr = blk <++. [instr]
 
 ||| Appends a single comment (an empty instruction with a comment) to a block.
@@ -55,9 +55,9 @@ blk <+. instr = blk <++. [instr]
 ||| @ post the comment (the postfix)
 export
 (<:)
-   : (pre  : LLCBlock rt lbl ins Undefined)
+   : (pre  : LLCBlock rt lbl ins Nothing)
   -> (post : String)
-  ->         LLCBlock rt lbl ins Undefined
+  ->         LLCBlock rt lbl ins Nothing
 blk <: cmt = blk <+ (Empty, Just cmt)
 
 ||| Defines the inputs of a block by prepending to it a list of phi assignemts
@@ -67,7 +67,7 @@ blk <: cmt = blk <+ (Empty, Just cmt)
 export
 (|++.>)
    : (pre  : List (PhiInstr      inputs))
-  -> (post : LLCBlock rt lbl Undefined     outs)
+  -> (post : LLCBlock rt lbl Nothing       outs)
   ->         LLCBlock rt lbl (Just inputs) outs
 phis |++.> blk = map noComment phis |++> blk
 
@@ -78,7 +78,7 @@ phis |++.> blk = map noComment phis |++> blk
 export
 (|+.>)
    : (pre  : PhiInstr            inputs)
-  -> (post : LLCBlock rt lbl Undefined     outs)
+  -> (post : LLCBlock rt lbl Nothing       outs)
   ->         LLCBlock rt lbl (Just inputs) outs
 instr |+.> blk = [instr] |++.> blk
 

@@ -86,7 +86,7 @@ record CBlock
 ||| Create `CBlock` that has no instructions
 ||| @ lbl the block label
 export
-emptyCBlock : {lbl : l} -> CBlock phi instr trm lbl Undefined Undefined
+emptyCBlock : {lbl : l} -> CBlock phi instr trm lbl Nothing Nothing
 emptyCBlock {lbl} = MkBB { theLabel = Val lbl, phis = (), body = [], term = () }
 
 
@@ -102,9 +102,9 @@ export infixr 5 +|, ++|
 ||| @ post the postfix
 export
 (++)
-   : (pre  : CBlock phi instr terminator lbl ins Undefined)
-  -> (post : CBlock phi instr terminator lbl Undefined outs)
-  ->         CBlock phi instr terminator lbl ins       outs
+   : (pre  : CBlock phi instr terminator lbl ins     Nothing)
+  -> (post : CBlock phi instr terminator lbl Nothing outs)
+  ->         CBlock phi instr terminator lbl ins     outs
 (++)
   ( MkBB
     { theLabel
@@ -133,9 +133,9 @@ export
 ||| @ post the instructions (the postfix)
 export
 (<++)
-   : (pre  : CBlock phi instr trm lbl ins Undefined)
+   : (pre  : CBlock phi instr trm lbl ins Nothing)
   -> (post : List instr)
-  ->         CBlock phi instr trm lbl ins Undefined
+  ->         CBlock phi instr trm lbl ins Nothing
 (MkBB { theLabel, phis , body , term = () }) <++ instrs
   = MkBB { theLabel, phis, body = (body ++ instrs), term = () }
 
@@ -145,9 +145,9 @@ export
 ||| @ post the instruction (the postfix)
 export
 (<+)
-   : (pre  : CBlock phi instr trm lbl ins Undefined)
+   : (pre  : CBlock phi instr trm lbl ins Nothing)
   -> (post : instr)
-  ->         CBlock phi instr trm lbl ins Undefined
+  ->         CBlock phi instr trm lbl ins Nothing
 blk <+ instr = blk <++ [instr]
 
 ||| Defines the outputs of a block by appending to it a terminating
@@ -156,7 +156,7 @@ blk <+ instr = blk <++ [instr]
 ||| @ post the terminator (the postfix)
 export
 (<+|)
-   : (pre  : CBlock phi instr trm lbl ins Undefined)
+   : (pre  : CBlock phi instr trm lbl ins Nothing)
   -> (post : trm                                outs)
   ->         CBlock phi instr trm lbl ins (Just outs)
 MkBB { theLabel, phis, body, term = () } <+| term = MkBB { theLabel, phis, body, term }
@@ -167,7 +167,7 @@ MkBB { theLabel, phis, body, term = () } <+| term = MkBB { theLabel, phis, body,
 export
 (|++>)
    : (pre  : List (phi                      inputs))
-  -> (post : CBlock phi instr trm lbl Undefined     outs)
+  -> (post : CBlock phi instr trm lbl Nothing       outs)
   ->         CBlock phi instr trm lbl (Just inputs) outs
 phis |++> MkBB { theLabel, phis = (), body, term }
         = MkBB { theLabel, phis,      body, term }
@@ -178,7 +178,7 @@ phis |++> MkBB { theLabel, phis = (), body, term }
 export
 (|+>)
    : (pre  : phi                            inputs)
-  -> (post : CBlock phi instr trm lbl Undefined     outs)
+  -> (post : CBlock phi instr trm lbl Nothing       outs)
   ->         CBlock phi instr trm lbl (Just inputs) outs
 instr |+> blk = [instr] |++> blk
 

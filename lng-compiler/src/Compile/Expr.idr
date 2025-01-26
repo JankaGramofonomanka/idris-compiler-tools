@@ -550,7 +550,7 @@ mutual
     -- Construct the merging block and put it in a singleton graph
     postBLK <- pure $ phiAssignment |+.> emptyCBlock
     let postG : CFG (LLCBlock rt) (Defined [lblTrue ~> lblPost, lblFalse ~> lblPost]) (Undefined lblPost)
-        postG = SingleVertex {vins = Just [lblTrue, lblFalse], vouts = Undefined} postBLK
+        postG = SingleVertex {vins = Just [lblTrue, lblFalse], vouts = Nothing} postBLK
 
     -- Construct the final graph
     let final = ifologyG *-> (trueG |-| falseG) *-> postG
