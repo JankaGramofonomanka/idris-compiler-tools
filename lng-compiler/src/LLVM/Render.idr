@@ -201,26 +201,16 @@ implementation Document (BasicBlock rt label inputs outputs) where
                       ]
             }
 
-printCFG : CFG (BasicBlock rt) ins outs -> Doc
-printCFG Empty = empty
-printCFG (SingleVertex v) = print v
-printCFG (Cycle node loop) = printCFG node ++ printCFG loop
-printCFG (Series first second) = printCFG first ++ printCFG second
-
-printCFG (Parallel left right) = printCFG left ++ printCFG right
-
-printCFG (IFlip cfg) = printCFG cfg
-printCFG (OFlip cfg) = printCFG cfg
-
-implementation [cfg] Document (CFG (BasicBlock rt) ins outs) where
-  print = printCFG
-
--- TODO for some reason idris can't find this implementation,
--- therefore I had to add the `cfg` implementation and the `printCFG` function
-export
 implementation Document (CFG (BasicBlock rt) ins outs) where
+  print Empty = empty
+  print (SingleVertex v) = print v
+  print (Cycle node loop) = print node ++ print loop
+  print (Series first second) = print first ++ print second
 
-  print = print @{cfg}
+  print (Parallel left right) = print left ++ print right
+
+  print (IFlip cfg) = print cfg
+  print (OFlip cfg) = print cfg
 
 -- FunDef ---------------------------------------------------------------------
 export
@@ -228,7 +218,7 @@ implementation Document FunDef where
 
   print (MkFunDef { retT, name, params, body }) = let
       header = simple $ unwords ["define", prtFun (prt retT) (prt name) (undmap (prt @{typed}) params), "{"]
-    in MkDoc { lines = [Right header, Left (print @{cfg} body), Right (simple "}")] }
+    in MkDoc { lines = [Right header, Left (print body), Right (simple "}")] }
 
 -- FunDecl --------------------------------------------------------------------
 export
