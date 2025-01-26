@@ -111,6 +111,19 @@ fromVIn : (ins : Neighbors a) -> (v : a) -> Edges a
 fromVIn Nothing     v = Undefined v
 fromVIn (Just ins)  v = Defined (ins ~~> v)
 
+export
+infix 8 ~>>?, ?~~>
+
+||| Alias for `fromVOut`
+public export
+(~>>?) : (v : a) -> (outs : Neighbors a) -> Edges a
+v ~>>? vs = fromVOut v vs
+
+||| Alias for `fromVIn`
+public export
+(?~~>) : (ins : Neighbors a) -> (v : a) -> Edges a
+vs ?~~> v = fromVIn vs v
+
 {-
 TODO: Consider adding an `data` parameter to `CFG` that would be the type of
 data that would be stored alongside vertices.
@@ -136,7 +149,7 @@ data CFG : (vertex : Vertex a) -> (ins : Edges a) -> (outs : Edges a) -> Type wh
      : {0 vertex : Vertex a}
     -> {vins, vouts : Neighbors a}
     -> vertex v vins vouts
-    -> CFG vertex (fromVIn vins v) (fromVOut v vouts)
+    -> CFG vertex (vins ?~~> v) (v ~>>? vouts)
 
   -- TODO consider `CFG (ins ++ edges) (outs ++ edges) -> CFG ins outs` instead of this
   ||| A graph that represents a while loop
@@ -206,7 +219,7 @@ prepend
   -> {vouts : List a}
   -> vertex v vins (Just vouts)
   -> CFG vertex (Defined $ v ~>> vouts) gouts
-  -> CFG vertex (fromVIn vins v) gouts
+  -> CFG vertex (vins ?~~> v) gouts
 prepend v g = (SingleVertex v) *-> g
 
 public export
@@ -216,7 +229,7 @@ append
 
   -> CFG vertex gins (Defined $ vins ~~> v)
   -> vertex v (Just vins) vouts
-  -> CFG vertex gins (fromVOut v vouts)
+  -> CFG vertex gins (v ~>>? vouts)
 append g v = g *-> (SingleVertex v)
 
 branch
@@ -227,7 +240,7 @@ branch
   -> (pre   : vertex v vins (Just [w, w']))
   -> (left  : CFG vertex (Single v w)  (Defined louts))
   -> (right : CFG vertex (Single v w') (Defined routs))
-  -> CFG vertex (fromVIn vins v) (Defined $ louts ++ routs)
+  -> CFG vertex (vins ?~~> v) (Defined $ louts ++ routs)
 branch pre left right = pre `prepend` (left |-| right)
 
 fullBranch
@@ -239,7 +252,7 @@ fullBranch
   -> (left   : CFG vertex (Single v w)  (Single u t))
   -> (right  : CFG vertex (Single v w') (Single u' t))
   -> (post   : vertex t (Just [u, u']) vouts)
-  -> CFG vertex (fromVIn vins v) (fromVOut t vouts)
+  -> CFG vertex (vins ?~~> v) (t ~>>? vouts)
 fullBranch pre left right post = (branch pre left right) `append` post
 
 ||| A partial sequential connection of two graphs
@@ -310,7 +323,7 @@ imap
 
   -> ({outs : Neighbors a} -> vertex v Nothing outs -> vertex v ins outs)
   -> CFG vertex (Undefined v) gouts
-  -> CFG vertex (fromVIn ins v) gouts
+  -> CFG vertex (ins ?~~> v) gouts
 
 imap f (SingleVertex {vins = Nothing} v)  = SingleVertex (f v)
 imap f (Series g g')                      = Series (imap f g) g'
@@ -330,7 +343,7 @@ omap
 
   -> ({ins : Neighbors a} -> vertex v ins Nothing -> vertex v ins outs)
   -> CFG vertex gins (Undefined v)
-  -> CFG vertex gins (fromVOut v outs)
+  -> CFG vertex gins (v ~>>? outs)
 
 omap f (SingleVertex {vouts = Nothing} v)   = SingleVertex (f v)
 omap f (Series g g')                        = Series g (omap f g')
