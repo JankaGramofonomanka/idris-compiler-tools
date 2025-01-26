@@ -74,7 +74,7 @@ compileFunDef func = do
   cfg <- compileBody entryLabel ctx func.body
 
   -- convert the `LLCBlock`s to `BasicBlock`s
-  let cfg' = Simple.Graph.vmap toLLVM (simplify cfg)
+  let cfg' = Simple.vmap toLLVM (simplify cfg)
 
   pure
     $ LLVM.MkFunDef

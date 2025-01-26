@@ -4,11 +4,11 @@ import ControlFlow.CFG
 import ControlFlow.CFG.Simple
 
 public export
-Simplify : CFG.Vertex.Vertex a -> Simple.Vertex.Vertex a
+Simplify : CFG.Vertex a -> Simple.Vertex a
 Simplify vertex v ins outs = vertex v (Just ins) (Just outs)
 
 public export
-Unsimplify : Simple.Vertex.Vertex a -> CFG.Vertex.Vertex a
+Unsimplify : Simple.Vertex a -> CFG.Vertex a
 Unsimplify vertex v _          Nothing     = Void
 Unsimplify vertex v Nothing    _           = Void
 Unsimplify vertex v (Just ins) (Just outs) = vertex v ins outs
@@ -32,7 +32,7 @@ simplify (SingleVertex {vouts = Nothing} v) impossible
 ||| "unsimplified" control-flow graph (`CFG.CFG`) with defined inputs and
 ||| outputs
 export
-unsimplify : Simple.Graph.CFG vertex ins outs -> CFG (Unsimplify vertex) (Defined ins) (Defined outs)
+unsimplify : Simple.CFG vertex ins outs -> CFG (Unsimplify vertex) (Defined ins) (Defined outs)
 unsimplify (SingleVertex {vins, vouts} v) = SingleVertex {vins = Just vins, vouts = Just vouts} v
 unsimplify Empty             = Empty
 unsimplify (Cycle node loop) = Cycle (unsimplify node) (unsimplify loop)
