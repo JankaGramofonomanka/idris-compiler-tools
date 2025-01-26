@@ -20,6 +20,7 @@ modules = ControlFlow.Edge
         , ControlFlow.CFG
         , ControlFlow.CFG.Simple
         , ControlFlow.CBlock
+        , ControlFlow.Simplify
 
 -- main file (i.e. file to load at REPL)
 -- main =
