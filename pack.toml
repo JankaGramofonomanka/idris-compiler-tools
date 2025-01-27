@@ -20,12 +20,6 @@ type = "local"
 path = "control-flow/test"
 ipkg = "test.ipkg"
 
-[custom.all.dependent-map]
-type   = "github"
-url    = "https://github.com/JankaGramofonomanka/idris-dependent-map.git"
-commit = "78be44d596bd4a47f686f6b0137f244553d22b59"
-ipkg   = "dependent-map.ipkg"
-
 [custom.all.doc]
 type   = "github"
 url    = "https://github.com/JankaGramofonomanka/idris-doc.git"
@@ -37,12 +31,6 @@ type   = "github"
 url    = "https://github.com/JankaGramofonomanka/idris-misc.git"
 commit = "24669b06020f032f5e49a311f1247ecd401a3de5"
 ipkg   = "misc.ipkg"
-
-[custom.all.dtypes]
-type   = "github"
-url    = "https://github.com/JankaGramofonomanka/idris-dtypes.git"
-commit = "028eb21c8f157037b2fa75e3f911cb33471e2774"
-ipkg   = "dtypes.ipkg"
 
 [custom.all.theory]
 type   = "github"
