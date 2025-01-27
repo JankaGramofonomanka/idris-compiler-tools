@@ -1,4 +1,4 @@
-module ControlFlow.Simplify
+module ControlFlow.CFG.Conversion
 
 import ControlFlow.CFG
 import ControlFlow.CFG.Simple
