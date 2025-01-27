@@ -11,8 +11,8 @@ import Data.Singleton.Extra
 import Data.Typed
 
 import ControlFlow.CFG
+import ControlFlow.CFG.Conversion
 import ControlFlow.CFG.Simple
-import ControlFlow.Simplify
 
 import LLVM
 import LNG.TypeChecked as LNG
